@@ -72,6 +72,9 @@ fun AuthScreen(
     val authState by authViewModel.authState.collectAsState()
     val context = LocalContext.current
 
+    // Estado para controlar a visibilidade do spinner de carregamento
+    var isLoading by remember { mutableStateOf(false) }
+
     // Theme-specific colors
     val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
     val cardColor = if (isDarkTheme) SurfaceColorDark else Color.White
@@ -95,6 +98,7 @@ fun AuthScreen(
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        isLoading = true // Ativando o spinner quando a atividade do Google retorna
         if (result.resultCode == Activity.RESULT_OK) {
             val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             try {
@@ -105,15 +109,26 @@ fun AuthScreen(
             } catch (e: ApiException) {
                 Log.e("GoogleSignIn", "Google sign in failed", e)
                 errorMessage = "Falha na autenticação com Google: ${e.localizedMessage}"
+                isLoading = false // Desativando o spinner em caso de erro
             }
+        } else {
+            // Usuário cancelou o login
+            isLoading = false // Desativando o spinner se o usuário cancelar
         }
     }
 
     LaunchedEffect(authState) {
         when (authState) {
-            is AuthState.Success -> onNavigateToChat()
-            is AuthState.Error -> errorMessage = (authState as AuthState.Error).message
-            else -> { }
+            is AuthState.Loading -> isLoading = true
+            is AuthState.Success -> {
+                isLoading = false
+                onNavigateToChat()
+            }
+            is AuthState.Error -> {
+                isLoading = false
+                errorMessage = (authState as AuthState.Error).message
+            }
+            else -> { isLoading = false }
         }
     }
 
@@ -156,7 +171,6 @@ fun AuthScreen(
                         painter = painterResource(id = R.drawable.ic_bolt_foreground),
                         contentDescription = "Brainstormia Logo",
                         modifier = Modifier.size(80.dp),
-                        // Mude esta linha para usar TextColorLight em vez de PrimaryColor quando em tema escuro
                         colorFilter = ColorFilter.tint(if (isDarkTheme) TextColorLight else PrimaryColor)
                     )
                 }
@@ -307,6 +321,7 @@ fun AuthScreen(
                             return@Button
                         }
 
+                        isLoading = true // Ativando o spinner antes do login
                         if (isLogin) {
                             authViewModel.loginWithEmail(email, password)
                         } else {
@@ -369,6 +384,7 @@ fun AuthScreen(
                         )
                         .background(inputBgColor)
                         .clickable {
+                            isLoading = true // Ativando o spinner antes de iniciar o login do Google
                             googleSignInLauncher.launch(googleSignInClient.signInIntent)
                         },
                     contentAlignment = Alignment.Center
@@ -404,7 +420,6 @@ fun AuthScreen(
                 ) {
                     Text(
                         if (isLogin) "Não tem uma conta? Cadastre-se" else "Já tem uma conta? Faça login",
-                        // Mudar de PrimaryColor para TextColorLight para tema escuro
                         color = if (isDarkTheme) TextColorLight else PrimaryColor,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 15.sp
@@ -439,6 +454,48 @@ fun AuthScreen(
                 .align(Alignment.BottomStart)
                 .offset(x = (-20).dp, y = 30.dp)
         )
+
+        // Overlay de carregamento com spinner
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = cardColor
+                    ),
+                    elevation = CardDefaults.cardElevation(
+                        defaultElevation = 8.dp
+                    ),
+                    modifier = Modifier.size(200.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = PrimaryColor,
+                            strokeWidth = 5.dp,
+                            modifier = Modifier.size(70.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Text(
+                            text = "Fazendo login...",
+                            color = textColor,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 16.sp
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -11,14 +11,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Login
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Login
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -74,7 +77,6 @@ fun MarkdownText(
 
         // Find all link matches and apply styling
         linkPattern.findAll(markdown).forEach { match ->
-            val linkText = match.groupValues[1]
             val url = match.groupValues[2]
             val startIndex = match.range.first
             val endIndex = match.range.last + 1
@@ -127,27 +129,41 @@ fun MarkdownText(
         }
     }
 
-    ClickableText(
-        text = annotatedString,
-        modifier = modifier,
-        style = TextStyle(
-            color = color,
-            fontSize = fontSize,
-            fontStyle = fontStyle,
-            fontWeight = fontWeight,
-            fontFamily = fontFamily,
-            letterSpacing = letterSpacing,
-            textDecoration = textDecoration,
-            lineHeight = lineHeight
-        ),
-        onClick = { offset ->
-            annotatedString.getStringAnnotations(tag = "URL", start = offset, end = offset)
-                .firstOrNull()?.let { annotation ->
-                    onClick(annotation.item)
-                }
-        }
+    val textStyle = TextStyle(
+        color = color,
+        fontSize = fontSize,
+        fontStyle = fontStyle,
+        fontWeight = fontWeight,
+        fontFamily = fontFamily,
+        letterSpacing = letterSpacing,
+        textDecoration = textDecoration,
+        lineHeight = lineHeight
     )
+
+    SelectionContainer {
+        BasicText(
+            text = annotatedString,
+            modifier = modifier
+                .pointerInput(Unit) {
+                    detectTapGestures { offset ->
+                        val layoutResult = textLayoutResultState.value ?: return@detectTapGestures
+                        val position = layoutResult.getOffsetForPosition(offset)
+                        annotatedString.getStringAnnotations(
+                            tag = "URL",
+                            start = position,
+                            end = position
+                        ).firstOrNull()?.let { annotation ->
+                            onClick(annotation.item)
+                        }
+                    }
+                },
+            style = textStyle,
+        )
+    }
 }
+
+// Estado para armazenar o resultado do layout de texto
+private val textLayoutResultState = mutableStateOf<TextLayoutResult?>(null)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -168,11 +184,7 @@ fun ChatScreen(
 
     // Cores específicas para o tema
     val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
-    val surfaceColor = if (isDarkTheme) SurfaceColorDark else SurfaceColor
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
-    val containerShadowColor = if (isDarkTheme) Color.Black.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.1f)
-    val primaryContainerAlpha = if (isDarkTheme) 0.3f else 0.2f
-    val cardElevation = if (isDarkTheme) 4.dp else 2.dp
 
     var userMessage by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -293,7 +305,7 @@ fun ChatScreen(
                                         .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
                                 ) {
                                     Icon(
-                                        imageVector = if (currentUser != null) Icons.Default.Logout else Icons.Default.Login,
+                                        imageVector = if (currentUser != null) Icons.AutoMirrored.Filled.Logout else Icons.AutoMirrored.Filled.Login,
                                         contentDescription = if (currentUser != null) "Sair" else "Entrar",
                                         tint = Color.White
                                     )
@@ -464,7 +476,6 @@ fun MessageInput(
     val showExpandButton = lineCount >= 2 || message.length > 80
 
     val minHeight = 56.dp
-    val maxHeight = 150.dp
 
     // Cores adaptadas para o tema
     val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
@@ -696,7 +707,6 @@ fun MessageBubble(
 
 @Composable
 fun TypingIndicatorAnimation(
-    modifier: Modifier = Modifier,
     isDarkTheme: Boolean = true,
     dotSize: Dp = 8.dp,
     spaceBetweenDots: Dp = 4.dp,
