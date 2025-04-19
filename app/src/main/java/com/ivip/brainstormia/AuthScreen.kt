@@ -156,7 +156,8 @@ fun AuthScreen(
                         painter = painterResource(id = R.drawable.ic_bolt_foreground),
                         contentDescription = "Brainstormia Logo",
                         modifier = Modifier.size(80.dp),
-                        colorFilter = ColorFilter.tint(PrimaryColor)
+                        // Mude esta linha para usar TextColorLight em vez de PrimaryColor quando em tema escuro
+                        colorFilter = ColorFilter.tint(if (isDarkTheme) TextColorLight else PrimaryColor)
                     )
                 }
 
@@ -403,7 +404,8 @@ fun AuthScreen(
                 ) {
                     Text(
                         if (isLogin) "Não tem uma conta? Cadastre-se" else "Já tem uma conta? Faça login",
-                        color = PrimaryColor,
+                        // Mudar de PrimaryColor para TextColorLight para tema escuro
+                        color = if (isDarkTheme) TextColorLight else PrimaryColor,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 15.sp
                     )

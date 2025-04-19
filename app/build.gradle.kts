@@ -26,8 +26,8 @@ android {
         applicationId = "com.ivip.brainstormia"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.4"
+        versionCode = 4
+        versionName = "1.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiKeyFromProperties = localProperties.getProperty("apiKey") ?: ""
@@ -78,21 +78,16 @@ dependencies {
     implementation(libs.generativeai)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.material)
-
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.ui.text.google.fonts)
     ksp(libs.androidx.room.compiler)
-
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
-
     implementation(libs.androidx.credentials)
     implementation(libs.androidx.credentials.play.services.auth)
-
     implementation(libs.play.services.auth.v2120)
-
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -100,7 +95,7 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.kotlinx.coroutines.test)
-
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    implementation("androidx.core:core-splashscreen:1.0.1")
 }

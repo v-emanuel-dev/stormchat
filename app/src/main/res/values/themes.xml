@@ -9,10 +9,10 @@
     </style>
 
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
-        <!-- Cor de fundo da SplashScreen - agora usando o azul escuro -->
-        <item name="windowSplashScreenBackground">@color/primary_dark</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_bolt_foreground</item>
-        <!-- Cor de fundo do ícone - agora usando o azul médio -->
+        <!-- Usando o azul escuro em vez do preto -->
+        <item name="windowSplashScreenBackground">@color/background_dark</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_bolt_foreground_white</item>
+        <!-- Mantendo a cor secundária para o fundo do ícone -->
         <item name="windowSplashScreenIconBackgroundColor">@color/secondary</item>
         <item name="postSplashScreenTheme">@style/Theme.Brainstormia</item>
     </style>

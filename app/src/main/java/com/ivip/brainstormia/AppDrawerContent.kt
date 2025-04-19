@@ -77,7 +77,7 @@ fun AppDrawerContent(
                         Icon(
                             painter = painterResource(id = R.drawable.ic_bolt_foreground),
                             contentDescription = null,
-                            tint = PrimaryColor,
+                            tint = Color.White,
                             modifier = Modifier.size(32.dp)
                         )
                     }
@@ -87,7 +87,7 @@ fun AppDrawerContent(
                     Text(
                         text = stringResource(id = R.string.app_name),
                         style = MaterialTheme.typography.titleLarge,
-                        color = PrimaryColor,
+                        color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -117,7 +117,7 @@ fun AppDrawerContent(
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = FontWeight.SemiBold
                     ),
-                    color = secondaryTextColor,
+                    color = Color.White,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
 
@@ -194,7 +194,7 @@ fun NewChatButton(
     val selectedBgColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.25f) else PrimaryColor.copy(alpha = 0.15f)
     val unselectedBgColor = if (isDarkTheme) Color.Transparent else Color.Transparent
     val textSelectedColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.9f) else PrimaryColor
-    val textUnselectedColor = if (isDarkTheme) TextColorLight.copy(alpha = 0.9f) else Color.DarkGray
+    val textUnselectedColor = if (isDarkTheme) Color.White else Color.Black // Alterado de TextColorLight para White
 
     val backgroundColor by animateColorAsState(
         targetValue = if (isSelected) selectedBgColor else unselectedBgColor,

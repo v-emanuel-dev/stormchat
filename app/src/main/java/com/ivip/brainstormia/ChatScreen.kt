@@ -619,18 +619,10 @@ fun MessageBubble(
         bottomEnd = 6.dp
     )
 
-    val botShape = RoundedCornerShape(
-        topStart = 6.dp,
-        topEnd = 20.dp,
-        bottomStart = 20.dp,
-        bottomEnd = 20.dp
-    )
-
-    // Cores adaptadas para o tema escuro
-    val userBubbleColor = if (isDarkTheme) UserBubbleColor.copy(alpha = 0.9f) else UserBubbleColor
-    val botBubbleColor = BotBubbleColor
-    val botTextColor = Color.White
-    val userTextColor = if (isDarkTheme) Color.Black else Color.Black
+    // Cores adaptadas - usando a cor da bolha do bot para a bolha do usuário
+    val userBubbleColor = BotBubbleColor // Agora usando a cor do bot para o usuário
+    val userTextColor = Color.White // Ajustando a cor do texto para branco para contrastar com o fundo azul
+    val botTextColor = if (isDarkTheme) TextColorLight else TextColorDark
     val linkColor = if (isDarkTheme) Color(0xFFCCE9FF) else Color(0xFFB8E2FF)
 
     val visibleState = remember { MutableTransitionState(initialState = isUserMessage) }
@@ -648,6 +640,7 @@ fun MessageBubble(
         contentAlignment = if (isUserMessage) Alignment.CenterEnd else Alignment.CenterStart
     ) {
         if (isUserMessage) {
+            // Bolha do usuário - agora usando a cor que antes era do bot
             Card(
                 modifier = Modifier
                     .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.88f),
@@ -662,7 +655,7 @@ fun MessageBubble(
                 SelectionContainer {
                     Text(
                         text = message.text,
-                        color = userTextColor,
+                        color = userTextColor, // Agora branco para contrastar com o fundo azul
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontWeight = FontWeight.Medium
                         ),
@@ -671,6 +664,7 @@ fun MessageBubble(
                 }
             }
         } else {
+            // Mensagem do bot sem bolha, ocupando toda a largura
             AnimatedVisibility(
                 visibleState = visibleState,
                 enter = fadeIn(animationSpec = tween(durationMillis = 300)) +
@@ -679,18 +673,13 @@ fun MessageBubble(
                             animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
                         )
             ) {
-                Card(
+                // Remover o Card e deixar apenas o texto
+                Box(
                     modifier = Modifier
-                        .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.88f),
-                    shape = botShape,
-                    colors = CardDefaults.cardColors(
-                        containerColor = botBubbleColor
-                    ),
-                    elevation = CardDefaults.cardElevation(
-                        defaultElevation = if (isDarkTheme) 4.dp else 2.dp
-                    )
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
-                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    SelectionContainer {
                         MarkdownText(
                             markdown = message.text,
                             color = botTextColor,
@@ -708,12 +697,14 @@ fun MessageBubble(
 @Composable
 fun TypingIndicatorAnimation(
     modifier: Modifier = Modifier,
-    dotColor: Color = Color.White,
+    isDarkTheme: Boolean = true,
     dotSize: Dp = 8.dp,
     spaceBetweenDots: Dp = 4.dp,
-    bounceHeight: Dp = 6.dp,
-    isDarkTheme: Boolean = true
+    bounceHeight: Dp = 6.dp
 ) {
+    // Definir a cor dos pontos dentro da função
+    val dotColor = if (isDarkTheme) TextColorLight else TextColorDark
+
     val dots = listOf(
         remember { Animatable(0f) },
         remember { Animatable(0f) },
@@ -741,43 +732,26 @@ fun TypingIndicatorAnimation(
         }
     }
 
-    Card(
-        modifier = modifier
-            .wrapContentWidth()
-            .padding(8.dp),
-        shape = RoundedCornerShape(
-            topStart = 6.dp,
-            topEnd = 20.dp,
-            bottomStart = 20.dp,
-            bottomEnd = 20.dp
-        ),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isDarkTheme) BotBubbleColor.copy(alpha = 0.9f) else BotBubbleColor
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isDarkTheme) 4.dp else 2.dp
-        )
+    // Removendo o Card
+    Row(
+        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            dots.forEachIndexed { index, animatable ->
-                if (index != 0) {
-                    Spacer(modifier = Modifier.width(spaceBetweenDots))
-                }
-
-                val translateY = -animatable.value * bounceHeightPx
-
-                Box(
-                    modifier = Modifier
-                        .size(dotSize)
-                        .graphicsLayer {
-                            translationY = translateY
-                        }
-                        .background(color = dotColor, shape = CircleShape)
-                )
+        dots.forEachIndexed { index, animatable ->
+            if (index != 0) {
+                Spacer(modifier = Modifier.width(spaceBetweenDots))
             }
+
+            val translateY = -animatable.value * bounceHeightPx
+
+            Box(
+                modifier = Modifier
+                    .size(dotSize)
+                    .graphicsLayer {
+                        translationY = translateY
+                    }
+                    .background(color = dotColor, shape = CircleShape)
+            )
         }
     }
 }
@@ -793,9 +767,15 @@ fun TypingBubbleAnimation(
             .padding(vertical = 4.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        TypingIndicatorAnimation(
-            modifier = modifier,
-            isDarkTheme = isDarkTheme
-        )
+        // Removendo o Card e deixando apenas a animação
+        Box(
+            modifier = modifier
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            TypingIndicatorAnimation(
+                // Remover o parâmetro dotColor que não existe
+                isDarkTheme = isDarkTheme
+            )
+        }
     }
 }
