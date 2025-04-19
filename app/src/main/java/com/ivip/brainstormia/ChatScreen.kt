@@ -1,0 +1,801 @@
+package com.ivip.brainstormia
+
+import android.util.Log
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Login
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ivip.brainstormia.theme.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import com.ivip.brainstormia.theme.BotBubbleColor
+
+
+@Composable
+fun MarkdownText(
+    markdown: String,
+    modifier: Modifier = Modifier,
+    color: Color = Color.Unspecified,
+    fontSize: TextUnit = 16.sp,
+    fontStyle: FontStyle? = null,
+    fontWeight: FontWeight? = null,
+    fontFamily: FontFamily? = null,
+    letterSpacing: TextUnit = TextUnit.Unspecified,
+    textDecoration: TextDecoration? = null,
+    lineHeight: TextUnit = TextUnit.Unspecified,
+    linkColor: Color = Color.Blue,
+    onClick: (String) -> Unit = {}
+) {
+    // Simple markdown parsing for links, bold and italic text
+    val annotatedString = buildAnnotatedString {
+        append(markdown)
+
+        // Process links in the format [text](url)
+        val linkPattern = "\\[(.*?)\\]\\((.*?)\\)".toRegex()
+
+        // Find all link matches and apply styling
+        linkPattern.findAll(markdown).forEach { match ->
+            val linkText = match.groupValues[1]
+            val url = match.groupValues[2]
+            val startIndex = match.range.first
+            val endIndex = match.range.last + 1
+
+            addStyle(
+                style = SpanStyle(
+                    color = linkColor,
+                    textDecoration = TextDecoration.Underline
+                ),
+                start = startIndex,
+                end = endIndex
+            )
+
+            addStringAnnotation(
+                tag = "URL",
+                annotation = url,
+                start = startIndex,
+                end = endIndex
+            )
+        }
+
+        // Find all bold patterns like **text** and apply styling
+        val boldPattern = "\\*\\*(.*?)\\*\\*".toRegex()
+        boldPattern.findAll(markdown).forEach { match ->
+            val startIndex = match.range.first
+            val endIndex = match.range.last + 1
+
+            addStyle(
+                style = SpanStyle(
+                    fontWeight = FontWeight.Bold
+                ),
+                start = startIndex,
+                end = endIndex
+            )
+        }
+
+        // Find all italic patterns like *text* and apply styling
+        val italicPattern = "\\*(.*?)\\*".toRegex()
+        italicPattern.findAll(markdown).forEach { match ->
+            val startIndex = match.range.first
+            val endIndex = match.range.last + 1
+
+            addStyle(
+                style = SpanStyle(
+                    fontStyle = FontStyle.Italic
+                ),
+                start = startIndex,
+                end = endIndex
+            )
+        }
+    }
+
+    ClickableText(
+        text = annotatedString,
+        modifier = modifier,
+        style = TextStyle(
+            color = color,
+            fontSize = fontSize,
+            fontStyle = fontStyle,
+            fontWeight = fontWeight,
+            fontFamily = fontFamily,
+            letterSpacing = letterSpacing,
+            textDecoration = textDecoration,
+            lineHeight = lineHeight
+        ),
+        onClick = { offset ->
+            annotatedString.getStringAnnotations(tag = "URL", start = offset, end = offset)
+                .firstOrNull()?.let { annotation ->
+                    onClick(annotation.item)
+                }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChatScreen(
+    onLogin: () -> Unit = {},
+    onLogout: () -> Unit = {},
+    chatViewModel: ChatViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel(),
+    isDarkTheme: Boolean = true
+) {
+    val messages by chatViewModel.messages.collectAsState()
+    val conversationDisplayList by chatViewModel.conversationListForDrawer.collectAsState()
+    val currentConversationId by chatViewModel.currentConversationId.collectAsState()
+    val isLoading by chatViewModel.isLoading.collectAsState()
+    val errorMessage by chatViewModel.errorMessage.collectAsState()
+    val currentUser by authViewModel.currentUser.collectAsState()
+    val logoutEvent by authViewModel.logoutEvent.collectAsState()
+
+    // Cores específicas para o tema
+    val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
+    val surfaceColor = if (isDarkTheme) SurfaceColorDark else SurfaceColor
+    val textColor = if (isDarkTheme) TextColorLight else TextColorDark
+    val containerShadowColor = if (isDarkTheme) Color.Black.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.1f)
+    val primaryContainerAlpha = if (isDarkTheme) 0.3f else 0.2f
+    val cardElevation = if (isDarkTheme) 4.dp else 2.dp
+
+    var userMessage by rememberSaveable { mutableStateOf("") }
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+
+    var conversationIdToRename by remember { mutableStateOf<Long?>(null) }
+    var currentTitleForDialog by remember { mutableStateOf<String?>(null) }
+    var showDeleteConfirmationDialog by remember { mutableStateOf<Long?>(null) }
+
+    LaunchedEffect(logoutEvent) {
+        if (logoutEvent) {
+            userMessage = ""
+            chatViewModel.handleLogout()
+            Log.d("ChatScreen", "Tela e menu lateral limpos após logout")
+        }
+    }
+
+    LaunchedEffect(conversationIdToRename) {
+        val id = conversationIdToRename
+        currentTitleForDialog = if (id != null && id != NEW_CONVERSATION_ID) "" else null
+        if (id != null && id != NEW_CONVERSATION_ID) {
+            Log.d("ChatScreen", "Fetching title for rename dialog (ID: $id)")
+            try {
+                currentTitleForDialog = chatViewModel.getDisplayTitle(id)
+            } catch (e: Exception) {
+                Log.e("ChatScreen", "Error fetching title for rename dialog", e)
+            }
+        }
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            AppDrawerContent(
+                conversationDisplayItems = conversationDisplayList,
+                currentConversationId = currentConversationId,
+                onConversationClick = { conversationId ->
+                    coroutineScope.launch { drawerState.close() }
+                    if (conversationId != currentConversationId) {
+                        chatViewModel.selectConversation(conversationId)
+                    }
+                },
+                onNewChatClick = {
+                    coroutineScope.launch { drawerState.close() }
+                    if (currentConversationId != null && currentConversationId != NEW_CONVERSATION_ID) {
+                        chatViewModel.startNewConversation()
+                    }
+                },
+                onDeleteConversationRequest = { conversationId ->
+                    showDeleteConfirmationDialog = conversationId
+                },
+                onRenameConversationRequest = { conversationId ->
+                    Log.d("ChatScreen", "Rename requested for $conversationId. Setting state.")
+                    conversationIdToRename = conversationId
+                },
+                isDarkTheme = isDarkTheme
+            )
+        }
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = backgroundColor
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.dp)
+                        .background(PrimaryColor)
+                )
+
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    contentWindowInsets = WindowInsets(0),
+                    topBar = {
+                        CenterAlignedTopAppBar(
+                            windowInsets = WindowInsets(0),
+                            title = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.ic_bolt_foreground),
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Brainstormia",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            },
+                            navigationIcon = {
+                                IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
+                                    Icon(
+                                        Icons.Filled.Menu,
+                                        stringResource(R.string.open_drawer_description),
+                                        tint = Color.White
+                                    )
+                                }
+                            },
+                            actions = {
+                                IconButton(
+                                    onClick = {
+                                        if (currentUser != null) {
+                                            onLogout()
+                                        } else {
+                                            onLogin()
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .padding(end = 8.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
+                                ) {
+                                    Icon(
+                                        imageVector = if (currentUser != null) Icons.Default.Logout else Icons.Default.Login,
+                                        contentDescription = if (currentUser != null) "Sair" else "Entrar",
+                                        tint = Color.White
+                                    )
+                                }
+                            },
+                            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                                containerColor = PrimaryColor,
+                                titleContentColor = Color.White,
+                                navigationIconContentColor = Color.White,
+                                actionIconContentColor = Color.White
+                            )
+                        )
+                    },
+                    bottomBar = {
+                        MessageInput(
+                            message = userMessage,
+                            onMessageChange = { userMessage = it },
+                            onSendClick = {
+                                if (userMessage.isNotBlank()) {
+                                    chatViewModel.sendMessage(userMessage)
+                                    userMessage = ""
+                                }
+                            },
+                            isSendEnabled = !isLoading,
+                            isDarkTheme = isDarkTheme
+                        )
+                    },
+                    containerColor = backgroundColor,
+                    contentColor = textColor
+                ) { paddingValues ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .background(backgroundColor)
+                    ) {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp),
+                            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(
+                                items = messages,
+                                key = { message: ChatMessage -> "${message.sender}-${message.text.hashCode()}" }
+                            ) { message ->
+                                MessageBubble(
+                                    message = message,
+                                    isDarkTheme = isDarkTheme
+                                )
+                            }
+                            if (isLoading) {
+                                item {
+                                    TypingBubbleAnimation(
+                                        modifier = Modifier.padding(vertical = 4.dp),
+                                        isDarkTheme = isDarkTheme
+                                    )
+                                }
+                            }
+                        }
+
+                        errorMessage?.let { errorMsg ->
+                            Text(
+                                text = "Erro: $errorMsg",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                                    .background(
+                                        color = Color(0xFFE53935),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(vertical = 8.dp, horizontal = 12.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        showDeleteConfirmationDialog?.let { conversationIdToDelete ->
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmationDialog = null },
+                title = {
+                    Text(
+                        text = "Excluir conversa",
+                        fontWeight = FontWeight.Bold,
+                        color = if (isDarkTheme) TextColorLight else TextColorDark
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Tem certeza que deseja excluir esta conversa? Esta ação não pode ser desfeita.",
+                        fontWeight = FontWeight.Medium,
+                        color = if (isDarkTheme) TextColorLight else TextColorDark
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            chatViewModel.deleteConversation(conversationIdToDelete)
+                            showDeleteConfirmationDialog = null
+                        }
+                    ) {
+                        Text(
+                            text = "Excluir",
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirmationDialog = null }) {
+                        Text(
+                            text = "Cancelar",
+                            fontWeight = FontWeight.Medium,
+                            color = if (isDarkTheme) TextColorLight.copy(alpha = 0.8f) else Color.DarkGray
+                        )
+                    }
+                },
+                shape = RoundedCornerShape(16.dp),
+                containerColor = if (isDarkTheme) SurfaceColorDark else SurfaceColor,
+                tonalElevation = if (isDarkTheme) 8.dp else 4.dp
+            )
+        }
+
+        conversationIdToRename?.let { id ->
+            if (currentTitleForDialog != null) {
+                RenameConversationDialog(
+                    conversationId = id,
+                    currentTitle = currentTitleForDialog,
+                    onConfirm = { confirmedId, newTitle ->
+                        chatViewModel.renameConversation(confirmedId, newTitle)
+                        conversationIdToRename = null
+                    },
+                    onDismiss = {
+                        conversationIdToRename = null
+                    },
+                    isDarkTheme = isDarkTheme
+                )
+            }
+        }
+    }
+
+    LaunchedEffect(messages.size, isLoading) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+}
+
+@Composable
+fun MessageInput(
+    message: String,
+    onMessageChange: (String) -> Unit,
+    onSendClick: () -> Unit,
+    isSendEnabled: Boolean,
+    isDarkTheme: Boolean = true
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    val lineCount = if (message.isBlank()) 1 else message.count { it == '\n' } + 1
+    val showExpandButton = lineCount >= 2 || message.length > 80
+
+    val minHeight = 56.dp
+    val maxHeight = 150.dp
+
+    // Cores adaptadas para o tema
+    val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
+    val surfaceColor = if (isDarkTheme) SurfaceColorDark else SurfaceColor
+    val textColor = if (isDarkTheme) TextColorLight else TextColorDark
+    val placeholderColor = if (isDarkTheme) Color.LightGray.copy(alpha = 0.6f) else Color.Gray
+    val disabledTextColor = if (isDarkTheme) Color.LightGray.copy(alpha = 0.5f) else Color.DarkGray.copy(alpha = 0.7f)
+
+    // Cores quando o input está desabilitado
+    val disabledContainerColor = if (isDarkTheme)
+        PrimaryColor.copy(alpha = 0.25f)
+    else
+        PrimaryColor.copy(alpha = 0.15f)
+    val disabledCursorColor = if (isDarkTheme)
+        PrimaryColor.copy(alpha = 0.7f)
+    else
+        PrimaryColor.copy(alpha = 0.6f)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(backgroundColor)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    color = if (isSendEnabled) surfaceColor else disabledContainerColor,
+                    shape = RoundedCornerShape(28.dp)
+                )
+                .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextField(
+                value = message,
+                onValueChange = onMessageChange,
+                placeholder = {
+                    Text(
+                        text = "Digite sua mensagem...",
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            color = if (isSendEnabled) placeholderColor else disabledTextColor,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 16.sp
+                        )
+                    )
+                },
+                textStyle = TextStyle(
+                    fontWeight = FontWeight.Medium,
+                    color = if (isSendEnabled) textColor else disabledTextColor,
+                    fontSize = 16.sp
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = minHeight),
+                shape = RoundedCornerShape(24.dp),
+                colors = TextFieldDefaults.colors(
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                    errorIndicatorColor = Color.Transparent,
+                    focusedContainerColor = if (isSendEnabled) surfaceColor else disabledContainerColor,
+                    unfocusedContainerColor = if (isSendEnabled) surfaceColor else disabledContainerColor,
+                    disabledContainerColor = disabledContainerColor,
+                    cursorColor = if (isSendEnabled) PrimaryColor else disabledCursorColor,
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor
+                ),
+                enabled = isSendEnabled,
+                maxLines = if (isExpanded) 8 else 3
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (showExpandButton) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isSendEnabled)
+                                    if (isDarkTheme) Color.Gray.copy(alpha = 0.3f) else Color.LightGray.copy(alpha = 0.2f)
+                                else
+                                    if (isDarkTheme) PrimaryColor.copy(alpha = 0.25f) else PrimaryColor.copy(alpha = 0.15f)
+                            )
+                            .clickable(enabled = isSendEnabled) { isExpanded = !isExpanded },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isExpanded) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Contrair campo de texto",
+                                tint = if (isSendEnabled) PrimaryColor else PrimaryColor.copy(alpha = 0.6f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowUp,
+                                contentDescription = "Expandir campo de texto",
+                                tint = if (isSendEnabled) PrimaryColor else PrimaryColor.copy(alpha = 0.6f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .padding(bottom = 2.dp)
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (!isSendEnabled)
+                                PrimaryColor.copy(alpha = if (isDarkTheme) 0.5f else 0.4f)
+                            else if (message.isNotBlank())
+                                PrimaryColor
+                            else
+                                PrimaryColor.copy(alpha = if (isDarkTheme) 0.6f else 0.5f)
+                        )
+                        .clickable(enabled = message.isNotBlank() && isSendEnabled) {
+                            onSendClick()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = "Enviar",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MessageBubble(
+    message: ChatMessage,
+    isDarkTheme: Boolean = true
+) {
+    val isUserMessage = message.sender == Sender.USER
+
+    val userShape = RoundedCornerShape(
+        topStart = 20.dp,
+        topEnd = 20.dp,
+        bottomStart = 20.dp,
+        bottomEnd = 6.dp
+    )
+
+    val botShape = RoundedCornerShape(
+        topStart = 6.dp,
+        topEnd = 20.dp,
+        bottomStart = 20.dp,
+        bottomEnd = 20.dp
+    )
+
+    // Cores adaptadas para o tema escuro
+    val userBubbleColor = if (isDarkTheme) UserBubbleColor.copy(alpha = 0.9f) else UserBubbleColor
+    val botBubbleColor = BotBubbleColor
+    val botTextColor = Color.White
+    val userTextColor = if (isDarkTheme) Color.Black else Color.Black
+    val linkColor = if (isDarkTheme) Color(0xFFCCE9FF) else Color(0xFFB8E2FF)
+
+    val visibleState = remember { MutableTransitionState(initialState = isUserMessage) }
+
+    LaunchedEffect(message) {
+        if (!isUserMessage) {
+            visibleState.targetState = true
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        contentAlignment = if (isUserMessage) Alignment.CenterEnd else Alignment.CenterStart
+    ) {
+        if (isUserMessage) {
+            Card(
+                modifier = Modifier
+                    .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.88f),
+                shape = userShape,
+                colors = CardDefaults.cardColors(
+                    containerColor = userBubbleColor,
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = if (isDarkTheme) 4.dp else 2.dp
+                )
+            ) {
+                SelectionContainer {
+                    Text(
+                        text = message.text,
+                        color = userTextColor,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontWeight = FontWeight.Medium
+                        ),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    )
+                }
+            }
+        } else {
+            AnimatedVisibility(
+                visibleState = visibleState,
+                enter = fadeIn(animationSpec = tween(durationMillis = 300)) +
+                        slideInHorizontally(
+                            initialOffsetX = { -40 },
+                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                        )
+            ) {
+                Card(
+                    modifier = Modifier
+                        .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.88f),
+                    shape = botShape,
+                    colors = CardDefaults.cardColors(
+                        containerColor = botBubbleColor
+                    ),
+                    elevation = CardDefaults.cardElevation(
+                        defaultElevation = if (isDarkTheme) 4.dp else 2.dp
+                    )
+                ) {
+                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        MarkdownText(
+                            markdown = message.text,
+                            color = botTextColor,
+                            fontSize = MaterialTheme.typography.bodyLarge.fontSize,
+                            linkColor = linkColor,
+                            onClick = { }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TypingIndicatorAnimation(
+    modifier: Modifier = Modifier,
+    dotColor: Color = Color.White,
+    dotSize: Dp = 8.dp,
+    spaceBetweenDots: Dp = 4.dp,
+    bounceHeight: Dp = 6.dp,
+    isDarkTheme: Boolean = true
+) {
+    val dots = listOf(
+        remember { Animatable(0f) },
+        remember { Animatable(0f) },
+        remember { Animatable(0f) }
+    )
+
+    val bounceHeightPx = with(LocalDensity.current) { bounceHeight.toPx() }
+
+    dots.forEachIndexed { index, animatable ->
+        LaunchedEffect(animatable) {
+            delay(index * 140L)
+            animatable.animateTo(
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = keyframes {
+                        durationMillis = 1000
+                        0f at 0 using LinearOutSlowInEasing
+                        1f at 250 using LinearOutSlowInEasing
+                        0f at 500 using LinearOutSlowInEasing
+                        0f at 1000
+                    },
+                    repeatMode = RepeatMode.Restart
+                )
+            )
+        }
+    }
+
+    Card(
+        modifier = modifier
+            .wrapContentWidth()
+            .padding(8.dp),
+        shape = RoundedCornerShape(
+            topStart = 6.dp,
+            topEnd = 20.dp,
+            bottomStart = 20.dp,
+            bottomEnd = 20.dp
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDarkTheme) BotBubbleColor.copy(alpha = 0.9f) else BotBubbleColor
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isDarkTheme) 4.dp else 2.dp
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            dots.forEachIndexed { index, animatable ->
+                if (index != 0) {
+                    Spacer(modifier = Modifier.width(spaceBetweenDots))
+                }
+
+                val translateY = -animatable.value * bounceHeightPx
+
+                Box(
+                    modifier = Modifier
+                        .size(dotSize)
+                        .graphicsLayer {
+                            translationY = translateY
+                        }
+                        .background(color = dotColor, shape = CircleShape)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun TypingBubbleAnimation(
+    modifier: Modifier = Modifier,
+    isDarkTheme: Boolean = true
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        TypingIndicatorAnimation(
+            modifier = modifier,
+            isDarkTheme = isDarkTheme
+        )
+    }
+}

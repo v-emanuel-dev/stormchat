@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Brainstormia" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryDark">@color/primary_dark</item>
+        <item name="colorAccent">@color/secondary</item>
+        <item name="android:colorBackground">@color/background</item>
+        <item name="android:textColor">@color/text_light</item>
+    </style>
+
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <!-- Cor de fundo da SplashScreen - agora usando o azul escuro -->
+        <item name="windowSplashScreenBackground">@color/primary_dark</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_bolt_foreground</item>
+        <!-- Cor de fundo do ícone - agora usando o azul médio -->
+        <item name="windowSplashScreenIconBackgroundColor">@color/secondary</item>
+        <item name="postSplashScreenTheme">@style/Theme.Brainstormia</item>
+    </style>
+</resources>

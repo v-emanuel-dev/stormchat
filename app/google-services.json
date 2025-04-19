@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "323925147659",
+    "project_id": "brainstormia-bf822",
+    "storage_bucket": "brainstormia-bf822.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:323925147659:android:102fab530a55f51e17070e",
+        "android_client_info": {
+          "package_name": "com.ivip.brainstormia"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "323925147659-l59oj45dk4mblag37ifm67qek62r7kc6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ivip.brainstormia",
+            "certificate_hash": "f726439b292c522528ea17674f6f18484ff3b97c"
+          }
+        },
+        {
+          "client_id": "323925147659-l17845qiojbk789qrodo3nr3oufbr8cm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBUUTBFGQ8mRFkAORZIeJQ26N-jM4crnxw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "323925147659-l17845qiojbk789qrodo3nr3oufbr8cm.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
