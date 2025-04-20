@@ -11,10 +11,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
@@ -35,15 +31,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -51,119 +42,101 @@ import com.ivip.brainstormia.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.ivip.brainstormia.theme.BotBubbleColor
-
+import dev.jeziellago.compose.markdowntext.MarkdownText
 
 @Composable
-fun MarkdownText(
-    markdown: String,
-    modifier: Modifier = Modifier,
-    color: Color = Color.Unspecified,
-    fontSize: TextUnit = 16.sp,
-    fontStyle: FontStyle? = null,
-    fontWeight: FontWeight? = null,
-    fontFamily: FontFamily? = null,
-    letterSpacing: TextUnit = TextUnit.Unspecified,
-    textDecoration: TextDecoration? = null,
-    lineHeight: TextUnit = TextUnit.Unspecified,
-    linkColor: Color = Color.Blue,
-    onClick: (String) -> Unit = {}
+fun MessageBubble(
+    message: ChatMessage,
+    isDarkTheme: Boolean = true
 ) {
-    // Simple markdown parsing for links, bold and italic text
-    val annotatedString = buildAnnotatedString {
-        append(markdown)
+    val isUserMessage = message.sender == Sender.USER
 
-        // Process links in the format [text](url)
-        val linkPattern = "\\[(.*?)\\]\\((.*?)\\)".toRegex()
-
-        // Find all link matches and apply styling
-        linkPattern.findAll(markdown).forEach { match ->
-            val url = match.groupValues[2]
-            val startIndex = match.range.first
-            val endIndex = match.range.last + 1
-
-            addStyle(
-                style = SpanStyle(
-                    color = linkColor,
-                    textDecoration = TextDecoration.Underline
-                ),
-                start = startIndex,
-                end = endIndex
-            )
-
-            addStringAnnotation(
-                tag = "URL",
-                annotation = url,
-                start = startIndex,
-                end = endIndex
-            )
-        }
-
-        // Find all bold patterns like **text** and apply styling
-        val boldPattern = "\\*\\*(.*?)\\*\\*".toRegex()
-        boldPattern.findAll(markdown).forEach { match ->
-            val startIndex = match.range.first
-            val endIndex = match.range.last + 1
-
-            addStyle(
-                style = SpanStyle(
-                    fontWeight = FontWeight.Bold
-                ),
-                start = startIndex,
-                end = endIndex
-            )
-        }
-
-        // Find all italic patterns like *text* and apply styling
-        val italicPattern = "\\*(.*?)\\*".toRegex()
-        italicPattern.findAll(markdown).forEach { match ->
-            val startIndex = match.range.first
-            val endIndex = match.range.last + 1
-
-            addStyle(
-                style = SpanStyle(
-                    fontStyle = FontStyle.Italic
-                ),
-                start = startIndex,
-                end = endIndex
-            )
-        }
-    }
-
-    val textStyle = TextStyle(
-        color = color,
-        fontSize = fontSize,
-        fontStyle = fontStyle,
-        fontWeight = fontWeight,
-        fontFamily = fontFamily,
-        letterSpacing = letterSpacing,
-        textDecoration = textDecoration,
-        lineHeight = lineHeight
+    val userShape = RoundedCornerShape(
+        topStart = 20.dp,
+        topEnd = 20.dp,
+        bottomStart = 20.dp,
+        bottomEnd = 6.dp
     )
 
-    SelectionContainer {
-        BasicText(
-            text = annotatedString,
-            modifier = modifier
-                .pointerInput(Unit) {
-                    detectTapGestures { offset ->
-                        val layoutResult = textLayoutResultState.value ?: return@detectTapGestures
-                        val position = layoutResult.getOffsetForPosition(offset)
-                        annotatedString.getStringAnnotations(
-                            tag = "URL",
-                            start = position,
-                            end = position
-                        ).firstOrNull()?.let { annotation ->
-                            onClick(annotation.item)
-                        }
+    // Cores adaptadas para o tema
+    val userBubbleColor = BotBubbleColor
+    val userTextColor = Color.White
+    val botTextColor = if (isDarkTheme) TextColorLight else TextColorDark
+    val linkColor = if (isDarkTheme) Color(0xFFCCE9FF) else Color(0xFFB8E2FF)
+
+    val visibleState = remember { MutableTransitionState(initialState = isUserMessage) }
+
+    LaunchedEffect(message) {
+        if (!isUserMessage) {
+            visibleState.targetState = true
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        contentAlignment = if (isUserMessage) Alignment.CenterEnd else Alignment.CenterStart
+    ) {
+        if (isUserMessage) {
+            // Mensagem do usuário
+            Card(
+                modifier = Modifier
+                    .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.88f),
+                shape = userShape,
+                colors = CardDefaults.cardColors(
+                    containerColor = userBubbleColor,
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = if (isDarkTheme) 4.dp else 2.dp
+                )
+            ) {
+                SelectionContainer {
+                    Text(
+                        text = message.text,
+                        color = userTextColor,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            fontWeight = FontWeight.Medium
+                        ),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                    )
+                }
+            }
+        } else {
+            // Mensagem do bot sem bolha
+            AnimatedVisibility(
+                visibleState = visibleState,
+                enter = fadeIn(animationSpec = tween(durationMillis = 300)) +
+                        slideInHorizontally(
+                            initialOffsetX = { -40 },
+                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                        )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    SelectionContainer {
+                        MarkdownText(
+                            markdown = message.text,
+                            modifier = Modifier.fillMaxWidth(),
+                            color = botTextColor,
+                            linkColor = linkColor,
+                            fontSize = MaterialTheme.typography.bodyLarge.fontSize,
+                            textAlign = TextAlign.Start,
+                            maxLines = Int.MAX_VALUE,
+                            isTextSelectable = true,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                lineHeight = 24.sp
+                            )
+                        )
                     }
-                },
-            style = textStyle,
-        )
+                }
+            }
+        }
     }
 }
-
-// Estado para armazenar o resultado do layout de texto
-private val textLayoutResultState = mutableStateOf<TextLayoutResult?>(null)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -250,7 +223,6 @@ fun ChatScreen(
                 },
                 isDarkTheme = isDarkTheme
             )
-
         }
     ) {
         Surface(
@@ -625,95 +597,6 @@ fun MessageInput(
 }
 
 @Composable
-fun MessageBubble(
-    message: ChatMessage,
-    isDarkTheme: Boolean = true
-) {
-    val isUserMessage = message.sender == Sender.USER
-
-    val userShape = RoundedCornerShape(
-        topStart = 20.dp,
-        topEnd = 20.dp,
-        bottomStart = 20.dp,
-        bottomEnd = 6.dp
-    )
-
-    // Cores adaptadas - usando a cor da bolha do bot para a bolha do usuário
-    val userBubbleColor = BotBubbleColor // Agora usando a cor do bot para o usuário
-    val userTextColor = Color.White // Ajustando a cor do texto para branco para contrastar com o fundo azul
-    val botTextColor = if (isDarkTheme) TextColorLight else TextColorDark
-    val linkColor = if (isDarkTheme) Color(0xFFCCE9FF) else Color(0xFFB8E2FF)
-
-    val visibleState = remember { MutableTransitionState(initialState = isUserMessage) }
-
-    LaunchedEffect(message) {
-        if (!isUserMessage) {
-            visibleState.targetState = true
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        contentAlignment = if (isUserMessage) Alignment.CenterEnd else Alignment.CenterStart
-    ) {
-        if (isUserMessage) {
-            // Bolha do usuário - agora usando a cor que antes era do bot
-            Card(
-                modifier = Modifier
-                    .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.88f),
-                shape = userShape,
-                colors = CardDefaults.cardColors(
-                    containerColor = userBubbleColor,
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = if (isDarkTheme) 4.dp else 2.dp
-                )
-            ) {
-                SelectionContainer {
-                    Text(
-                        text = message.text,
-                        color = userTextColor, // Agora branco para contrastar com o fundo azul
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = FontWeight.Medium
-                        ),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                    )
-                }
-            }
-        } else {
-            // Mensagem do bot sem bolha, ocupando toda a largura
-            AnimatedVisibility(
-                visibleState = visibleState,
-                enter = fadeIn(animationSpec = tween(durationMillis = 300)) +
-                        slideInHorizontally(
-                            initialOffsetX = { -40 },
-                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
-                        )
-            ) {
-                // Remover o Card e deixar apenas o texto
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    SelectionContainer {
-                        MarkdownText(
-                            markdown = message.text,
-                            color = botTextColor,
-                            fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                            linkColor = linkColor,
-                            onClick = { }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
 fun TypingIndicatorAnimation(
     isDarkTheme: Boolean = true,
     dotSize: Dp = 8.dp,
@@ -791,7 +674,6 @@ fun TypingBubbleAnimation(
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             TypingIndicatorAnimation(
-                // Remover o parâmetro dotColor que não existe
                 isDarkTheme = isDarkTheme
             )
         }

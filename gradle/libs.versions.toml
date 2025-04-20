@@ -1,6 +1,7 @@
 [versions]
 agp = "8.10.0-rc02"
 composeMarkdown = "0.3.5"
+composeMarkdownVersion = "0.5.0"
 credentials = "1.5.0"
 firebase-bom = "33.1.0"
 kotlin = "2.0.21"
@@ -40,6 +41,7 @@ androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended", version = "1.7.8" }
+composeMarkdown = { module = "com.github.jeziellago:compose-markdown", version.ref = "composeMarkdownVersion" }
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreen" }
 generativeai = { group = "com.google.ai.client.generativeai", name = "generativeai", version.ref = "generativeai" }

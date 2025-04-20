@@ -178,26 +178,12 @@ fun AuthScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                AnimatedVisibility(
-                    visible = true,
-                    enter = fadeIn(animationSpec = tween(durationMillis = 500))
-                ) {
-                    Text(
-                        text = if (isLogin) "Bem-vindo(a) de volta" else "Criar uma conta",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        color = textColor,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
-
                 Text(
-                    text = if (isLogin) "Entre na sua conta para continuar" else "Preencha os dados para se cadastrar",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
+                    text = if (isLogin) "Login" else "Criar uma conta",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
-                    color = textSecondaryColor,
+                    color = textColor,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 
@@ -286,13 +272,15 @@ fun AuthScreen(
                         .padding(bottom = 8.dp)
                 )
 
-                // Link "Não tem uma conta?" (Somente no modo de login)
+                // Links agrupados "Não tem uma conta?" e "Esqueci minha senha" (Somente no modo de login)
+                // Links "Não tem uma conta?" e "Esqueci minha senha" (Somente no modo de login)
                 if (isLogin) {
-                    Box(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 8.dp),
-                        contentAlignment = Alignment.Center
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         TextButton(
                             onClick = { isLogin = !isLogin },
@@ -305,17 +293,7 @@ fun AuthScreen(
                                 fontSize = 14.sp
                             )
                         }
-                    }
-                }
 
-                // Link "Esqueci minha senha" (Somente no modo de login)
-                if (isLogin) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
                         TextButton(
                             onClick = onNavigateToPasswordReset,
                             contentPadding = PaddingValues(4.dp)
