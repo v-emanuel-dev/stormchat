@@ -26,8 +26,8 @@ android {
         applicationId = "com.ivip.brainstormia"
         minSdk = 24
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.6"
+        versionCode = 5
+        versionName = "1.7"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiKeyFromProperties = localProperties.getProperty("apiKey") ?: ""
