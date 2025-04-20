@@ -60,6 +60,7 @@ import com.ivip.brainstormia.theme.TextColorLight
 fun AuthScreen(
     onNavigateToChat: () -> Unit,
     onBackToChat: () -> Unit,
+    onNavigateToPasswordReset: () -> Unit,
     authViewModel: AuthViewModel = viewModel(),
     isDarkTheme: Boolean = true
 ) {
@@ -282,8 +283,52 @@ fun AuthScreen(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp)
+                        .padding(bottom = 8.dp)
                 )
+
+                // Link "Não tem uma conta?" (Somente no modo de login)
+                if (isLogin) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        TextButton(
+                            onClick = { isLogin = !isLogin },
+                            contentPadding = PaddingValues(4.dp)
+                        ) {
+                            Text(
+                                text = "Não tem uma conta?",
+                                color = if (isDarkTheme) TextColorLight else PrimaryColor,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+
+                // Link "Esqueci minha senha" (Somente no modo de login)
+                if (isLogin) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        TextButton(
+                            onClick = onNavigateToPasswordReset,
+                            contentPadding = PaddingValues(4.dp)
+                        ) {
+                            Text(
+                                text = "Esqueci minha senha",
+                                color = if (isDarkTheme) TextColorLight else PrimaryColor,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
 
                 AnimatedVisibility(
                     visible = errorMessage != null,
@@ -414,16 +459,20 @@ fun AuthScreen(
                     }
                 }
 
-                TextButton(
-                    onClick = { isLogin = !isLogin },
-                    modifier = Modifier.padding(top = 16.dp)
-                ) {
-                    Text(
-                        if (isLogin) "Não tem uma conta? Cadastre-se" else "Já tem uma conta? Faça login",
-                        color = if (isDarkTheme) TextColorLight else PrimaryColor,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp
-                    )
+                // Removido o botão "Não tem uma conta?" que estava aqui e mantendo apenas
+                // o botão "Já tem uma conta? Faça login" quando está no modo de cadastro
+                if (!isLogin) {
+                    TextButton(
+                        onClick = { isLogin = !isLogin },
+                        modifier = Modifier.padding(top = 16.dp)
+                    ) {
+                        Text(
+                            "Já tem uma conta? Faça login",
+                            color = if (isDarkTheme) TextColorLight else PrimaryColor,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp
+                        )
+                    }
                 }
 
                 if (authState is AuthState.Loading) {

@@ -223,15 +223,22 @@ fun ChatScreen(
                 conversationDisplayItems = conversationDisplayList,
                 currentConversationId = currentConversationId,
                 onConversationClick = { conversationId ->
-                    coroutineScope.launch { drawerState.close() }
-                    if (conversationId != currentConversationId) {
-                        chatViewModel.selectConversation(conversationId)
+                    coroutineScope.launch {
+                        drawerState.close()
+                        try {
+                            chatViewModel.selectConversation(conversationId)
+                        } catch (e: Exception) {
+                            Log.e("ChatScreen", "Erro ao selecionar conversa $conversationId", e)
+                        }
                     }
                 },
                 onNewChatClick = {
-                    coroutineScope.launch { drawerState.close() }
-                    if (currentConversationId != null && currentConversationId != NEW_CONVERSATION_ID) {
-                        chatViewModel.startNewConversation()
+                    coroutineScope.launch {
+                        // mesma lógica para nova conversa
+                        drawerState.close()
+                        if (currentConversationId != null && currentConversationId != NEW_CONVERSATION_ID) {
+                            chatViewModel.startNewConversation()
+                        }
                     }
                 },
                 onDeleteConversationRequest = { conversationId ->
@@ -243,6 +250,7 @@ fun ChatScreen(
                 },
                 isDarkTheme = isDarkTheme
             )
+
         }
     ) {
         Surface(

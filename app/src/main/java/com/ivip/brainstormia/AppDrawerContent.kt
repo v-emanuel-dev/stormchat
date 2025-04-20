@@ -190,7 +190,6 @@ fun NewChatButton(
     isSelected: Boolean,
     isDarkTheme: Boolean = true
 ) {
-    val textColor = if (isDarkTheme) TextColorLight else TextColorDark
     val selectedBgColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.25f) else PrimaryColor.copy(alpha = 0.15f)
     val unselectedBgColor = if (isDarkTheme) Color.Transparent else Color.Transparent
     val textSelectedColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.9f) else PrimaryColor

@@ -16,6 +16,7 @@ sealed class AuthState {
     object Loading : AuthState()
     class Success(val user: FirebaseUser) : AuthState()
     class Error(val message: String) : AuthState()
+    object PasswordResetSent : AuthState()
 }
 
 class AuthViewModel : ViewModel() {
@@ -79,6 +80,19 @@ class AuthViewModel : ViewModel() {
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "registerWithEmail failed", e)
                 _authState.value = AuthState.Error(e.message ?: "Registration failed")
+            }
+        }
+    }
+
+    fun resetPassword(email: String) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            try {
+                auth.sendPasswordResetEmail(email).await()
+                _authState.value = AuthState.PasswordResetSent
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "resetPassword failed", e)
+                _authState.value = AuthState.Error(e.message ?: "Password reset failed")
             }
         }
     }
