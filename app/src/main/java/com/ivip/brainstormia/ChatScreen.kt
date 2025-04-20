@@ -38,11 +38,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ivip.brainstormia.components.ModelSelectionDropdown
 import com.ivip.brainstormia.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.ivip.brainstormia.theme.BotBubbleColor
 import dev.jeziellago.compose.markdowntext.MarkdownText
+import androidx.compose.runtime.collectAsState
 
 @Composable
 fun MessageBubble(
@@ -85,7 +87,7 @@ fun MessageBubble(
                     .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.88f),
                 shape = userShape,
                 colors = CardDefaults.cardColors(
-                    containerColor = userBubbleColor,
+                    containerColor = userBubbleColor
                 ),
                 elevation = CardDefaults.cardElevation(
                     defaultElevation = if (isDarkTheme) 4.dp else 2.dp
@@ -154,6 +156,7 @@ fun ChatScreen(
     val errorMessage by chatViewModel.errorMessage.collectAsState()
     val currentUser by authViewModel.currentUser.collectAsState()
     val logoutEvent by authViewModel.logoutEvent.collectAsState()
+    val selectedModel by chatViewModel.selectedModel.collectAsState()
 
     // Cores específicas para o tema
     val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
@@ -316,55 +319,71 @@ fun ChatScreen(
                     containerColor = backgroundColor,
                     contentColor = textColor
                 ) { paddingValues ->
-                    Box(
+                    Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(paddingValues)
                             .background(backgroundColor)
                     ) {
-                        LazyColumn(
-                            state = listState,
+                        // Add AI model selector only if user is logged in
+                        if (currentUser != null) {
+                            ModelSelectionDropdown(
+                                models = chatViewModel.modelOptions,
+                                selectedModel = selectedModel,
+                                onModelSelected = { chatViewModel.selectModel(it) },
+                                isDarkTheme = isDarkTheme
+                            )
+                        }
+
+                        Box(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 16.dp),
-                            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                                .weight(1f)
+                                .fillMaxWidth()
                         ) {
-                            items(
-                                items = messages,
-                                key = { message: ChatMessage -> "${message.sender}-${message.text.hashCode()}" }
-                            ) { message ->
-                                MessageBubble(
-                                    message = message,
-                                    isDarkTheme = isDarkTheme
-                                )
-                            }
-                            if (isLoading) {
-                                item {
-                                    TypingBubbleAnimation(
-                                        modifier = Modifier.padding(vertical = 4.dp),
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 16.dp),
+                                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(
+                                    items = messages,
+                                    key = { message: ChatMessage -> "${message.sender}-${message.text.hashCode()}" }
+                                ) { message ->
+                                    MessageBubble(
+                                        message = message,
                                         isDarkTheme = isDarkTheme
                                     )
                                 }
+                                if (isLoading) {
+                                    item {
+                                        TypingBubbleAnimation(
+                                            modifier = Modifier.padding(vertical = 4.dp),
+                                            isDarkTheme = isDarkTheme
+                                        )
+                                    }
+                                }
                             }
-                        }
 
-                        errorMessage?.let { errorMsg ->
-                            Text(
-                                text = "Erro: $errorMsg",
-                                color = Color.White,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .fillMaxWidth()
-                                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
-                                    .background(
-                                        color = Color(0xFFE53935),
-                                        shape = RoundedCornerShape(8.dp)
-                                    )
-                                    .padding(vertical = 8.dp, horizontal = 12.dp)
-                            )
+                            errorMessage?.let { errorMsg ->
+                                Text(
+                                    text = "Erro: $errorMsg",
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                                        .background(
+                                            color = Color(0xFFE53935),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                        .padding(vertical = 8.dp, horizontal = 12.dp)
+                                )
+                            }
                         }
                     }
                 }

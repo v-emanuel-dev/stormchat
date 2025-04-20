@@ -1,5 +1,6 @@
 package com.ivip.brainstormia
 
+import com.ivip.brainstormia.data.models.AIModel
 import android.app.Application
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
@@ -27,6 +28,8 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.ivip.brainstormia.data.db.ModelPreferenceDao
+import com.ivip.brainstormia.data.db.ModelPreferenceEntity
 
 enum class LoadingState { IDLE, LOADING, ERROR }
 
@@ -40,9 +43,59 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val appDb = AppDatabase.getDatabase(application)
     private val chatDao: ChatDao = appDb.chatDao()
     private val metadataDao: ConversationMetadataDao = appDb.conversationMetadataDao()
+    private val modelPreferenceDao: ModelPreferenceDao = appDb.modelPreferenceDao()
+
+    // Lista de modelos disponíveis
+    private val availableModels = listOf(
+        AIModel(
+            id = "gemini-2.5-flash-preview-04-17",
+            displayName = "Gemini 2.5 Flash",
+            apiEndpoint = "gemini-2.5-flash-preview-04-17"
+        ),
+        AIModel(
+            id = "gemini-2.5-pro-exp-03-25",
+            displayName = "Gemini 2.5 Pro",
+            apiEndpoint = "gemini-2.5-pro-exp-03-25"
+        ),
+        AIModel(
+            id = "gemini-2.0-flash",
+            displayName = "Gemini 2.0 Flash",
+            apiEndpoint = "gemini-2.0-flash"
+        )
+    )                                                                                         
+
+    // Estado do modelo selecionado (default: Gemini 2.5 Pro)
+    private val _selectedModel = MutableStateFlow(availableModels[1])
+    val selectedModel: StateFlow<AIModel> = _selectedModel.asStateFlow()
+
+    // Expor a lista de modelos
+    val modelOptions: List<AIModel> = availableModels
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    // Método para atualizar o modelo selecionado
+    fun selectModel(model: AIModel) {
+        if (model.id != _selectedModel.value.id) {
+            _selectedModel.value = model
+
+            // Salvar no banco de dados
+            viewModelScope.launch {
+                try {
+                    modelPreferenceDao.insertOrUpdatePreference(
+                        ModelPreferenceEntity(
+                            userId = _userIdFlow.value,
+                            selectedModelId = model.id
+                        )
+                    )
+                    Log.i("ChatViewModel", "Saved model preference: ${model.displayName}")
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "Error saving model preference", e)
+                    _errorMessage.value = "Erro ao salvar preferência de modelo: ${e.localizedMessage}"
+                }
+            }
+        }
+    }
 
     private val _currentConversationId = MutableStateFlow<Long?>(null)
     val currentConversationId: StateFlow<Long?> = _currentConversationId.asStateFlow()
@@ -68,6 +121,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             _userIdFlow.value = getCurrentUserId()
         }
         loadInitialConversationOrStartNew()
+        viewModelScope.launch {
+            modelPreferenceDao.getModelPreference(_userIdFlow.value)
+                .collect { preference ->
+                    if (preference != null) {
+                        val savedModel = availableModels.find { it.id == preference.selectedModelId }
+                        if (savedModel != null) {
+                            _selectedModel.value = savedModel
+                            Log.i("ChatViewModel", "Loaded user model preference: ${savedModel.displayName}")
+                        }
+                    }
+                }
+        }
     }
 
     private fun getCurrentUserId(): String =
@@ -190,13 +255,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     ## Objetivo Final
     Ser um facilitador virtual que estimula a criatividade, inovação e resolução de problemas, ajudando o usuário a desenvolver suas ideias e projetos com maior potencial e originalidade.
     """.trimIndent()
-
-    private val generativeModel = GenerativeModel(
-        modelName = "gemini-2.5-pro-exp-03-25",
-        apiKey = BuildConfig.GEMINI_API_KEY,
-        systemInstruction = content { text(brainstormiaSystemPrompt) },
-        requestOptions = RequestOptions(timeout = 60000)
-    )
 
     fun handleLogout() {
         startNewConversation()
@@ -402,7 +460,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun callGeminiApi(userMessageText: String, historyForApi: List<Content>, conversationId: Long) {
         var finalBotResponseText: String? = null
         try {
-            Log.d("ChatViewModel", "Starting Gemini API call for conv $conversationId")
+            val currentModel = _selectedModel.value
+            Log.d("ChatViewModel", "Starting API call with model ${currentModel.displayName} for conv $conversationId")
+            val generativeModel = GenerativeModel(
+                modelName = currentModel.apiEndpoint,
+                apiKey = BuildConfig.GEMINI_API_KEY,
+                systemInstruction = content { text(brainstormiaSystemPrompt) },
+                requestOptions = RequestOptions(timeout = 60000)
+            )
             val chat = generativeModel.startChat(history = historyForApi)
             val responseFlow: Flow<GenerateContentResponse> = chat.sendMessageStream(
                 content(role = "user") { text(userMessageText) }

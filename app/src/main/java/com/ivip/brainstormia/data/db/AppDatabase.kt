@@ -6,13 +6,18 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [ChatMessageEntity::class, ConversationMetadataEntity::class],
-    version = 4,
+    entities = [
+        ChatMessageEntity::class,
+        ConversationMetadataEntity::class,
+        ModelPreferenceEntity::class  // Add this line
+    ],
+    version = 2,  // Increment version
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
     abstract fun conversationMetadataDao(): ConversationMetadataDao
+    abstract fun modelPreferenceDao(): ModelPreferenceDao  // Add this line
 
     companion object {
         @Volatile
@@ -23,9 +28,9 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "mentesa_database"
+                    "brainstormia_database"
                 )
-                    .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigration()  // For simplicity, you may want a proper migration in production
                     .build()
                 INSTANCE = instance
                 instance
