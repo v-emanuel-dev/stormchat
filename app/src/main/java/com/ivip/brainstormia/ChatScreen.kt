@@ -45,6 +45,9 @@ import kotlinx.coroutines.launch
 import com.ivip.brainstormia.theme.BotBubbleColor
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import androidx.compose.runtime.collectAsState
+import com.ivip.brainstormia.components.SimpleVoiceInputButton
+import androidx.compose.foundation.border
+import androidx.compose.ui.focus.onFocusChanged
 
 @Composable
 fun MessageBubble(
@@ -313,7 +316,8 @@ fun ChatScreen(
                                 }
                             },
                             isSendEnabled = !isLoading,
-                            isDarkTheme = isDarkTheme
+                            isDarkTheme = isDarkTheme,
+                            viewModel = chatViewModel  // Passar o viewModel para o MessageInput
                         )
                     },
                     containerColor = backgroundColor,
@@ -467,31 +471,38 @@ fun MessageInput(
     onMessageChange: (String) -> Unit,
     onSendClick: () -> Unit,
     isSendEnabled: Boolean,
-    isDarkTheme: Boolean = true
+    isDarkTheme: Boolean = true,
+    viewModel: ChatViewModel
 ) {
     var isExpanded by remember { mutableStateOf(false) }
+    var isFocused  by remember { mutableStateOf(false) }
+    val isListening by viewModel.isListening.collectAsState()
 
-    val lineCount = if (message.isBlank()) 1 else message.count { it == '\n' } + 1
-    val showExpandButton = lineCount >= 2 || message.length > 80
+    // Animação de piscar para a borda
+    val infiniteTransition = rememberInfiniteTransition()
+    val blinkAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue   = 1f,
+        animationSpec = infiniteRepeatable(
+            animation  = tween(durationMillis = 600, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        )
+    )
 
-    val minHeight = 56.dp
+    // Cores do tema
+    val backgroundColor        = if (isDarkTheme) BackgroundColorDark else BackgroundColor
+    val surfaceColor           = if (isDarkTheme) SurfaceColorDark   else SurfaceColor
+    val disabledContainerColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.25f)
+    else PrimaryColor.copy(alpha = 0.15f)
+    val disabledTextColor      = if (isDarkTheme) Color.LightGray.copy(alpha = 0.5f)
+    else Color.DarkGray.copy(alpha = 0.7f)
+    val disabledCursorColor    = if (isDarkTheme) PrimaryColor.copy(alpha = 0.7f)
+    else PrimaryColor.copy(alpha = 0.6f)
 
-    // Cores adaptadas para o tema
-    val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
-    val surfaceColor = if (isDarkTheme) SurfaceColorDark else SurfaceColor
-    val textColor = if (isDarkTheme) TextColorLight else TextColorDark
-    val placeholderColor = if (isDarkTheme) Color.LightGray.copy(alpha = 0.6f) else Color.Gray
-    val disabledTextColor = if (isDarkTheme) Color.LightGray.copy(alpha = 0.5f) else Color.DarkGray.copy(alpha = 0.7f)
-
-    // Cores quando o input está desabilitado
-    val disabledContainerColor = if (isDarkTheme)
-        PrimaryColor.copy(alpha = 0.25f)
-    else
-        PrimaryColor.copy(alpha = 0.15f)
-    val disabledCursorColor = if (isDarkTheme)
-        PrimaryColor.copy(alpha = 0.7f)
-    else
-        PrimaryColor.copy(alpha = 0.6f)
+    // Cor branca para borda e cursor
+    val focusColor  = Color.White
+    val borderColor = if (isFocused) focusColor.copy(alpha = blinkAlpha) else Color.Transparent
+    val cursorColor = if (isFocused) focusColor else disabledCursorColor
 
     Box(
         modifier = Modifier
@@ -506,6 +517,7 @@ fun MessageInput(
                     color = if (isSendEnabled) surfaceColor else disabledContainerColor,
                     shape = RoundedCornerShape(28.dp)
                 )
+                .border(width = 2.dp, color = borderColor, shape = RoundedCornerShape(28.dp))
                 .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -514,102 +526,95 @@ fun MessageInput(
                 onValueChange = onMessageChange,
                 placeholder = {
                     Text(
-                        text = "Digite sua mensagem...",
+                        text = "Mensagem...",
                         style = MaterialTheme.typography.bodyLarge.copy(
-                            color = if (isSendEnabled) placeholderColor else disabledTextColor,
                             fontWeight = FontWeight.Medium,
-                            fontSize = 16.sp
+                            fontSize   = 16.sp,
+                            color      = if (isSendEnabled) Color.LightGray.copy(alpha = 0.6f) else disabledTextColor
                         )
                     )
                 },
                 textStyle = TextStyle(
                     fontWeight = FontWeight.Medium,
-                    color = if (isSendEnabled) textColor else disabledTextColor,
-                    fontSize = 16.sp
+                    fontSize   = 16.sp,
+                    color      = if (isSendEnabled) TextColorLight else disabledTextColor
                 ),
                 modifier = Modifier
                     .weight(1f)
-                    .heightIn(min = minHeight),
+                    .heightIn(min = 56.dp)
+                    .onFocusChanged { focusState ->
+                        isFocused = focusState.isFocused
+                    },
                 shape = RoundedCornerShape(24.dp),
                 colors = TextFieldDefaults.colors(
-                    focusedIndicatorColor = Color.Transparent,
+                    focusedIndicatorColor   = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor = Color.Transparent,
-                    errorIndicatorColor = Color.Transparent,
-                    focusedContainerColor = if (isSendEnabled) surfaceColor else disabledContainerColor,
+                    disabledIndicatorColor  = Color.Transparent,
+                    errorIndicatorColor     = Color.Transparent,
+                    focusedContainerColor   = if (isSendEnabled) surfaceColor else disabledContainerColor,
                     unfocusedContainerColor = if (isSendEnabled) surfaceColor else disabledContainerColor,
-                    disabledContainerColor = disabledContainerColor,
-                    cursorColor = if (isSendEnabled) PrimaryColor else disabledCursorColor,
-                    focusedTextColor = textColor,
-                    unfocusedTextColor = textColor
+                    disabledContainerColor  = disabledContainerColor,
+                    cursorColor             = cursorColor,
+                    focusedTextColor        = if (isDarkTheme) TextColorLight else TextColorDark,
+                    unfocusedTextColor      = if (isDarkTheme) TextColorLight else TextColorDark
                 ),
-                enabled = isSendEnabled,
+                enabled  = isSendEnabled,
                 maxLines = if (isExpanded) 8 else 3
             )
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (showExpandButton) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSendEnabled)
-                                    if (isDarkTheme) Color.Gray.copy(alpha = 0.3f) else Color.LightGray.copy(alpha = 0.2f)
-                                else
-                                    if (isDarkTheme) PrimaryColor.copy(alpha = 0.25f) else PrimaryColor.copy(alpha = 0.15f)
-                            )
-                            .clickable(enabled = isSendEnabled) { isExpanded = !isExpanded },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isExpanded) {
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = "Contrair campo de texto",
-                                tint = if (isSendEnabled) PrimaryColor else PrimaryColor.copy(alpha = 0.6f),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowUp,
-                                contentDescription = "Expandir campo de texto",
-                                tint = if (isSendEnabled) PrimaryColor else PrimaryColor.copy(alpha = 0.6f),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                }
-
+            val lineCount = if (message.isBlank()) 1 else message.count { it == '\n' } + 1
+            val showExpand = lineCount >= 2 || message.length > 80
+            if (showExpand) {
+                val icon = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp
                 Box(
                     modifier = Modifier
-                        .padding(bottom = 2.dp)
-                        .size(48.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
                         .background(
-                            if (!isSendEnabled)
-                                PrimaryColor.copy(alpha = if (isDarkTheme) 0.5f else 0.4f)
-                            else if (message.isNotBlank())
-                                PrimaryColor
-                            else
-                                PrimaryColor.copy(alpha = if (isDarkTheme) 0.6f else 0.5f)
+                            if (isSendEnabled) Color.Gray.copy(alpha = 0.3f)
+                            else PrimaryColor.copy(alpha = 0.25f)
                         )
-                        .clickable(enabled = message.isNotBlank() && isSendEnabled) {
-                            onSendClick()
-                        },
+                        .clickable(enabled = isSendEnabled) { isExpanded = !isExpanded },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = "Enviar",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp))
                 }
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+
+            SimpleVoiceInputButton(
+                onTextResult     = { text -> onMessageChange(text); viewModel.handleVoiceInput(text) },
+                isListening      = isListening,
+                onStartListening = { viewModel.startListening() },
+                onStopListening  = { viewModel.stopListening() },
+                isSendEnabled    = isSendEnabled,
+                isDarkTheme      = isDarkTheme
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(
+                        when {
+                            !isSendEnabled       -> PrimaryColor.copy(alpha = if (isDarkTheme) 0.5f else 0.4f)
+                            message.isNotBlank() -> PrimaryColor
+                            else                 -> PrimaryColor.copy(alpha = if (isDarkTheme) 0.6f else 0.5f)
+                        }
+                    )
+                    .clickable(enabled = message.isNotBlank() && isSendEnabled) { onSendClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = Color.White
+                )
             }
         }
     }

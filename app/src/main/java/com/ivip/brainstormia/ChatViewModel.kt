@@ -62,7 +62,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             displayName = "Gemini 2.0 Flash",
             apiEndpoint = "gemini-2.0-flash"
         )
-    )                                                                                         
+    )
 
     // Estado do modelo selecionado (default: Gemini 2.5 Pro)
     private val _selectedModel = MutableStateFlow(availableModels[1])
@@ -73,6 +73,30 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    // Estados para gerenciar o reconhecimento de voz
+    private val _isListening = MutableStateFlow(false)
+    val isListening: StateFlow<Boolean> = _isListening.asStateFlow()
+
+    fun startListening() {
+        _isListening.value = true
+        // Timeout para parar de ouvir após 30 segundos
+        viewModelScope.launch {
+            delay(30000)
+            stopListening()
+        }
+    }
+
+    fun stopListening() {
+        _isListening.value = false
+    }
+
+    // Método para lidar com o resultado do reconhecimento de voz
+    fun handleVoiceInput(text: String) {
+        stopListening()
+        // O texto reconhecido será enviado como uma mensagem normal
+        // Você pode processá-lo aqui antes de enviá-lo para o serviço
+    }
 
     // Método para atualizar o modelo selecionado
     fun selectModel(model: AIModel) {

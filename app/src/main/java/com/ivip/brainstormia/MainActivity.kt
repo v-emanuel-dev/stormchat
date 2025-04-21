@@ -1,6 +1,11 @@
 package com.ivip.brainstormia
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.speech.SpeechRecognizer
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
@@ -10,6 +15,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -22,6 +28,29 @@ import com.ivip.brainstormia.navigation.Routes
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Configurar handler para exceções não capturadas
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            Log.e("UncaughtException", "Thread: ${thread.name}", throwable)
+            throwable.printStackTrace()
+        }
+
+        // Verificar se o reconhecimento de voz está disponível
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            Log.e("MainActivity", "Reconhecimento de voz não disponível neste dispositivo")
+            Toast.makeText(this, "Reconhecimento de voz não disponível", Toast.LENGTH_LONG).show()
+        } else {
+            Log.d("MainActivity", "Reconhecimento de voz disponível")
+        }
+
+        // Verificar permissão de áudio
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
+            Log.w("MainActivity", "Permissão de áudio não concedida")
+        } else {
+            Log.d("MainActivity", "Permissão de áudio concedida")
+        }
+
         installSplashScreen()
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
@@ -74,5 +103,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        // Log para debug
+        Log.d("MainActivity", "onDestroy chamado")
     }
 }
