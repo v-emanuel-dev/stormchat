@@ -61,6 +61,21 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // Adicionar bloco de packaging para resolver conflitos META-INF
+    packaging {
+        resources {
+            excludes.add("META-INF/DEPENDENCIES")
+            excludes.add("META-INF/LICENSE")
+            excludes.add("META-INF/LICENSE.txt")
+            excludes.add("META-INF/license.txt")
+            excludes.add("META-INF/NOTICE")
+            excludes.add("META-INF/NOTICE.txt")
+            excludes.add("META-INF/notice.txt")
+            excludes.add("META-INF/ASL2.0")
+            excludes.add("META-INF/*.kotlin_module")
+        }
+    }
 }
 
 dependencies {
@@ -100,4 +115,19 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation(libs.androidx.core.splashscreen)
     implementation("com.github.jeziellago:compose-markdown:0.5.0")
+
+    // Google Drive API - Ajustado para evitar conflitos
+    implementation("com.google.android.gms:play-services-auth:20.7.0")
+    implementation("com.google.api-client:google-api-client-android:2.2.0") {
+        exclude(group = "org.apache.httpcomponents", module = "httpclient")
+    }
+    implementation("com.google.apis:google-api-services-drive:v3-rev20230822-2.0.0")
+    implementation("com.google.auth:google-auth-library-oauth2-http:1.20.0")
+    implementation("com.google.http-client:google-http-client-gson:1.43.3")
+
+    // Forçar uma única versão do HTTP Client
+    implementation("org.apache.httpcomponents:httpclient:4.5.14") {
+        exclude(group = "org.apache.httpcomponents", module = "httpcore")
+    }
+    implementation("org.apache.httpcomponents:httpcore:4.4.16")
 }

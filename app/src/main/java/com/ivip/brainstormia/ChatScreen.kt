@@ -16,9 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -29,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -38,6 +37,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ivip.brainstormia.components.ExportDialog
 import com.ivip.brainstormia.components.ModelSelectionDropdown
 import com.ivip.brainstormia.theme.*
 import kotlinx.coroutines.delay
@@ -150,8 +150,13 @@ fun ChatScreen(
     onLogout: () -> Unit = {},
     chatViewModel: ChatViewModel = viewModel(),
     authViewModel: AuthViewModel = viewModel(),
+    exportViewModel: ExportViewModel = viewModel(), // Novo parâmetro
     isDarkTheme: Boolean = true
 ) {
+    // Definir cores do tema dentro do Composable
+    val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
+    val textColor = if (isDarkTheme) TextColorLight else TextColorDark
+
     val messages by chatViewModel.messages.collectAsState()
     val conversationDisplayList by chatViewModel.conversationListForDrawer.collectAsState()
     val currentConversationId by chatViewModel.currentConversationId.collectAsState()
@@ -161,24 +166,34 @@ fun ChatScreen(
     val logoutEvent by authViewModel.logoutEvent.collectAsState()
     val selectedModel by chatViewModel.selectedModel.collectAsState()
 
-    // Cores específicas para o tema
-    val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
-    val textColor = if (isDarkTheme) TextColorLight else TextColorDark
+    // Estado de exportação
+    val exportState by exportViewModel.exportState.collectAsState()
 
     var userMessage by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val uriHandler = LocalUriHandler.current
 
     var conversationIdToRename by remember { mutableStateOf<Long?>(null) }
     var currentTitleForDialog by remember { mutableStateOf<String?>(null) }
     var showDeleteConfirmationDialog by remember { mutableStateOf<Long?>(null) }
+    var conversationIdToExport by remember { mutableStateOf<Long?>(null) } // Novo estado
+    var exportDialogTitle by remember { mutableStateOf("") } // Novo estado
 
     LaunchedEffect(logoutEvent) {
         if (logoutEvent) {
             userMessage = ""
             chatViewModel.handleLogout()
             Log.d("ChatScreen", "Tela e menu lateral limpos após logout")
+        }
+    }
+
+    LaunchedEffect(exportState) {
+        if (exportState is ExportState.Success) {
+            // Forçar atualização da lista de conversas após exportação bem-sucedida
+            delay(500) // Pequeno atraso para garantir que o banco de dados atualizou
+            chatViewModel.refreshConversationList()
         }
     }
 
@@ -191,6 +206,20 @@ fun ChatScreen(
                 currentTitleForDialog = chatViewModel.getDisplayTitle(id)
             } catch (e: Exception) {
                 Log.e("ChatScreen", "Error fetching title for rename dialog", e)
+            }
+        }
+    }
+
+    // Novo efeito para buscar o título da conversa a ser exportada
+    LaunchedEffect(conversationIdToExport) {
+        val id = conversationIdToExport
+        if (id != null && id != NEW_CONVERSATION_ID) {
+            try {
+                exportDialogTitle = chatViewModel.getDisplayTitle(id)
+                Log.d("ChatScreen", "Preparando para exportar conversa: $exportDialogTitle (ID: $id)")
+            } catch (e: Exception) {
+                Log.e("ChatScreen", "Erro ao buscar título para exportação", e)
+                conversationIdToExport = null
             }
         }
     }
@@ -226,6 +255,10 @@ fun ChatScreen(
                 onRenameConversationRequest = { conversationId ->
                     Log.d("ChatScreen", "Rename requested for $conversationId. Setting state.")
                     conversationIdToRename = conversationId
+                },
+                onExportConversationRequest = { conversationId -> // Novo callback
+                    exportViewModel.resetExportState()
+                    conversationIdToExport = conversationId
                 },
                 isDarkTheme = isDarkTheme
             )
@@ -277,6 +310,23 @@ fun ChatScreen(
                                 }
                             },
                             actions = {
+                                // Botão de exportação para a conversa atual
+                                if (currentConversationId != null && currentConversationId != NEW_CONVERSATION_ID) {
+                                    IconButton(
+                                        onClick = {
+                                            exportViewModel.resetExportState()
+                                            conversationIdToExport = currentConversationId
+                                        }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudUpload,
+                                            contentDescription = "Exportar conversa",
+                                            tint = Color.White
+                                        )
+                                    }
+                                }
+
+                                // Botão de login/logout existente
                                 IconButton(
                                     onClick = {
                                         if (currentUser != null) {
@@ -394,6 +444,7 @@ fun ChatScreen(
             }
         }
 
+        // Diálogo de exclusão de conversa (existente)
         showDeleteConfirmationDialog?.let { conversationIdToDelete ->
             AlertDialog(
                 onDismissRequest = { showDeleteConfirmationDialog = null },
@@ -440,6 +491,7 @@ fun ChatScreen(
             )
         }
 
+        // Diálogo de renomear conversa (existente)
         conversationIdToRename?.let { id ->
             if (currentTitleForDialog != null) {
                 RenameConversationDialog(
@@ -455,6 +507,30 @@ fun ChatScreen(
                     isDarkTheme = isDarkTheme
                 )
             }
+        }
+
+        // Diálogo de exportação (novo)
+        conversationIdToExport?.let { convId ->
+            ExportDialog(
+                conversationTitle = exportDialogTitle,
+                exportState = exportState,
+                onExportConfirm = {
+                    exportViewModel.exportConversation(
+                        conversationId = convId,
+                        title = exportDialogTitle,
+                        messages = messages
+                    )
+                },
+                onDismiss = {
+                    if (exportState !is ExportState.Loading) {
+                        conversationIdToExport = null
+                        if (exportState is ExportState.Success) {
+                            exportViewModel.resetExportState()
+                        }
+                    }
+                },
+                isDarkTheme = isDarkTheme
+            )
         }
     }
 

@@ -1,35 +1,31 @@
 package com.ivip.brainstormia
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.unit.sp
+import com.example.brainstormia.ConversationType
 import com.ivip.brainstormia.theme.*
-
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun AppDrawerContent(
@@ -39,307 +35,199 @@ fun AppDrawerContent(
     onNewChatClick: () -> Unit,
     onDeleteConversationRequest: (Long) -> Unit,
     onRenameConversationRequest: (Long) -> Unit,
-    isDarkTheme: Boolean = true
+    onExportConversationRequest: (Long) -> Unit,
+    isDarkTheme: Boolean
 ) {
-    val surfaceColor = if (isDarkTheme) SurfaceColorDark else SurfaceColor
-    val secondaryTextColor = if (isDarkTheme) TextColorLight.copy(alpha = 0.7f) else Color.DarkGray
-    val dividerColor = if (isDarkTheme) Color.White.copy(alpha = 0.2f) else Color.LightGray.copy(alpha = 0.5f)
+    val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
+    val textColor = if (isDarkTheme) TextColorLight else TextColorDark
+    val drawerItemColor = if (isDarkTheme) SurfaceColorDark else SurfaceColor
+    val selectedItemColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.2f) else PrimaryColor.copy(alpha = 0.1f)
 
-    Surface(
+    Column(
         modifier = Modifier
             .fillMaxHeight()
-            .width(280.dp),
-        color = surfaceColor
+            .width(300.dp)
+            .background(backgroundColor)
+            .padding(top = 16.dp, bottom = 16.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(vertical = 16.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(PrimaryColor.copy(alpha = if (isDarkTheme) 0.2f else 0.1f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_bolt_foreground),
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Text(
-                        text = stringResource(id = R.string.app_name),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Divider(
-                modifier = Modifier.fillMaxWidth(),
-                thickness = 1.dp,
-                color = dividerColor
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            NewChatButton(
-                onClick = onNewChatClick,
-                isSelected = currentConversationId == null || currentConversationId == NEW_CONVERSATION_ID,
-                isDarkTheme = isDarkTheme
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (conversationDisplayItems.isNotEmpty()) {
-                Text(
-                    text = "Suas conversas",
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    color = Color.White,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(vertical = 8.dp)
-                ) {
-                    items(conversationDisplayItems) { item ->
-                        ConversationItem(
-                            item = item,
-                            isSelected = currentConversationId == item.id,
-                            onClick = { onConversationClick(item.id) },
-                            onRenameClick = { onRenameConversationRequest(item.id) },
-                            onDeleteClick = { onDeleteConversationRequest(item.id) },
-                            isDarkTheme = isDarkTheme
-                        )
-                    }
-                }
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Nenhuma conversa salva",
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.Medium
-                            ),
-                            color = secondaryTextColor,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Suas conversas aparecerão aqui",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = secondaryTextColor.copy(alpha = 0.8f),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Versão 1.0",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontWeight = FontWeight.Medium
-                    ),
-                    color = secondaryTextColor
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun NewChatButton(
-    onClick: () -> Unit,
-    isSelected: Boolean,
-    isDarkTheme: Boolean = true
-) {
-    val selectedBgColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.25f) else PrimaryColor.copy(alpha = 0.15f)
-    val unselectedBgColor = if (isDarkTheme) Color.Transparent else Color.Transparent
-    val textSelectedColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.9f) else PrimaryColor
-    val textUnselectedColor = if (isDarkTheme) Color.White else Color.Black // Alterado de TextColorLight para White
-
-    val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) selectedBgColor else unselectedBgColor,
-        animationSpec = tween(durationMillis = 200),
-        label = "backgroundColor"
-    )
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = backgroundColor
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 0.dp
+        // Header
+        Text(
+            text = "Conversas",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = textColor,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
         )
-    ) {
-        Row(
+
+        // Nova conversa button
+        Button(
+            onClick = onNewChatClick,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = PrimaryColor
+            ),
+            shape = RoundedCornerShape(12.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(PrimaryColor),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Nova conversa",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Nova conversa",
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "Nova conversa",
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = if (isSelected) textSelectedColor else textUnselectedColor
+                fontWeight = FontWeight.SemiBold
             )
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Divider(
+            color = if (isDarkTheme) Color.DarkGray.copy(alpha = 0.5f) else Color.LightGray.copy(alpha = 0.7f),
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Lista de conversas - Adicionamos uma key para forçar recomposição
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            state = rememberLazyListState() // Adicionar um estado explícito
+        ) {
+            // Em vez de usar key(), usamos items com o parâmetro key
+            items(
+                items = conversationDisplayItems.sortedByDescending { it.lastTimestamp },
+                key = { it.id } // Garantir que cada item tenha uma chave única
+            ) { item ->
+                val isSelected = item.id == currentConversationId
+                val itemBackgroundColor = if (isSelected) selectedItemColor else Color.Transparent
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(itemBackgroundColor)
+                                .clickable { onConversationClick(item.id) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Ícone com cor baseada no tipo de conversa
+                            val (iconVector, iconTint) = getConversationIcon(item.conversationType, isDarkTheme)
+                            Icon(
+                                imageVector = iconVector,
+                                contentDescription = null,
+                                tint = iconTint,
+                                modifier = Modifier.size(22.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = item.displayTitle,
+                                    color = textColor,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    fontSize = 15.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                Text(
+                                    text = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
+                                        .format(Date(item.lastTimestamp)),
+                                    color = textColor.copy(alpha = 0.6f),
+                                    fontSize = 12.sp
+                                )
+                            }
+
+                            // Ações em um espaço mais compacto
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp) // Diminuir espaçamento
+                            ) {
+                                // Ícones menores e mais compactos
+                                IconButton(
+                                    onClick = { onRenameConversationRequest(item.id) },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Renomear conversa",
+                                        tint = iconTint,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = { onExportConversationRequest(item.id) },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Upload,
+                                        contentDescription = "Exportar conversa",
+                                        tint = iconTint,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = { onDeleteConversationRequest(item.id) },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Excluir conversa",
+                                        tint = iconTint,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+// Função para determinar o ícone baseado no tipo de conversa
+@Composable
+private fun getConversationIcon(type: ConversationType, isDarkTheme: Boolean): Pair<ImageVector, Color> {
+    return when (type) {
+        ConversationType.GENERAL -> Pair(
+            Icons.Default.Chat,
+            if (isDarkTheme) Color(0xFF90CAF9) else Color(0xFF1976D2)
+        )
+        ConversationType.PERSONAL -> Pair(
+            Icons.Default.Person,
+            if (isDarkTheme) Color(0xFFFFCC80) else Color(0xFFEF6C00)
+        )
+        ConversationType.EMOTIONAL -> Pair(
+            Icons.Default.Favorite,
+            if (isDarkTheme) Color(0xFFEF9A9A) else Color(0xFFD32F2F)
+        )
+        ConversationType.THERAPEUTIC -> Pair(
+            Icons.Default.Healing,
+            if (isDarkTheme) Color(0xFFA5D6A7) else Color(0xFF388E3C)
+        )
+        ConversationType.HIGHLIGHTED -> Pair(
+            Icons.Default.StarRate,
+            if (isDarkTheme) Color(0xFFFFE082) else Color(0xFFFFC107)
+        )
     }
 }
 
-@Composable
-fun ConversationItem(
-    item: ConversationDisplayItem,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    onRenameClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    isDarkTheme: Boolean = true
-) {
-    val textColor = if (isDarkTheme) TextColorLight else TextColorDark
-    val selectedBgColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.25f) else PrimaryColor.copy(alpha = 0.15f)
-    val unselectedBgColor = if (isDarkTheme) Color.Transparent else Color.Transparent
-    val textSelectedColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.9f) else PrimaryColor
-    val textUnselectedColor = if (isDarkTheme) TextColorLight else Color.Black
-    val iconTintColor = if (isDarkTheme) Color.LightGray else Color.DarkGray
-
-    val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) selectedBgColor else unselectedBgColor,
-        animationSpec = tween(durationMillis = 200),
-        label = "backgroundColor"
-    )
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = backgroundColor
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 0.dp
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(SecondaryColor),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = item.displayTitle.firstOrNull()?.uppercase() ?: "C",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Text(
-                text = item.displayTitle,
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (isSelected) textSelectedColor else textUnselectedColor,
-                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-
-            Row {
-                IconButton(
-                    onClick = { onRenameClick() },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Renomear",
-                        tint = iconTintColor,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = { onDeleteClick() },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Excluir",
-                        tint = iconTintColor,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
-    }
+// Extensão para aplicar alpha à cor
+private fun Modifier.alpha(alpha: Float): Modifier {
+    return this.graphicsLayer(alpha = alpha)
 }

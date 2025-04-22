@@ -280,6 +280,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     Ser um facilitador virtual que estimula a criatividade, inovação e resolução de problemas, ajudando o usuário a desenvolver suas ideias e projetos com maior potencial e originalidade.
     """.trimIndent()
 
+    fun handleLogin() {
+        _showConversations.value = true
+
+        // Forçar recarga de conversas com um pequeno atraso
+        viewModelScope.launch {
+            delay(300) // Dar tempo para a autenticação ser completamente processada
+            val currentUserId = _userIdFlow.value
+            _userIdFlow.value = "" // Resetar temporariamente
+            delay(50)
+            _userIdFlow.value = currentUserId // Redefinir para forçar recarga
+            Log.d("ChatViewModel", "Recarregando conversas após login, userId: $currentUserId")
+        }
+    }
+
+    fun setShowConversations(value: Boolean) {
+        _showConversations.value = value
+    }
+
     fun handleLogout() {
         startNewConversation()
         _clearConversationListEvent.value = true
@@ -290,8 +308,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun handleLogin() {
-        _showConversations.value = true
+    fun refreshConversationList() {
+        viewModelScope.launch {
+            // Emitir um evento temporário para forçar atualização da lista
+            _clearConversationListEvent.value = true
+            delay(100)
+            _clearConversationListEvent.value = false
+
+            // Podemos também forçar explicitamente uma recarga das conversas
+            // Se você já tem um mecanismo para isso, use-o em vez de criar um novo
+            // Por exemplo, podemos reemitir o userId atual:
+            val currentUserId = _userIdFlow.value
+            _userIdFlow.value = ""
+            delay(50)
+            _userIdFlow.value = currentUserId
+        }
     }
 
     private fun determineConversationType(title: String, id: Long): ConversationType {

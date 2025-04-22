@@ -34,6 +34,7 @@ fun RenameConversationDialog(
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
     val secondaryTextColor = if (isDarkTheme) TextColorLight.copy(alpha = 0.7f) else Color.DarkGray
     val unfocusedBorderColor = if (isDarkTheme) Color.Gray.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.5f)
+    val buttonTextColor = TextColorLight // Sempre branco para melhor visibilidade
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -88,23 +89,28 @@ fun RenameConversationDialog(
                 },
                 enabled = newTitle.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryColor
+                    containerColor = PrimaryColor,
+                    contentColor = buttonTextColor // Garantir texto branco no botão
                 ),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
                     "Salvar",
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    color = buttonTextColor // Garantir texto branco
                 )
             }
         },
         dismissButton = {
             TextButton(
-                onClick = onDismiss
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = buttonTextColor // Garantir texto branco no botão de cancelar
+                )
             ) {
                 Text(
                     "Cancelar",
-                    color = secondaryTextColor,
+                    color = buttonTextColor, // Usar sempre branco em vez de secondaryTextColor
                     fontWeight = FontWeight.Medium
                 )
             }
