@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,6 +29,7 @@ fun ExportDialog(
     onDismiss: () -> Unit,
     isDarkTheme: Boolean
 ) {
+    val exportGreenColor = Color(0xFF4CAF50) // Material Design green
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
     val buttonTextColor = TextColorLight // Sempre branco para melhor visibilidade
     val context = LocalContext.current
@@ -94,6 +96,7 @@ fun ExportDialog(
                     is ExportState.Loading -> {
                         // Mostrar indicador de carregamento
                         CircularProgressIndicator(
+                            color = exportGreenColor, // Green spinner
                             modifier = Modifier.size(48.dp)
                         )
 
@@ -107,10 +110,11 @@ fun ExportDialog(
 
                     is ExportState.Success -> {
                         // Mostrar mensagem de sucesso e link para o arquivo
+
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = exportGreenColor, // Green checkmark
                             modifier = Modifier.size(48.dp)
                         )
 
@@ -153,7 +157,7 @@ fun ExportDialog(
                         TextButton(
                             onClick = onDismiss,
                             colors = ButtonDefaults.textButtonColors(
-                                contentColor = buttonTextColor
+                                contentColor = exportGreenColor
                             )
                         ) {
                             Text(

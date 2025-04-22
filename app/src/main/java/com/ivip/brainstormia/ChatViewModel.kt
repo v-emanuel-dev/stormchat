@@ -142,7 +142,32 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         auth.addAuthStateListener { firebaseAuth ->
-            _userIdFlow.value = getCurrentUserId()
+            val newUser = firebaseAuth.currentUser
+            val newUserId = newUser?.uid ?: "local_user"
+            val previousUserId = _userIdFlow.value
+
+            Log.d("ChatViewModel", "Auth state changed: $previousUserId -> $newUserId")
+
+            if (newUserId != previousUserId) {
+                viewModelScope.launch {
+                    if (newUser != null) {
+                        // User logged in
+                        Log.d("ChatViewModel", "User logged in: $newUserId")
+                        _userIdFlow.value = newUserId
+                        _showConversations.value = true
+
+                        // Try to load conversations with delay
+                        delay(300)
+                        forceLoadConversationsAfterLogin()
+                    } else {
+                        // User logged out
+                        Log.d("ChatViewModel", "User logged out")
+                        _userIdFlow.value = "local_user"
+                        _showConversations.value = false
+                        _currentConversationId.value = NEW_CONVERSATION_ID
+                    }
+                }
+            }
         }
         loadInitialConversationOrStartNew()
         viewModelScope.launch {
@@ -164,12 +189,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val rawConversationsFlow: Flow<List<ConversationInfo>> =
         _userIdFlow.flatMapLatest { uid ->
-            chatDao.getConversationsForUser(uid)
-                .catch { e ->
-                    Log.e("ChatViewModel", "Error loading raw conversations flow", e)
-                    _errorMessage.value = "Erro ao carregar lista de conversas (raw)."
-                    emit(emptyList())
-                }
+            Log.d("ChatViewModel", "Initializing rawConversationsFlow for user: $uid")
+            if (uid.isBlank()) {
+                Log.w("ChatViewModel", "Empty user ID in rawConversationsFlow, emitting empty list")
+                flowOf(emptyList())
+            } else {
+                chatDao.getConversationsForUser(uid)
+                    .onStart {
+                        Log.d("ChatViewModel", "Starting to collect conversations for user: $uid")
+                    }
+                    .onEmpty {
+                        Log.d("ChatViewModel", "No conversations found for user: $uid")
+                    }
+                    .catch { e ->
+                        Log.e("ChatViewModel", "Error loading raw conversations flow for user: $uid", e)
+                        _errorMessage.value = "Erro ao carregar lista de conversas (raw)."
+                        emit(emptyList())
+                    }
+            }
         }
 
     private val metadataFlow: Flow<List<ConversationMetadataEntity>> =
@@ -281,21 +318,99 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     """.trimIndent()
 
     fun handleLogin() {
+        Log.d("ChatViewModel", "handleLogin() called - user=${_userIdFlow.value}")
+
+        // Make sure conversations are visible
         _showConversations.value = true
 
-        // Forçar recarga de conversas com um pequeno atraso
+        // Force reload of conversations with multiple attempts
         viewModelScope.launch {
-            delay(300) // Dar tempo para a autenticação ser completamente processada
-            val currentUserId = _userIdFlow.value
-            _userIdFlow.value = "" // Resetar temporariamente
+            // First attempt
+            val currentUserId = getCurrentUserId()
+            Log.d("ChatViewModel", "handleLogin: reloading conversations for user $currentUserId")
+
+            // Reset the flow to force recomposition
+            _userIdFlow.value = ""
             delay(50)
-            _userIdFlow.value = currentUserId // Redefinir para forçar recarga
-            Log.d("ChatViewModel", "Recarregando conversas após login, userId: $currentUserId")
+            _userIdFlow.value = currentUserId
+
+            // Check after a short delay if conversations loaded
+            delay(500)
+            if (conversationListForDrawer.value.isEmpty() && auth.currentUser != null) {
+                Log.w("ChatViewModel", "First attempt failed, trying second refresh")
+
+                // Second attempt with longer delay
+                refreshConversationList()
+
+                // One final check with longer delay
+                delay(1000)
+                if (conversationListForDrawer.value.isEmpty() && auth.currentUser != null) {
+                    Log.w("ChatViewModel", "Second attempt failed, forcing DB query")
+
+                    // Last resort - direct DB query
+                    try {
+                        val userId = getCurrentUserId()
+                        val conversations = withContext(Dispatchers.IO) {
+                            chatDao.getConversationsForUser(userId).first()
+                        }
+                        Log.d("ChatViewModel", "Direct DB query found ${conversations.size} conversations")
+
+                        // Force one more refresh
+                        _userIdFlow.value = ""
+                        delay(50)
+                        _userIdFlow.value = userId
+                    } catch (e: Exception) {
+                        Log.e("ChatViewModel", "Error in direct DB query", e)
+                    }
+                }
+            }
         }
     }
 
-    fun setShowConversations(value: Boolean) {
-        _showConversations.value = value
+    // Add this method to ChatViewModel
+    fun forceLoadConversationsAfterLogin() {
+        viewModelScope.launch {
+            Log.d("ChatViewModel", "Force loading conversations after login")
+
+            // Ensure we're showing conversations
+            _showConversations.value = true
+
+            // Make sure we have the correct user ID
+            val userId = FirebaseAuth.getInstance().currentUser?.uid
+            if (userId == null) {
+                Log.e("ChatViewModel", "Cannot load conversations - no user ID available")
+                return@launch
+            }
+
+            // Force update user ID
+            _userIdFlow.value = userId
+
+            // Try to directly query the database
+            try {
+                // Use IO dispatcher for database operations
+                withContext(Dispatchers.IO) {
+                    val conversations = chatDao.getConversationsForUser(userId).first()
+                    Log.d("ChatViewModel", "Direct query found ${conversations.size} conversations for user $userId")
+
+                    // If we have conversations, select the first one or start new
+                    if (conversations.isNotEmpty()) {
+                        val firstConvId = conversations.first().id
+                        withContext(Dispatchers.Main) {
+                            _currentConversationId.value = firstConvId
+                            Log.d("ChatViewModel", "Selected conversation $firstConvId")
+                        }
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            _currentConversationId.value = NEW_CONVERSATION_ID
+                            Log.d("ChatViewModel", "No conversations found, starting new")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error directly querying conversations", e)
+                _errorMessage.value = "Error loading conversations: ${e.localizedMessage}"
+            }
+        }
     }
 
     fun handleLogout() {
@@ -310,18 +425,35 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun refreshConversationList() {
         viewModelScope.launch {
-            // Emitir um evento temporário para forçar atualização da lista
+            Log.d("ChatViewModel", "Explicitly refreshing conversation list")
+
+            // Clear and reset events
             _clearConversationListEvent.value = true
             delay(100)
             _clearConversationListEvent.value = false
 
-            // Podemos também forçar explicitamente uma recarga das conversas
-            // Se você já tem um mecanismo para isso, use-o em vez de criar um novo
-            // Por exemplo, podemos reemitir o userId atual:
-            val currentUserId = _userIdFlow.value
+            // Force reload by updating user ID flow
+            val currentUserId = getCurrentUserId()
             _userIdFlow.value = ""
             delay(50)
             _userIdFlow.value = currentUserId
+
+            // Log the current state
+            Log.d("ChatViewModel", "Refreshed conversation list for user ${_userIdFlow.value}")
+        }
+    }
+
+    fun clearState() {
+        Log.d("ChatViewModel", "Limpando estado antes do login")
+        _currentConversationId.value = NEW_CONVERSATION_ID
+        _showConversations.value = false
+
+        // Force reload of user ID to clear conversation list indirectly
+        val currentId = _userIdFlow.value
+        _userIdFlow.value = ""
+        viewModelScope.launch {
+            delay(50)
+            _userIdFlow.value = currentId
         }
     }
 

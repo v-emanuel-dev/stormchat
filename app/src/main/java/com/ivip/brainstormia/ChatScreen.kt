@@ -148,9 +148,9 @@ fun MessageBubble(
 fun ChatScreen(
     onLogin: () -> Unit = {},
     onLogout: () -> Unit = {},
-    chatViewModel: ChatViewModel = viewModel(),
+    chatViewModel: ChatViewModel,  // Non-nullable parameter
     authViewModel: AuthViewModel = viewModel(),
-    exportViewModel: ExportViewModel = viewModel(), // Novo parâmetro
+    exportViewModel: ExportViewModel,  // Non-nullable parameter
     isDarkTheme: Boolean = true
 ) {
     // Definir cores do tema dentro do Composable
