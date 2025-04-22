@@ -2,12 +2,15 @@ package com.ivip.brainstormia.components
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.animation.AnimatedVisibility
+import android.util.Log
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,8 +19,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
+import androidx.core.net.toUri
 import com.ivip.brainstormia.ExportState
+import com.ivip.brainstormia.theme.SurfaceColor
+import com.ivip.brainstormia.theme.SurfaceColorDark
 import com.ivip.brainstormia.theme.TextColorDark
 import com.ivip.brainstormia.theme.TextColorLight
 
@@ -27,186 +32,172 @@ fun ExportDialog(
     exportState: ExportState,
     onExportConfirm: () -> Unit,
     onDismiss: () -> Unit,
-    isDarkTheme: Boolean
+    isDarkTheme: Boolean = true
 ) {
-    val exportGreenColor = Color(0xFF4CAF50) // Material Design green
-    val textColor = if (isDarkTheme) TextColorLight else TextColorDark
-    val buttonTextColor = TextColorLight // Sempre branco para melhor visibilidade
+    val exportGreenColor = Color(0xFF4CAF50)
     val context = LocalContext.current
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = if (isDarkTheme) MaterialTheme.colorScheme.surfaceVariant
-            else MaterialTheme.colorScheme.surface,
-            shadowElevation = 8.dp
-        ) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Exportar Conversa",
+                fontWeight = FontWeight.Bold,
+                color = if (isDarkTheme) TextColorLight else TextColorDark
+            )
+        },
+        text = {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    text = "Exportar Conversa",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Você está prestes a exportar a conversa \"$conversationTitle\" para o Google Drive.",
-                    color = textColor
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
                 when (exportState) {
-                    is ExportState.Idle -> {
-                        // Mostrar botões de confirmação e cancelamento
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            TextButton(
-                                onClick = onDismiss,
-                                colors = ButtonDefaults.textButtonColors(
-                                    contentColor = buttonTextColor
-                                )
-                            ) {
-                                Text(
-                                    text = "Cancelar",
-                                    color = buttonTextColor
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            Button(onClick = onExportConfirm) {
-                                Text(
-                                    text = "Exportar",
-                                    color = buttonTextColor
-                                )
-                            }
-                        }
+                    is ExportState.Initial -> {
+                        Text(
+                            text = "Deseja exportar esta conversa para o Google Drive?",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isDarkTheme) TextColorLight else TextColorDark
+                        )
+                        Text(
+                            text = "Título: $conversationTitle",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Normal,
+                            color = if (isDarkTheme) TextColorLight.copy(alpha = 0.8f) else TextColorDark.copy(alpha = 0.8f)
+                        )
                     }
-
                     is ExportState.Loading -> {
-                        // Mostrar indicador de carregamento
                         CircularProgressIndicator(
-                            color = exportGreenColor, // Green spinner
+                            color = exportGreenColor,
                             modifier = Modifier.size(48.dp)
                         )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
                         Text(
-                            text = "Exportando conversa...",
-                            color = textColor
+                            text = "Exportando...",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isDarkTheme) TextColorLight else TextColorDark
                         )
                     }
-
                     is ExportState.Success -> {
-                        // Mostrar mensagem de sucesso e link para o arquivo
-
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            tint = exportGreenColor, // Green checkmark
-                            modifier = Modifier.size(48.dp)
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Text(
-                            text = "Conversa exportada com sucesso!",
-                            color = textColor,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Button(
-                            onClick = {
-                                // Usar Intent explícito para abrir no app do Drive
+                        // Auto-open in Google Drive app when URL is ready
+                        LaunchedEffect(exportState.fileUrl) {
+                            exportState.fileUrl?.let { url ->
                                 try {
-                                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                                        setPackage("com.google.android.apps.docs") // Pacote do Google Drive
-                                        data = Uri.parse(exportState.webViewLink)
-                                        addCategory(Intent.CATEGORY_BROWSABLE)
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    }
+                                    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
+                                        .setPackage("com.google.android.apps.docs")
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                     context.startActivity(intent)
                                 } catch (e: Exception) {
-                                    // Fallback para navegador se o app Drive não estiver disponível
-                                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(exportState.webViewLink))
-                                    context.startActivity(browserIntent)
+                                    Log.e("ExportDialog", "Erro ao abrir no Drive: ${e.message}")
                                 }
                             }
-                        ) {
-                            Text(
-                                text = "Abrir no Google Drive",
-                                color = buttonTextColor
-                            )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = "Sucesso",
+                            tint = exportGreenColor,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            text = "Conversa exportada com sucesso!",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isDarkTheme) TextColorLight else TextColorDark
+                        )
 
-                        TextButton(
-                            onClick = onDismiss,
-                            colors = ButtonDefaults.textButtonColors(
-                                contentColor = exportGreenColor
-                            )
-                        ) {
-                            Text(
-                                text = "Fechar",
-                                color = buttonTextColor
-                            )
+                        exportState.fileUrl?.let { url ->
+                            OutlinedButton(
+                                onClick = {
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
+                                            .setPackage("com.google.android.apps.docs")
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Log.e("ExportDialog", "Erro ao abrir arquivo: ${e.message}")
+                                    }
+                                },
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = exportGreenColor
+                                ),
+                                border = BorderStroke(1.dp, exportGreenColor)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.OpenInNew,
+                                    contentDescription = null,
+                                    tint = exportGreenColor
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Abrir no Google Drive",
+                                    color = exportGreenColor
+                                )
+                            }
                         }
                     }
-
                     is ExportState.Error -> {
-                        // Mostrar mensagem de erro
                         Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
+                            imageVector = Icons.Default.Error,
+                            contentDescription = "Erro",
                             tint = MaterialTheme.colorScheme.error,
                             modifier = Modifier.size(48.dp)
                         )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
                         Text(
-                            text = "Erro na exportação",
-                            color = textColor,
-                            fontWeight = FontWeight.Bold
+                            text = "Erro ao exportar: ${exportState.message}",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isDarkTheme) TextColorLight else TextColorDark
                         )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = exportState.message,
-                            color = textColor
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Button(
-                            onClick = onDismiss,
-                            colors = ButtonDefaults.buttonColors(
-                                contentColor = buttonTextColor
-                            )
-                        ) {
-                            Text(
-                                text = "Fechar",
-                                color = buttonTextColor
-                            )
-                        }
                     }
                 }
             }
-        }
-    }
+        },
+        confirmButton = {
+            when (exportState) {
+                is ExportState.Initial -> {
+                    Button(
+                        onClick = onExportConfirm,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = exportGreenColor
+                        )
+                    ) {
+                        Text(
+                            text = "Exportar",
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+                is ExportState.Success, is ExportState.Error -> {
+                    TextButton(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = exportGreenColor
+                        )
+                    ) {
+                        Text(
+                            text = "OK",
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+                is ExportState.Loading -> {}
+            }
+        },
+        dismissButton = {
+            if (exportState is ExportState.Initial) {
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        text = "Cancelar",
+                        fontWeight = FontWeight.Medium,
+                        color = if (isDarkTheme) TextColorLight.copy(alpha = 0.8f) else Color.DarkGray
+                    )
+                }
+            }
+        },
+        shape = RoundedCornerShape(16.dp),
+        containerColor = if (isDarkTheme) SurfaceColorDark else SurfaceColor,
+        tonalElevation = if (isDarkTheme) 8.dp else 4.dp
+    )
 }
