@@ -96,15 +96,21 @@ fun MessageBubble(
                     defaultElevation = if (isDarkTheme) 4.dp else 2.dp
                 )
             ) {
-                SelectionContainer {
-                    Text(
-                        text = message.text,
-                        color = userTextColor,
-                        style = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = FontWeight.Medium
-                        ),
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                    )
+                // Usando um Box com cor de fundo diferente para facilitar a visualização da seleção
+                Box(
+                    modifier = Modifier
+                        .background(color = userBubbleColor)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    SelectionContainer {
+                        Text(
+                            text = message.text,
+                            color = userTextColor,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
                 }
             }
         } else {
@@ -117,9 +123,12 @@ fun MessageBubble(
                             animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
                         )
             ) {
+                // Usando um Box com cor de fundo ligeiramente diferente para destacar a seleção
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        // Alterando ligeiramente a cor de fundo do Box para tornar a seleção mais visível
+                        .background(if (isDarkTheme) Color(0xFF18222D) else Color(0xFFF5F5F5))
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     SelectionContainer {
@@ -156,6 +165,9 @@ fun ChatScreen(
     // Definir cores do tema dentro do Composable
     val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
+
+    // Definir a cor amarela para o ícone de raio
+    val raioBrandColor = Color(0xFFFFD700) // Cor amarela padrão
 
     val messages by chatViewModel.messages.collectAsState()
     val conversationDisplayList by chatViewModel.conversationListForDrawer.collectAsState()
@@ -289,7 +301,7 @@ fun ChatScreen(
                                     Icon(
                                         painter = painterResource(id = R.drawable.ic_bolt_foreground),
                                         contentDescription = null,
-                                        tint = Color.White,
+                                        tint = raioBrandColor, // Usando a cor amarela aqui
                                         modifier = Modifier.size(32.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -301,32 +313,34 @@ fun ChatScreen(
                                 }
                             },
                             navigationIcon = {
-                                IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
-                                    Icon(
-                                        Icons.Filled.Menu,
-                                        stringResource(R.string.open_drawer_description),
-                                        tint = Color.White
-                                    )
-                                }
-                            },
-                            actions = {
-                                // Botão de exportação para a conversa atual
-                                if (currentConversationId != null && currentConversationId != NEW_CONVERSATION_ID) {
-                                    IconButton(
-                                        onClick = {
-                                            exportViewModel.resetExportState()
-                                            conversationIdToExport = currentConversationId
-                                        }
-                                    ) {
+                                Row {
+                                    IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
                                         Icon(
-                                            imageVector = Icons.Default.CloudUpload,
-                                            contentDescription = "Exportar conversa",
+                                            Icons.Filled.Menu,
+                                            stringResource(R.string.open_drawer_description),
                                             tint = Color.White
                                         )
                                     }
-                                }
 
-                                // Botão de login/logout existente
+                                    // Botão de exportação movido para cá, ao lado do hambúrguer
+                                    if (currentConversationId != null && currentConversationId != NEW_CONVERSATION_ID) {
+                                        IconButton(
+                                            onClick = {
+                                                exportViewModel.resetExportState()
+                                                conversationIdToExport = currentConversationId
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.CloudUpload,
+                                                contentDescription = "Exportar conversa",
+                                                tint = Color.White
+                                            )
+                                        }
+                                    }
+                                }
+                            },
+                            actions = {
+                                // Botão de login/logout (mantido na direita)
                                 IconButton(
                                     onClick = {
                                         if (currentUser != null) {
@@ -337,8 +351,6 @@ fun ChatScreen(
                                     },
                                     modifier = Modifier
                                         .padding(end = 8.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
                                 ) {
                                     Icon(
                                         imageVector = if (currentUser != null) Icons.AutoMirrored.Filled.Logout else Icons.AutoMirrored.Filled.Login,
@@ -444,7 +456,8 @@ fun ChatScreen(
             }
         }
 
-        // Diálogo de exclusão de conversa (existente)
+        // O restante do código permanece inalterado
+        // Diálogos de exclusão, renomear e exportação
         showDeleteConfirmationDialog?.let { conversationIdToDelete ->
             AlertDialog(
                 onDismissRequest = { showDeleteConfirmationDialog = null },
