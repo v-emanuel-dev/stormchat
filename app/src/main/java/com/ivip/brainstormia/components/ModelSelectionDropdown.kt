@@ -1,5 +1,6 @@
 package com.ivip.brainstormia.components
 
+import androidx.compose.foundation.BorderStroke
 import com.ivip.brainstormia.data.models.AIModel
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -37,7 +38,8 @@ fun ModelSelectionDropdown(
             colors = CardDefaults.outlinedCardColors(
                 containerColor = Color.Transparent,
                 contentColor = textColor
-            )
+            ),
+            border = BorderStroke(1.dp, Color.White)
         ) {
             Row(
                 modifier = Modifier
@@ -64,7 +66,7 @@ fun ModelSelectionDropdown(
                         Text(
                             text = selectedModel.displayName,
                             style = MaterialTheme.typography.titleMedium,
-                            color = PrimaryColor,
+                            color = Color.White,
                             fontWeight = FontWeight.SemiBold
                         )
 

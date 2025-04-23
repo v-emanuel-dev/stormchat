@@ -63,18 +63,16 @@ fun MessageBubble(
         bottomEnd = 6.dp
     )
 
-    // Cores adaptadas para o tema
+    // Cores
     val userBubbleColor = BotBubbleColor
-    val userTextColor = Color.White
-    val botTextColor = if (isDarkTheme) TextColorLight else TextColorDark
-    val linkColor = if (isDarkTheme) Color(0xFFCCE9FF) else Color(0xFFB8E2FF)
+    val userTextColor   = Color.White
+    val botTextColor    = if (isDarkTheme) TextColorLight else TextColorDark
+    val linkColor       = if (isDarkTheme) Color(0xFFCCE9FF) else Color(0xFFB8E2FF)
 
     val visibleState = remember { MutableTransitionState(initialState = isUserMessage) }
 
     LaunchedEffect(message) {
-        if (!isUserMessage) {
-            visibleState.targetState = true
-        }
+        if (!isUserMessage) visibleState.targetState = true
     }
 
     Box(
@@ -84,27 +82,24 @@ fun MessageBubble(
         contentAlignment = if (isUserMessage) Alignment.CenterEnd else Alignment.CenterStart
     ) {
         if (isUserMessage) {
-            // Mensagem do usuário
+            // Bolha do usuário
             Card(
                 modifier = Modifier
                     .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.88f),
-                shape = userShape,
-                colors = CardDefaults.cardColors(
-                    containerColor = userBubbleColor
-                ),
+                shape  = userShape,
+                colors = CardDefaults.cardColors(containerColor = userBubbleColor),
                 elevation = CardDefaults.cardElevation(
                     defaultElevation = if (isDarkTheme) 4.dp else 2.dp
                 )
             ) {
-                // Usando um Box com cor de fundo diferente para facilitar a visualização da seleção
                 Box(
                     modifier = Modifier
-                        .background(color = userBubbleColor)
+                        .background(userBubbleColor) // mantém o fundo só na bolha do usuário
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     SelectionContainer {
                         Text(
-                            text = message.text,
+                            text  = message.text,
                             color = userTextColor,
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 fontWeight = FontWeight.Medium
@@ -114,36 +109,31 @@ fun MessageBubble(
                 }
             }
         } else {
-            // Mensagem do bot sem bolha
+            // Mensagem do bot — sem fundo sólido, apenas padding
             AnimatedVisibility(
                 visibleState = visibleState,
-                enter = fadeIn(animationSpec = tween(durationMillis = 300)) +
+                enter = fadeIn(animationSpec = tween(300)) +
                         slideInHorizontally(
                             initialOffsetX = { -40 },
-                            animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing)
+                            animationSpec = tween(400, easing = FastOutSlowInEasing)
                         )
             ) {
-                // Usando um Box com cor de fundo ligeiramente diferente para destacar a seleção
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        // Alterando ligeiramente a cor de fundo do Box para tornar a seleção mais visível
-                        .background(if (isDarkTheme) Color(0xFF18222D) else Color(0xFFF5F5F5))
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp) // nenhum background aqui
                 ) {
                     SelectionContainer {
                         MarkdownText(
-                            markdown = message.text,
-                            modifier = Modifier.fillMaxWidth(),
-                            color = botTextColor,
-                            linkColor = linkColor,
-                            fontSize = MaterialTheme.typography.bodyLarge.fontSize,
-                            textAlign = TextAlign.Start,
-                            maxLines = Int.MAX_VALUE,
+                            markdown   = message.text,
+                            modifier   = Modifier.fillMaxWidth(),
+                            color      = botTextColor,
+                            linkColor  = linkColor,
+                            fontSize   = MaterialTheme.typography.bodyLarge.fontSize,
+                            textAlign  = TextAlign.Start,
+                            maxLines   = Int.MAX_VALUE,
                             isTextSelectable = true,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                lineHeight = 24.sp
-                            )
+                            style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp)
                         )
                     }
                 }
