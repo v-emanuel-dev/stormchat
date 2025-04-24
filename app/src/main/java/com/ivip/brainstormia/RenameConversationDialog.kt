@@ -55,7 +55,7 @@ fun RenameConversationDialog(
                         Text(
                             "Novo nome",
                             fontWeight = FontWeight.Medium,
-                            color = secondaryTextColor
+                            color = if (isDarkTheme) Color.LightGray else Color.DarkGray
                         )
                     },
                     textStyle = TextStyle(

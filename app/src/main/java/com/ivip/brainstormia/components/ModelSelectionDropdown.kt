@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ivip.brainstormia.theme.PrimaryColor
+import com.ivip.brainstormia.theme.SurfaceColor
+import com.ivip.brainstormia.theme.SurfaceColorDark
 import com.ivip.brainstormia.theme.TextColorDark
 import com.ivip.brainstormia.theme.TextColorLight
 
@@ -26,7 +28,16 @@ fun ModelSelectionDropdown(
     isDarkTheme: Boolean = true
 ) {
     var expanded by remember { mutableStateOf(false) }
+
+    // Cores ajustadas para cada tema
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
+    val dropdownBackgroundColor = if (isDarkTheme) SurfaceColorDark else SurfaceColor
+    val dropdownTextColor = if (isDarkTheme) TextColorLight else TextColorDark // Importante: definir cor do texto do dropdown
+
+    // Cor da borda - azul para tema claro, cinza para tema escuro
+    val borderColor = if (isDarkTheme) Color.Gray.copy(alpha = 0.3f) else PrimaryColor.copy(alpha = 0.6f)
+    // Espessura da borda - mais grossa no tema claro
+    val borderWidth = if (isDarkTheme) 1.dp else 1.5.dp
 
     Box(
         modifier = Modifier
@@ -39,7 +50,7 @@ fun ModelSelectionDropdown(
                 containerColor = Color.Transparent,
                 contentColor = textColor
             ),
-            border = BorderStroke(1.dp, Color.White)
+            border = BorderStroke(borderWidth, borderColor)
         ) {
             Row(
                 modifier = Modifier
@@ -66,7 +77,7 @@ fun ModelSelectionDropdown(
                         Text(
                             text = selectedModel.displayName,
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color.White,
+                            color = textColor, // Use a cor de texto apropriada para o tema
                             fontWeight = FontWeight.SemiBold
                         )
 

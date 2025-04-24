@@ -2,6 +2,7 @@ package com.ivip.brainstormia
 
 import com.ivip.brainstormia.data.models.AIModel
 import android.app.Application
+import android.os.Bundle
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,6 +12,9 @@ import com.google.ai.client.generativeai.type.Content
 import com.google.ai.client.generativeai.type.GenerateContentResponse
 import com.google.ai.client.generativeai.type.RequestOptions
 import com.google.ai.client.generativeai.type.content
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.analytics
 import com.ivip.brainstormia.data.db.AppDatabase
 import com.ivip.brainstormia.data.db.ChatDao
 import com.ivip.brainstormia.data.db.ChatMessageEntity
@@ -18,6 +22,7 @@ import com.ivip.brainstormia.data.db.ConversationInfo
 import com.ivip.brainstormia.data.db.ConversationMetadataDao
 import com.ivip.brainstormia.data.db.ConversationMetadataEntity
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -140,7 +145,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _showConversations = MutableStateFlow(true)
     val showConversations: StateFlow<Boolean> = _showConversations.asStateFlow()
 
+    /* ─── Flag de prontidão ─────────────────────────────────────────────── */
+
+    // 1) flag interna mutável
+    private val _isReady = MutableStateFlow(false)
+
+    // 2) flag pública para quem observa do lado de fora
+    val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
+
     init {
+        // aguarda a criação da “nova conversa” ou qualquer tarefa
+        loadInitialConversationOrStartNew()
+        _isReady.value = true          // <- PRONTO ✔
         auth.addAuthStateListener { firebaseAuth ->
             val newUser = firebaseAuth.currentUser
             val newUserId = newUser?.uid ?: "local_user"
@@ -440,20 +456,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             // Log the current state
             Log.d("ChatViewModel", "Refreshed conversation list for user ${_userIdFlow.value}")
-        }
-    }
-
-    fun clearState() {
-        Log.d("ChatViewModel", "Limpando estado antes do login")
-        _currentConversationId.value = NEW_CONVERSATION_ID
-        _showConversations.value = false
-
-        // Force reload of user ID to clear conversation list indirectly
-        val currentId = _userIdFlow.value
-        _userIdFlow.value = ""
-        viewModelScope.launch {
-            delay(50)
-            _userIdFlow.value = currentId
         }
     }
 

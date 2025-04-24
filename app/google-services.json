@@ -14,11 +14,19 @@
       },
       "oauth_client": [
         {
-          "client_id": "323925147659-l59oj45dk4mblag37ifm67qek62r7kc6.apps.googleusercontent.com",
+          "client_id": "323925147659-g5t2jhihmchmh8lmc77vf4h89fd7p4db.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.ivip.brainstormia",
-            "certificate_hash": "f726439b292c522528ea17674f6f18484ff3b97c"
+            "certificate_hash": "d6f55c71d6d0df9ad7e4e0f9a9c74b431d774951"
+          }
+        },
+        {
+          "client_id": "323925147659-u7g6lj3cv2c9thacgbasvqrro9ld6bjo.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ivip.brainstormia",
+            "certificate_hash": "6a3d528ce567cc8dcb4e1e9f295d64facab19063"
           }
         },
         {

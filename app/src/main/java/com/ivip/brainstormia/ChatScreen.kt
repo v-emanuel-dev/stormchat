@@ -1,11 +1,38 @@
 package com.ivip.brainstormia
 
 import android.util.Log
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -16,17 +43,45 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -39,15 +94,18 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ivip.brainstormia.components.ExportDialog
 import com.ivip.brainstormia.components.ModelSelectionDropdown
-import com.ivip.brainstormia.theme.*
+import com.ivip.brainstormia.components.SimpleVoiceInputButton
+import com.ivip.brainstormia.theme.BackgroundColor
+import com.ivip.brainstormia.theme.BackgroundColorDark
+import com.ivip.brainstormia.theme.BotBubbleColor
+import com.ivip.brainstormia.theme.PrimaryColor
+import com.ivip.brainstormia.theme.SurfaceColor
+import com.ivip.brainstormia.theme.SurfaceColorDark
+import com.ivip.brainstormia.theme.TextColorDark
+import com.ivip.brainstormia.theme.TextColorLight
+import dev.jeziellago.compose.markdowntext.MarkdownText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import com.ivip.brainstormia.theme.BotBubbleColor
-import dev.jeziellago.compose.markdowntext.MarkdownText
-import androidx.compose.runtime.collectAsState
-import com.ivip.brainstormia.components.SimpleVoiceInputButton
-import androidx.compose.foundation.border
-import androidx.compose.ui.focus.onFocusChanged
 
 @Composable
 fun MessageBubble(
@@ -150,7 +208,8 @@ fun ChatScreen(
     chatViewModel: ChatViewModel,  // Non-nullable parameter
     authViewModel: AuthViewModel = viewModel(),
     exportViewModel: ExportViewModel,  // Non-nullable parameter
-    isDarkTheme: Boolean = true
+    isDarkTheme: Boolean = true,
+    onThemeChanged: (Boolean) -> Unit = {}  // Add this parameter with default value
 ) {
     // Definir cores do tema dentro do Composable
     val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
@@ -258,11 +317,12 @@ fun ChatScreen(
                     Log.d("ChatScreen", "Rename requested for $conversationId. Setting state.")
                     conversationIdToRename = conversationId
                 },
-                onExportConversationRequest = { conversationId -> // Novo callback
+                onExportConversationRequest = { conversationId ->
                     exportViewModel.resetExportState()
                     conversationIdToExport = conversationId
                 },
-                isDarkTheme = isDarkTheme
+                isDarkTheme = isDarkTheme,
+                onThemeChanged = onThemeChanged  // Add this
             )
         }
     ) {
@@ -360,7 +420,7 @@ fun ChatScreen(
                     bottomBar = {
                         MessageInput(
                             message = userMessage,
-                            onMessageChange = { userMessage = it },
+                            onMessageChange = { newText -> userMessage = newText },
                             onSendClick = {
                                 if (userMessage.isNotBlank()) {
                                     chatViewModel.sendMessage(userMessage)
@@ -369,7 +429,7 @@ fun ChatScreen(
                             },
                             isSendEnabled = !isLoading,
                             isDarkTheme = isDarkTheme,
-                            viewModel = chatViewModel  // Passar o viewModel para o MessageInput
+                            viewModel = chatViewModel
                         )
                     },
                     containerColor = backgroundColor,
@@ -570,7 +630,7 @@ fun MessageInput(
 
     // Cores do tema
     val backgroundColor        = if (isDarkTheme) BackgroundColorDark else BackgroundColor
-    val surfaceColor           = if (isDarkTheme) SurfaceColorDark   else SurfaceColor
+    val surfaceColor           = if (isDarkTheme) SurfaceColorDark else Color(0xFFC8C8C9) // Cinza claro para tema light
     val disabledContainerColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.25f)
     else PrimaryColor.copy(alpha = 0.15f)
     val disabledTextColor      = if (isDarkTheme) Color.LightGray.copy(alpha = 0.5f)
@@ -578,10 +638,18 @@ fun MessageInput(
     val disabledCursorColor    = if (isDarkTheme) PrimaryColor.copy(alpha = 0.7f)
     else PrimaryColor.copy(alpha = 0.6f)
 
+    // Cor do placeholder
+    val placeholderColor = if (isDarkTheme)
+        Color.LightGray.copy(alpha = 0.6f)
+    else
+        Color.Black.copy(alpha = 0.6f) // Texto preto com transparência para o placeholder no tema claro
+
     // Cor branca para borda e cursor
-    val focusColor  = Color.White
+    val focusColor  = if (isDarkTheme) Color.White else PrimaryColor
     val borderColor = if (isFocused) focusColor.copy(alpha = blinkAlpha) else Color.Transparent
     val cursorColor = if (isFocused) focusColor else disabledCursorColor
+
+    val borderWidth = if (isDarkTheme) 2.dp else 2.5.dp
 
     Box(
         modifier = Modifier
@@ -609,14 +677,14 @@ fun MessageInput(
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontWeight = FontWeight.Medium,
                             fontSize   = 16.sp,
-                            color      = if (isSendEnabled) Color.LightGray.copy(alpha = 0.6f) else disabledTextColor
+                            color      = if (isSendEnabled) placeholderColor else disabledTextColor
                         )
                     )
                 },
                 textStyle = TextStyle(
                     fontWeight = FontWeight.Medium,
                     fontSize   = 16.sp,
-                    color      = if (isSendEnabled) TextColorLight else disabledTextColor
+                    color      = if (isDarkTheme) TextColorLight else TextColorDark // Texto de entrada
                 ),
                 modifier = Modifier
                     .weight(1f)
@@ -641,6 +709,7 @@ fun MessageInput(
                 maxLines = if (isExpanded) 8 else 3
             )
 
+            // O resto do código permanece igual
             Spacer(modifier = Modifier.width(8.dp))
 
             val lineCount = if (message.isBlank()) 1 else message.count { it == '\n' } + 1
@@ -736,6 +805,7 @@ fun TypingIndicatorAnimation(
         }
     }
 
+    // Removendo o Card
     // Removendo o Card
     Row(
         modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),

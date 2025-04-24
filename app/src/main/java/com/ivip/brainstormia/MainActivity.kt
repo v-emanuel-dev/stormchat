@@ -1,11 +1,12 @@
 package com.ivip.brainstormia
 
+/* ───────────── IMPORTS ───────────── */
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.speech.SpeechRecognizer
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -17,13 +18,23 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.preferencesDataStore
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -33,232 +44,276 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.Scope
 import com.google.api.services.drive.DriveScopes
-import com.ivip.brainstormia.theme.BrainstormiaTheme
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.ktx.analytics
+import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.messaging.FirebaseMessaging
 import com.ivip.brainstormia.navigation.Routes
+import com.ivip.brainstormia.theme.BrainstormiaTheme
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
+/* ───────────── DataStore (tema claro/escuro) ───────────── */
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("settings")
+
+class ThemePreferences(private val context: Context) {
+    companion object { val DARK = booleanPreferencesKey("dark_mode") }
+
+    val isDark: Flow<Boolean> = context.dataStore.data.map { it[DARK] ?: true }
+
+    suspend fun setDark(enabled: Boolean) =
+        context.dataStore.edit { it[DARK] = enabled }
+}
+
+/* ───────────── MainActivity ───────────── */
 class MainActivity : ComponentActivity() {
-    private lateinit var googleSignInClient: GoogleSignInClient
 
-    // Registrar o resultado da tela de login Google
-    // Modify the signInLauncher's onActivityResult handling:
+    /* Google Sign-In */
+    private lateinit var signInClient: GoogleSignInClient
+
+    /* Utilitários globais */
+    private lateinit var prefs: ThemePreferences
+    private lateinit var analytics: FirebaseAnalytics
+
+    /* Launcher do login Google */
     private val signInLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        analytics.logEvent("google_signin_result", Bundle().apply {
+            putInt("result_code", result.resultCode)
+        })
+
         if (result.resultCode == RESULT_OK) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-            try {
-                val account = task.result
-                Log.d("MainActivity", "Google Sign-In successful: ${account.email}")
-                Toast.makeText(this, "Login successful", Toast.LENGTH_SHORT).show()
-
-                // Get Application instance
-                val appInstance = application as BrainstormiaApplication
-
-                // Setup Drive service in ExportViewModel
-                appInstance.exportViewModel?.setupDriveService()
-
-                // IMPORTANT: We need to force a complete reload cycle
-                // This will reset all state and reload everything from scratch
-                Handler(Looper.getMainLooper()).post {
-                    Log.d("MainActivity", "Forcing complete ViewModel reload after login")
-
-                    // Recreate ViewModels to ensure clean state
-                    appInstance.chatViewModel = ChatViewModel(application)
-                    appInstance.chatViewModel?.forceLoadConversationsAfterLogin()
-                }
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Error processing Google Sign-In result", e)
-                Toast.makeText(this, "Login error: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
+            val account = GoogleSignIn.getSignedInAccountFromIntent(result.data).result
+            handleLoginSuccess(account?.email)
         } else {
-            Log.w("MainActivity", "Google Sign-In canceled or failed")
+            Toast.makeText(this, "Login cancelado ou falhou", Toast.LENGTH_SHORT).show()
         }
     }
 
+    // Launcher para solicitação de permissão de notificação
+    // No início da classe MainActivity (logo após a declaração de analytics)
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Log.d("MainActivity", "Permissão de notificação concedida")
+        } else {
+            Log.w("MainActivity", "Permissão de notificação negada")
+        }
+    }
+
+    /* onCreate */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        try {
-            // Configurar handler para exceções não capturadas
-            Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-                Log.e("UncaughtException", "Thread: ${thread.name}", throwable)
-                throwable.printStackTrace()
-            }
+        /* Firebase */
+        analytics = Firebase.analytics
+        FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
 
-            // Initialize ViewModels in Application
-            val appInstance = application as BrainstormiaApplication
-            if (appInstance.exportViewModel == null) {
-                appInstance.exportViewModel = ExportViewModel(application)
-            }
-            if (appInstance.chatViewModel == null) {
-                appInstance.chatViewModel = ChatViewModel(application)
-            }
+        /* Tema */
+        prefs = ThemePreferences(this)
 
-            // Configurar Google Sign-In com escopo completo DRIVE
-            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+        /* ViewModels singletons vindos do Application */
+        val app = application as BrainstormiaApplication
+        if (app.exportViewModel == null) app.exportViewModel = ExportViewModel(application)
+        if (app.chatViewModel   == null) app.chatViewModel   = ChatViewModel(application)
+
+        /* Google Sign-In + escopo Drive */
+        signInClient = GoogleSignIn.getClient(
+            this,
+            GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestEmail()
-                .requestScopes(Scope(DriveScopes.DRIVE))
+                .requestScopes(Scope(DriveScopes.DRIVE_FILE))
+                .requestIdToken(getString(R.string.default_web_client_id))
                 .build()
+        )
 
-            googleSignInClient = GoogleSignIn.getClient(this, gso)
+        // Solicitar permissão de notificação
+        requestNotificationPermission()
 
-            // Verificar se já está conectado ao Google
-            val account = GoogleSignIn.getLastSignedInAccount(this)
-            if (account != null) {
-                Log.d("MainActivity", "Já conectado com Google: ${account.email}")
+        // Verificar se foi aberto a partir de uma notificação
+        handleNotificationIntent(intent)
 
-                // Verificar se temos as permissões necessárias
-                val hasDrivePermission = GoogleSignIn.hasPermissions(
-                    account, Scope(DriveScopes.DRIVE)
-                )
-                Log.d("MainActivity", "Permissão Drive: $hasDrivePermission")
+        /* Splash + insets */
+        installSplashScreen()
+        WindowCompat.setDecorFitsSystemWindows(window, false)
 
-                // Inicializar o ExportViewModel com a conta existente
-                appInstance.exportViewModel?.setupDriveService()
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val token = task.result
+                Log.e("FCM_TOKEN_MANUAL", "=====================================")
+                Log.e("FCM_TOKEN_MANUAL", "TOKEN FCM OBTIDO MANUALMENTE:")
+                Log.e("FCM_TOKEN_MANUAL", token ?: "Nulo")
+                Log.e("FCM_TOKEN_MANUAL", "=====================================")
+
+                // Salvar o token
+                val prefs = getSharedPreferences("brainstormia_prefs", Context.MODE_PRIVATE)
+                prefs.edit().putString("fcm_token", token).apply()
+            } else {
+                Log.e("FCM_TOKEN_MANUAL", "Falha ao obter token: ${task.exception}")
+            }
+        }
+
+        /* Compose UI */
+        setContent {
+
+            val navController = rememberNavController()
+            val dark by prefs.isDark.collectAsState(initial = true)
+
+            val authVM : AuthViewModel = viewModel()
+            val currentUser by authVM.currentUser.collectAsState()
+
+            val exportVM = app.exportViewModel!!
+            val chatVM   = app.chatViewModel!!
+
+            /* Mostra loader apenas durante exportação */
+            var exporting by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                exportVM.exportState.collectLatest { exporting = it is ExportState.Loading }
             }
 
-            // Verificar permissão de áudio
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                != PackageManager.PERMISSION_GRANTED) {
-                Log.w("MainActivity", "Permissão de áudio não concedida")
-            }
-
-            installSplashScreen()
-            WindowCompat.setDecorFitsSystemWindows(window, false)
-
-            setContent {
-                // Initialize UI
-                val navController = rememberNavController()
-                var isDarkTheme by remember { mutableStateOf(true) }
-
-                // Create ViewModels directly in Compose
-                val authViewModel: AuthViewModel = viewModel()
-                val currentUser by authViewModel.currentUser.collectAsState()
-
-                // Use ViewModels from Application
-                val exportVM = appInstance.exportViewModel
-                val chatVM = appInstance.chatViewModel
-
-                if (exportVM != null && chatVM != null) {
-                    BrainstormiaTheme(darkTheme = isDarkTheme) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .statusBarsPadding()
-                                .navigationBarsPadding()
+            BrainstormiaTheme(darkTheme = dark) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
+                ) {
+                    Surface(Modifier.fillMaxSize()) {
+                        NavHost(
+                            navController = navController,
+                            startDestination = if (currentUser != null) Routes.MAIN else Routes.AUTH
                         ) {
-                            Surface(modifier = Modifier.fillMaxSize()) {
-                                NavHost(
-                                    navController = navController,
-                                    startDestination = if (currentUser != null) Routes.MAIN else Routes.AUTH
-                                ) {
-                                    composable(Routes.AUTH) {
-                                        AuthScreen(
-                                            onNavigateToChat = {
-                                                navController.navigate(Routes.MAIN) {
-                                                    popUpTo(Routes.AUTH) { inclusive = true }
-                                                }
-                                            },
-                                            onBackToChat = { navController.popBackStack() },
-                                            onNavigateToPasswordReset = { navController.navigate(Routes.RESET_PASSWORD) },
-                                            authViewModel = authViewModel,
-                                            isDarkTheme = isDarkTheme
-                                        )
-                                    }
-                                    composable(Routes.RESET_PASSWORD) {
-                                        PasswordResetScreen(
-                                            onBackToLogin = { navController.popBackStack() },
-                                            authViewModel = authViewModel,
-                                            isDarkTheme = isDarkTheme
-                                        )
-                                    }
-                                    composable(Routes.MAIN) {
-                                        ChatScreen(
-                                            onLogout = { authViewModel.logout() },
-                                            onLogin = { signInToGoogle() },
-                                            chatViewModel = chatVM,
-                                            authViewModel = authViewModel,
-                                            exportViewModel = exportVM,
-                                            isDarkTheme = isDarkTheme
-                                        )
-                                    }
-                                }
+                            composable(Routes.AUTH) {
+                                AuthScreen(
+                                    onNavigateToChat = {
+                                        navController.navigate(Routes.MAIN) {
+                                            popUpTo(Routes.AUTH) { inclusive = true }
+                                        }
+                                    },
+                                    onBackToChat = { navController.popBackStack() },
+                                    onNavigateToPasswordReset = {
+                                        navController.navigate(Routes.RESET_PASSWORD)
+                                    },
+                                    authViewModel  = authVM,
+                                    isDarkTheme    = dark,
+                                    onThemeChanged = { setDark(it) }
+                                )
+                            }
+                            composable(Routes.RESET_PASSWORD) {
+                                PasswordResetScreen(
+                                    onBackToLogin = { navController.popBackStack() },
+                                    authViewModel  = authVM,
+                                    isDarkTheme    = dark,
+                                    onThemeChanged = { setDark(it) }
+                                )
+                            }
+                            composable(Routes.MAIN) {
+                                ChatScreen(
+                                    onLogin         = { launchLogin() },
+                                    onLogout        = { authVM.logout() },
+                                    chatViewModel   = chatVM,
+                                    authViewModel   = authVM,
+                                    exportViewModel = exportVM,
+                                    isDarkTheme     = dark,
+                                    onThemeChanged  = { setDark(it) }
+                                )
                             }
                         }
                     }
-                } else {
-                    // Show loading if ViewModels aren't ready
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
+
+                    /* Loader somente enquanto exporta */
+                    if (exporting) {
+                        CircularProgressIndicator(Modifier.align(Alignment.Center))
                     }
                 }
             }
+        }
 
-            // Initialize conversation list after UI is ready
-            Handler(Looper.getMainLooper()).postDelayed({
-                appInstance.chatViewModel?.handleLogin()
-            }, 500)
+        /* carrega conversas assim que a UI estiver pronta */
+        (application as BrainstormiaApplication).chatViewModel?.handleLogin()
+    }
 
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Erro crítico em onCreate", e)
-            setContentView(android.R.layout.simple_list_item_1)
-            val tv = findViewById<android.widget.TextView>(android.R.id.text1)
-            tv.text = "Erro crítico ao iniciar: ${e.message}"
+    /* utilidades ---------------------------------------------------------- */
+
+    private fun setDark(enabled: Boolean) =
+        lifecycleScope.launch { prefs.setDark(enabled) }
+
+    private fun launchLogin() {
+        signInClient.signOut().addOnCompleteListener {
+            signInLauncher.launch(signInClient.signInIntent)
         }
     }
 
-    // Método para login silencioso (em segundo plano)
-    private fun silentSignIn() {
-        try {
-            googleSignInClient.silentSignIn()
-                .addOnSuccessListener { account ->
-                    Log.d("MainActivity", "Login silencioso bem-sucedido: ${account.email}")
+    private fun handleLoginSuccess(email: String?) {
+        analytics.logEvent("google_login_success", Bundle().apply {
+            putString("email_domain", email?.substringAfter('@') ?: "unknown")
+        })
 
-                    // Verificar permissões
-                    val hasDrivePermission = GoogleSignIn.hasPermissions(
-                        account, Scope(DriveScopes.DRIVE)
-                    )
-                    Log.d("MainActivity", "Permissão Drive após login silencioso: $hasDrivePermission")
+        val app = application as BrainstormiaApplication
 
-                    // Acessar a instância do Application
-                    val appInstance = application as? BrainstormiaApplication
-
-                    // Inicializar o ExportViewModel após login silencioso bem-sucedido
-                    appInstance?.exportViewModel?.setupDriveService()
-
-                    // Recarregar conversas
-                    Handler(Looper.getMainLooper()).post {
-                        Log.d("MainActivity", "Notificando ChatViewModel sobre login silencioso")
-                        appInstance?.chatViewModel?.handleLogin()
-                    }
-                }
-                .addOnFailureListener { e ->
-                    Log.e("MainActivity", "Falha no login silencioso: ${e.message}")
-                }
-        } catch (e: Exception) {
-            Log.e("MainActivity", "Erro ao tentar login silencioso", e)
+        app.exportViewModel?.setupDriveService()                     // inicia Drive
+        app.chatViewModel = ChatViewModel(application).also {
+            it.forceLoadConversationsAfterLogin()                    // recarrega conversas
         }
+
+        Toast.makeText(
+            this,
+            "Bem-vindo(a) ${email ?: "de volta"}!",
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
-    // Método para iniciar o login interativo com Google
-    private fun signInToGoogle() {
+    /**
+     * Solicita permissão para enviar notificações no Android 13+
+     */
+    private fun requestNotificationPermission() {
         try {
-            Log.d("MainActivity", "Starting Google Sign-In process")
-            googleSignInClient.signOut().addOnCompleteListener {
-                try {
-                    val signInIntent = googleSignInClient.signInIntent
-                    signInLauncher.launch(signInIntent)
-                } catch (e: Exception) {
-                    Log.e("MainActivity", "Error launching sign-in intent", e)
-                    Toast.makeText(this, "Error starting login: ${e.message}", Toast.LENGTH_SHORT).show()
+            // Apenas para Android 13+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // Verificar se já tem permissão
+                if (ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    // Solicitar permissão diretamente sem diálogo
+                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
             }
         } catch (e: Exception) {
-            Log.e("MainActivity", "Error in signInToGoogle", e)
-            Toast.makeText(this, "Login process error: ${e.message}", Toast.LENGTH_SHORT).show()
+            Log.e("MainActivity", "Erro ao solicitar permissão de notificação", e)
+        }
+    }
+
+    /**
+     * Trata o intent quando o app é aberto de uma notificação
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleNotificationIntent(intent)
+    }
+
+    /**
+     * Processa o intent para verificar se contém dados de notificação
+     */
+    private fun handleNotificationIntent(intent: Intent?) {
+        try {
+            if (intent == null) return
+
+            val conversationId = intent.getLongExtra("conversation_id", -1L)
+            if (conversationId != -1L) {
+                Log.d("MainActivity", "Abrindo conversa da notificação: $conversationId")
+
+                val app = application as BrainstormiaApplication
+                app.chatViewModel?.selectConversation(conversationId)
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Erro ao processar intent da notificação", e)
         }
     }
 }

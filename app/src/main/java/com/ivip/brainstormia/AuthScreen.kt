@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -41,20 +42,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ivip.brainstormia.components.ThemeSwitch
 import com.ivip.brainstormia.theme.*
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.graphics.ColorFilter
-import com.ivip.brainstormia.theme.BackgroundColor
-import com.ivip.brainstormia.theme.BackgroundColorDark
-import com.ivip.brainstormia.theme.PrimaryColor
-import com.ivip.brainstormia.theme.SecondaryColor
-import com.ivip.brainstormia.theme.SurfaceColorDark
-import com.ivip.brainstormia.theme.TextColorDark
-import com.ivip.brainstormia.theme.TextColorLight
 
 @Composable
 fun AuthScreen(
@@ -62,7 +56,8 @@ fun AuthScreen(
     onBackToChat: () -> Unit,
     onNavigateToPasswordReset: () -> Unit,
     authViewModel: AuthViewModel = viewModel(),
-    isDarkTheme: Boolean = true
+    isDarkTheme: Boolean = true,
+    onThemeChanged: (Boolean) -> Unit = {}
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -85,6 +80,7 @@ fun AuthScreen(
     val borderColor = if (isDarkTheme) Color.Gray.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.5f)
     val dividerColor = if (isDarkTheme) Color.Gray.copy(alpha = 0.5f) else Color.Gray.copy(alpha = 0.3f)
     val cardElevation = if (isDarkTheme) 8.dp else 4.dp
+    val raioYellowColor = Color(0xFFFFD700) // Amarelo dourado
 
     val googleSignInClient = remember {
         GoogleSignIn.getClient(
@@ -139,6 +135,18 @@ fun AuthScreen(
             .background(backgroundColor),
         contentAlignment = Alignment.Center
     ) {
+        // Theme switch in top-right corner
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        ) {
+            ThemeSwitch(
+                isDarkTheme = isDarkTheme,
+                onThemeChanged = onThemeChanged
+            )
+        }
+
         Card(
             modifier = Modifier
                 .fillMaxWidth(0.99f)
@@ -172,8 +180,7 @@ fun AuthScreen(
                         painter = painterResource(id = R.drawable.ic_bolt_foreground),
                         contentDescription = "Brainstormia Logo",
                         modifier = Modifier.size(80.dp),
-                        colorFilter = ColorFilter.tint(if (isDarkTheme) TextColorLight else PrimaryColor)
-                    )
+                        colorFilter = ColorFilter.tint(raioYellowColor)                    )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -273,7 +280,6 @@ fun AuthScreen(
                 )
 
                 // Links agrupados "Não tem uma conta?" e "Esqueci minha senha" (Somente no modo de login)
-                // Links "Não tem uma conta?" e "Esqueci minha senha" (Somente no modo de login)
                 if (isLogin) {
                     Column(
                         modifier = Modifier

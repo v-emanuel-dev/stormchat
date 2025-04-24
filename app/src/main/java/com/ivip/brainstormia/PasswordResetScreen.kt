@@ -31,13 +31,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ivip.brainstormia.components.ThemeSwitch
 import com.ivip.brainstormia.theme.*
 
 @Composable
 fun PasswordResetScreen(
     onBackToLogin: () -> Unit,
     authViewModel: AuthViewModel = viewModel(),
-    isDarkTheme: Boolean = true
+    isDarkTheme: Boolean = true,
+    onThemeChanged: (Boolean) -> Unit = {}
 ) {
     var email by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -76,6 +78,18 @@ fun PasswordResetScreen(
             .background(backgroundColor),
         contentAlignment = Alignment.Center
     ) {
+        // Theme switch in top-right corner
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+        ) {
+            ThemeSwitch(
+                isDarkTheme = isDarkTheme,
+                onThemeChanged = onThemeChanged
+            )
+        }
+
         Card(
             modifier = Modifier
                 .fillMaxWidth(0.9f)

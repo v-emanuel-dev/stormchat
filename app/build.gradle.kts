@@ -16,6 +16,7 @@ plugins {
     alias(libs.plugins.google.android.libraries.mapsplatform.secrets.gradle.plugin)
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
+    id("com.google.firebase.crashlytics")
 }
 
 android {
@@ -26,8 +27,8 @@ android {
         applicationId = "com.ivip.brainstormia"
         minSdk = 24
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.8"
+        versionCode = 14
+        versionName = "1.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiKeyFromProperties = localProperties.getProperty("apiKey") ?: ""
@@ -97,6 +98,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.ui.text.google.fonts)
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.datastore.preferences.core.android)
     ksp(libs.androidx.room.compiler)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
@@ -130,4 +132,15 @@ dependencies {
         exclude(group = "org.apache.httpcomponents", module = "httpcore")
     }
     implementation("org.apache.httpcomponents:httpcore:4.4.16")
+    implementation ("androidx.datastore:datastore-preferences:1.1.4")
+    implementation ("com.google.firebase:firebase-bom:32.7.0")
+    implementation ("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-crashlytics")
+    implementation("com.google.firebase:firebase-messaging-ktx")
+    implementation("com.google.firebase:firebase-messaging-ktx:24.1.1")
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-database-ktx:21.0.0")
+    implementation("com.google.firebase:firebase-messaging-ktx:24.1.1")
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.7.0")
 }

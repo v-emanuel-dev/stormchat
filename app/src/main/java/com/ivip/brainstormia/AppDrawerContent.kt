@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.brainstormia.ConversationType
+import com.ivip.brainstormia.components.ThemeSwitch
 import com.ivip.brainstormia.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -36,11 +37,11 @@ fun AppDrawerContent(
     onDeleteConversationRequest: (Long) -> Unit,
     onRenameConversationRequest: (Long) -> Unit,
     onExportConversationRequest: (Long) -> Unit,
-    isDarkTheme: Boolean
+    isDarkTheme: Boolean,
+    onThemeChanged: (Boolean) -> Unit = {}
 ) {
     val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
-    val drawerItemColor = if (isDarkTheme) SurfaceColorDark else SurfaceColor
     val selectedItemColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.2f) else PrimaryColor.copy(alpha = 0.1f)
 
     Column(
@@ -50,14 +51,28 @@ fun AppDrawerContent(
             .background(backgroundColor)
             .padding(top = 16.dp, bottom = 16.dp)
     ) {
-        // Header
-        Text(
-            text = "Conversas",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = textColor,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
-        )
+        // Header with theme toggle
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Conversas",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = textColor
+            )
+
+            // Add ThemeSwitch here
+            ThemeSwitch(
+                isDarkTheme = isDarkTheme,
+                onThemeChanged = onThemeChanged,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
 
         // Nova conversa button
         Button(
@@ -109,89 +124,88 @@ fun AppDrawerContent(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(itemBackgroundColor)
-                                .clickable { onConversationClick(item.id) }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(itemBackgroundColor)
+                            .clickable { onConversationClick(item.id) }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Ícone com cor baseada no tipo de conversa
+                        val (iconVector, iconTint) = getConversationIcon(item.conversationType, isDarkTheme)
+                        Icon(
+                            imageVector = iconVector,
+                            contentDescription = null,
+                            tint = iconTint,
+                            modifier = Modifier.size(22.dp)
+                        )
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(
+                            modifier = Modifier.weight(1f)
                         ) {
-                            // Ícone com cor baseada no tipo de conversa
-                            val (iconVector, iconTint) = getConversationIcon(item.conversationType, isDarkTheme)
-                            Icon(
-                                imageVector = iconVector,
-                                contentDescription = null,
-                                tint = iconTint,
-                                modifier = Modifier.size(22.dp)
+                            Text(
+                                text = item.displayTitle,
+                                color = textColor,
+                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                fontSize = 15.sp
                             )
 
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.height(2.dp))
 
-                            Column(
-                                modifier = Modifier.weight(1f)
+                            Text(
+                                text = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
+                                    .format(Date(item.lastTimestamp)),
+                                color = textColor.copy(alpha = 0.6f),
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        // Ações em um espaço mais compacto
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp) // Diminuir espaçamento
+                        ) {
+                            // Ícones menores e mais compactos
+                            IconButton(
+                                onClick = { onRenameConversationRequest(item.id) },
+                                modifier = Modifier.size(24.dp)
                             ) {
-                                Text(
-                                    text = item.displayTitle,
-                                    color = textColor,
-                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    fontSize = 15.sp
-                                )
-
-                                Spacer(modifier = Modifier.height(2.dp))
-
-                                Text(
-                                    text = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())
-                                        .format(Date(item.lastTimestamp)),
-                                    color = textColor.copy(alpha = 0.6f),
-                                    fontSize = 12.sp
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Renomear conversa",
+                                    tint = iconTint,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
 
-                            // Ações em um espaço mais compacto
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp) // Diminuir espaçamento
+                            IconButton(
+                                onClick = { onExportConversationRequest(item.id) },
+                                modifier = Modifier.size(24.dp)
                             ) {
-                                // Ícones menores e mais compactos
-                                IconButton(
-                                    onClick = { onRenameConversationRequest(item.id) },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Renomear conversa",
-                                        tint = iconTint,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.Upload,
+                                    contentDescription = "Exportar conversa",
+                                    tint = iconTint,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
 
-                                IconButton(
-                                    onClick = { onExportConversationRequest(item.id) },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Upload,
-                                        contentDescription = "Exportar conversa",
-                                        tint = iconTint,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-
-                                IconButton(
-                                    onClick = { onDeleteConversationRequest(item.id) },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Excluir conversa",
-                                        tint = iconTint,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
+                            IconButton(
+                                onClick = { onDeleteConversationRequest(item.id) },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Excluir conversa",
+                                    tint = iconTint,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
                         }
                     }
@@ -199,6 +213,7 @@ fun AppDrawerContent(
             }
         }
     }
+}
 
 // Função para determinar o ícone baseado no tipo de conversa
 @Composable
