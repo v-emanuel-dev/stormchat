@@ -1,108 +1,110 @@
 package com.ivip.brainstormia.components
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.ivip.brainstormia.data.models.AIModel
-import com.ivip.brainstormia.theme.PrimaryColor
-import com.ivip.brainstormia.theme.SurfaceColor
-import com.ivip.brainstormia.theme.SurfaceColorDark
-import com.ivip.brainstormia.theme.TextColorDark
-import com.ivip.brainstormia.theme.TextColorLight
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModelSelectionDropdown(
     models: List<AIModel>,
     selectedModel: AIModel,
     onModelSelected: (AIModel) -> Unit,
-    isDarkTheme: Boolean = true
+    isDarkTheme: Boolean
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var containerWidth by remember { mutableStateOf(0.dp) }
+    val localDensity = LocalDensity.current
 
-    // Cores ajustadas para cada tema
-    val textColor = if (isDarkTheme) TextColorLight else TextColorDark
-    val dropdownBackgroundColor = if (isDarkTheme) SurfaceColorDark else SurfaceColor
+    // Cores atualizadas para o tema escuro
+    val backgroundColor = if (isDarkTheme) Color(0xFF212121) else Color(0xFFF0F4F7)
+    val textColor = if (isDarkTheme) Color.White else Color.Black
+    val dropdownBackgroundColor = if (isDarkTheme) Color(0xFF333333) else Color.White
 
-    // Cor da borda - azul para tema claro, cinza para tema escuro
-    val borderColor = if (isDarkTheme) Color.Gray.copy(alpha = 0.3f) else PrimaryColor.copy(alpha = 0.6f)
-    // Espessura da borda - mais grossa no tema claro
-    val borderWidth = if (isDarkTheme) 1.dp else 1.5.dp
-
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(8.dp)
     ) {
         OutlinedCard(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.outlinedCardColors(
-                containerColor = Color.Transparent,
-                contentColor = textColor
-            ),
-            border = BorderStroke(borderWidth, borderColor)
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { expanded = true }
+                .onGloballyPositioned { coordinates ->
+                    containerWidth = with(localDensity) { coordinates.size.width.toDp() }
+                }
         ) {
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(backgroundColor)
+                    .padding(12.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = selectedModel.displayName,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = textColor,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                Text(
+                    text = "Modelo: ${selectedModel.displayName}",
+                    color = textColor,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp,
+                    modifier = Modifier.align(Alignment.CenterStart)
+                )
 
-                    Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Selecionar modelo",
+                    tint = textColor,
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                )
+            }
+        }
 
-                    Icon(
-                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = if (expanded) "Fechar seleção de modelo" else "Abrir seleção de modelo",
-                        tint = PrimaryColor
-                    )
-                }
-
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false },
-                    containerColor = dropdownBackgroundColor
-                ) {
-                    models.forEach { model ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text = model.displayName,
-                                    color = if (model.id == selectedModel.id) PrimaryColor else textColor,
-                                    fontWeight = if (model.id == selectedModel.id) FontWeight.SemiBold else FontWeight.Normal
-                                )
-                            },
-                            onClick = {
-                                onModelSelected(model)
-                                expanded = false
-                            },
-                            colors = MenuDefaults.itemColors(
-                                textColor = textColor
-                            )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .width(containerWidth)
+                .background(dropdownBackgroundColor)
+        ) {
+            models.forEach { model ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = model.displayName,
+                            color = textColor,
+                            fontWeight = if (model.id == selectedModel.id) FontWeight.Bold else FontWeight.Normal
                         )
+                    },
+                    onClick = {
+                        onModelSelected(model)
+                        expanded = false
                     }
-                }
+                )
             }
         }
     }

@@ -36,10 +36,10 @@ private val LightColorScheme = lightColorScheme(
 
 // Dark color scheme
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryColor,
-    secondary = SecondaryColor,
-    background = BackgroundColorDark,
-    surface = SurfaceColorDark,
+    primary = TopBarColorDark, // Preto para topbar
+    secondary = SecondaryColorDark, // #212121 como cor secundária
+    background = BackgroundColorBlack, // #121212 como cor de fundo
+    surface = SurfaceColorBlack, // #212121 como cor de superfície
     onPrimary = TextColorLight,
     onSecondary = TextColorLight,
     onBackground = TextColorLight,

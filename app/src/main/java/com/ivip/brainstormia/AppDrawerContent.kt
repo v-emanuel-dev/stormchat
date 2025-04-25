@@ -40,7 +40,7 @@ fun AppDrawerContent(
     isDarkTheme: Boolean,
     onThemeChanged: (Boolean) -> Unit = {}
 ) {
-    val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
+    val backgroundColor = if (isDarkTheme) Color(0xFF121212) else BackgroundColor
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
     val selectedItemColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.2f) else PrimaryColor.copy(alpha = 0.1f)
 
@@ -81,7 +81,7 @@ fun AppDrawerContent(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = PrimaryColor
+                containerColor = if (isDarkTheme) Color(0xFF333333) else PrimaryColor
             ),
             shape = RoundedCornerShape(12.dp)
         ) {

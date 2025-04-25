@@ -211,7 +211,7 @@ fun ExportDialog(
             }
         },
         shape = RoundedCornerShape(16.dp),
-        containerColor = if (isDarkTheme) SurfaceColorDark else SurfaceColor,
+        containerColor = if (isDarkTheme) Color(0xFF121212) else SurfaceColor,
         tonalElevation = if (isDarkTheme) 8.dp else 4.dp
     )
 }

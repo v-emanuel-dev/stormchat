@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -50,10 +51,10 @@ fun PasswordResetScreen(
 
     // Theme-specific colors
     val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
-    val cardColor = if (isDarkTheme) SurfaceColorDark else Color.White
+    val cardColor = if (isDarkTheme) Color(0xFF121212) else Color.White // Mudando para mais escuro
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
     val textSecondaryColor = if (isDarkTheme) TextColorLight.copy(alpha = 0.7f) else TextColorDark.copy(alpha = 0.9f)
-    val inputBgColor = if (isDarkTheme) SurfaceColorDark else Color.White
+    val inputBgColor = if (isDarkTheme) Color(0xFF212121) else Color.White // Usando #212121 para inputs
     val borderColor = if (isDarkTheme) Color.Gray.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.5f)
     val cardElevation = if (isDarkTheme) 8.dp else 4.dp
 
@@ -75,7 +76,10 @@ fun PasswordResetScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundColor),
+            .background(
+                if (isDarkTheme) Color(0xFF121212) else backgroundColor,
+                shape = RectangleShape
+            ),
         contentAlignment = Alignment.Center
     ) {
         // Theme switch in top-right corner
@@ -83,6 +87,7 @@ fun PasswordResetScreen(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(16.dp)
+                .background(if (isDarkTheme) Color(0xFF121212) else backgroundColor)
         ) {
             ThemeSwitch(
                 isDarkTheme = isDarkTheme,
@@ -264,7 +269,7 @@ fun PasswordResetScreen(
                         .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = PrimaryColor,
+                        containerColor = if (isDarkTheme) Color(0xFF333333) else PrimaryColor,
                         contentColor = Color.White
                     ),
                     elevation = ButtonDefaults.buttonElevation(
@@ -314,23 +319,6 @@ fun PasswordResetScreen(
             }
         }
 
-        // Decorative elements with theme-aware colors
-        Box(
-            modifier = Modifier
-                .size(100.dp)
-                .clip(CircleShape)
-                .background(SecondaryColor.copy(alpha = if (isDarkTheme) 0.2f else 0.1f))
-                .align(Alignment.TopEnd)
-                .offset(x = 30.dp, y = (-20).dp)
-        )
-
-        Box(
-            modifier = Modifier
-                .size(70.dp)
-                .clip(CircleShape)
-                .background(PrimaryColor.copy(alpha = if (isDarkTheme) 0.2f else 0.1f))
-                .align(Alignment.BottomStart)
-                .offset(x = (-20).dp, y = 30.dp)
-        )
+        // Removidas as decorações de cantos (bolhas)
     }
 }

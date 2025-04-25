@@ -103,6 +103,7 @@ import com.ivip.brainstormia.theme.SurfaceColor
 import com.ivip.brainstormia.theme.SurfaceColorDark
 import com.ivip.brainstormia.theme.TextColorDark
 import com.ivip.brainstormia.theme.TextColorLight
+import com.ivip.brainstormia.theme.TopBarColorDark
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -212,7 +213,7 @@ fun ChatScreen(
     onThemeChanged: (Boolean) -> Unit = {}  // Add this parameter with default value
 ) {
     // Definir cores do tema dentro do Composable
-    val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
+    val backgroundColor = if (isDarkTheme) Color(0xFF121212) else BackgroundColor // Usando #121212 como cor de fundo principal
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
 
     // Definir a cor amarela para o ícone de raio
@@ -411,7 +412,7 @@ fun ChatScreen(
                                 }
                             },
                             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                                containerColor = PrimaryColor,
+                                containerColor = if (isDarkTheme) TopBarColorDark else PrimaryColor,
                                 titleContentColor = Color.White,
                                 navigationIconContentColor = Color.White,
                                 actionIconContentColor = Color.White
@@ -433,7 +434,7 @@ fun ChatScreen(
                             viewModel = chatViewModel
                         )
                     },
-                    containerColor = backgroundColor,
+                    containerColor = if (isDarkTheme) Color(0xFF121212) else backgroundColor,
                     contentColor = textColor
                 ) { paddingValues ->
                     Column(
@@ -631,14 +632,11 @@ fun MessageInput(
     )
 
     // Cores do tema
-    val backgroundColor        = if (isDarkTheme) BackgroundColorDark else BackgroundColor
-    val surfaceColor           = if (isDarkTheme) SurfaceColorDark else Color(0xFFC8C8C9) // Cinza claro para tema light
-    val disabledContainerColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.25f)
-    else PrimaryColor.copy(alpha = 0.15f)
-    val disabledTextColor      = if (isDarkTheme) Color.LightGray.copy(alpha = 0.5f)
-    else Color.DarkGray.copy(alpha = 0.7f)
-    val disabledCursorColor    = if (isDarkTheme) PrimaryColor.copy(alpha = 0.7f)
-    else PrimaryColor.copy(alpha = 0.6f)
+    val backgroundColor        = if (isDarkTheme) Color(0xFF121212) else BackgroundColor
+    val surfaceColor           = if (isDarkTheme) Color(0xFF333333) else Color(0xFFC8C8C9) // Cor cinza mais escura para o input no tema escuro
+    val disabledContainerColor = if (isDarkTheme) Color(0xFF282828) else PrimaryColor.copy(alpha = 0.15f)
+    val disabledTextColor      = if (isDarkTheme) Color.LightGray.copy(alpha = 0.5f) else Color.DarkGray.copy(alpha = 0.7f)
+    val disabledCursorColor    = if (isDarkTheme) PrimaryColor.copy(alpha = 0.7f) else PrimaryColor.copy(alpha = 0.6f)
 
     // Cor do placeholder
     val placeholderColor = if (isDarkTheme)
@@ -751,9 +749,9 @@ fun MessageInput(
                     .clip(CircleShape)
                     .background(
                         when {
-                            !isSendEnabled       -> PrimaryColor.copy(alpha = if (isDarkTheme) 0.5f else 0.4f)
-                            message.isNotBlank() -> PrimaryColor
-                            else                 -> PrimaryColor.copy(alpha = if (isDarkTheme) 0.6f else 0.5f)
+                            !isSendEnabled       -> if (isDarkTheme) Color(0xFF333333) else PrimaryColor.copy(alpha = 0.4f)
+                            message.isNotBlank() -> if (isDarkTheme) Color(0xFF333333) else PrimaryColor
+                            else                 -> if (isDarkTheme) Color(0xFF333333).copy(alpha = 0.6f) else PrimaryColor.copy(alpha = 0.5f)
                         }
                     )
                     .clickable(enabled = message.isNotBlank() && isSendEnabled) { onSendClick() },

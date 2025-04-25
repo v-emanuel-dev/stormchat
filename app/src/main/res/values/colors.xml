@@ -15,8 +15,8 @@
     <!-- Dark Theme Colors -->
     <color name="background_dark">#0F2A38</color>
     <color name="surface_dark">#1A3A4A</color>
-    <color name="primary_dark_theme">#1A5F7A</color>
-    <color name="secondary_dark_theme">#2E7D9E</color>
+    <color name="primary_dark_theme">#000000</color> <!-- Using black for topbar -->
+    <color name="secondary_dark_theme">#212121</color> <!-- Using #212121 as secondary color -->
 
     <!-- Common Colors -->
     <color name="black">#FF000000</color>

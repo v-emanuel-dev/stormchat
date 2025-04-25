@@ -30,7 +30,7 @@ fun RenameConversationDialog(
 ) {
     var newTitle by remember { mutableStateOf(currentTitle ?: "") }
 
-    val dialogBgColor = if (isDarkTheme) SurfaceColorDark else Color.White
+    val dialogBgColor = if (isDarkTheme) Color(0xFF121212) else Color.White // Usando #121212 para dialogs
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
     val secondaryTextColor = if (isDarkTheme) TextColorLight.copy(alpha = 0.7f) else Color.DarkGray
     val unfocusedBorderColor = if (isDarkTheme) Color.Gray.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.5f)
@@ -89,7 +89,7 @@ fun RenameConversationDialog(
                 },
                 enabled = newTitle.isNotBlank(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryColor,
+                    containerColor = if (isDarkTheme) Color(0xFF333333) else PrimaryColor,
                     contentColor = buttonTextColor // Garantir texto branco no botão
                 ),
                 shape = RoundedCornerShape(8.dp)
