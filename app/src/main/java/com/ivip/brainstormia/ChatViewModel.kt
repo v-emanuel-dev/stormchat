@@ -2,19 +2,10 @@ package com.ivip.brainstormia
 
 import com.ivip.brainstormia.data.models.AIModel
 import android.app.Application
-import android.os.Bundle
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.brainstormia.ConversationType
-import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.Content
-import com.google.ai.client.generativeai.type.GenerateContentResponse
-import com.google.ai.client.generativeai.type.RequestOptions
-import com.google.ai.client.generativeai.type.content
-import com.google.firebase.Firebase
-import com.google.firebase.analytics.FirebaseAnalytics
-import com.google.firebase.analytics.analytics
 import com.ivip.brainstormia.data.db.AppDatabase
 import com.ivip.brainstormia.data.db.ChatDao
 import com.ivip.brainstormia.data.db.ChatMessageEntity
@@ -22,7 +13,6 @@ import com.ivip.brainstormia.data.db.ConversationInfo
 import com.ivip.brainstormia.data.db.ConversationMetadataDao
 import com.ivip.brainstormia.data.db.ConversationMetadataEntity
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -35,6 +25,8 @@ import java.util.Date
 import java.util.Locale
 import com.ivip.brainstormia.data.db.ModelPreferenceDao
 import com.ivip.brainstormia.data.db.ModelPreferenceEntity
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeoutOrNull
 
 enum class LoadingState { IDLE, LOADING, ERROR }
 
@@ -44,33 +36,32 @@ private const val MAX_HISTORY_MESSAGES = 20
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
+    // Cliente OpenAI
+    private val openAIClient = OpenAIClient(BuildConfig.OPENAI_API_KEY)
+
     private val auth = FirebaseAuth.getInstance()
     private val appDb = AppDatabase.getDatabase(application)
     private val chatDao: ChatDao = appDb.chatDao()
     private val metadataDao: ConversationMetadataDao = appDb.conversationMetadataDao()
     private val modelPreferenceDao: ModelPreferenceDao = appDb.modelPreferenceDao()
 
-    // Lista de modelos disponíveis
-    private val availableModels = listOf(
-        AIModel(
-            id = "gemini-2.5-flash-preview-04-17",
-            displayName = "Gemini 2.5 Flash",
-            apiEndpoint = "gemini-2.5-flash-preview-04-17"
-        ),
-        AIModel(
-            id = "gemini-2.5-pro-exp-03-25",
-            displayName = "Gemini 2.5 Pro",
-            apiEndpoint = "gemini-2.5-pro-exp-03-25"
-        ),
-        AIModel(
-            id = "gemini-2.0-flash",
-            displayName = "Gemini 2.0 Flash",
-            apiEndpoint = "gemini-2.0-flash"
-        )
+    // Lista de modelos disponíveis (OpenAI)
+    private val availableModels = listOf(AIModel(id = "gpt-4.1", displayName = "GPT-4.1", apiEndpoint = "gpt-4.1"),
+       AIModel(id = "gpt-4.1-mini", displayName = "GPT-4.1 Mini", apiEndpoint = "gpt-4.1-mini"),
+       AIModel(id = "gpt-4.1-nano", displayName = "GPT-4.1 Nano", apiEndpoint = "gpt-4.1-nano"),
+        AIModel(id = "gpt-4o", displayName = "GPT-4o", apiEndpoint = "gpt-4o"),
+       AIModel(id = "gpt-4.5-preview", displayName = "GPT-4.5 Preview", apiEndpoint = "gpt-4.5-preview"),
+        AIModel(id = "o1", displayName = "GPT o1", apiEndpoint = "o1"),
+        AIModel(id = "o1-pro", displayName = "GPT o1 Pro", apiEndpoint = "o1-pro"),
+        AIModel(id = "o3", displayName = "GPT o3", apiEndpoint = "o3"),
+        AIModel(id = "o3-mini", displayName = "GPT o3 Mini", apiEndpoint = "o3-mini"),
+        AIModel(id = "o4-mini", displayName = "GPT o4 Mini", apiEndpoint = "o4-mini"),
+        AIModel(id = "gpt-4-turbo", displayName = "GPT-4o Turbo", apiEndpoint = "gpt-4-turbo"),
+        AIModel(id = "gpt-3.5-turbo", displayName = "GPT-3.5 Turbo", apiEndpoint = "gpt-3.5-turbo")
     )
 
-    // Estado do modelo selecionado (default: Gemini 2.5 Pro)
-    private val _selectedModel = MutableStateFlow(availableModels[1])
+    // Definindo o modelo padrão como GPT-4o
+    private val _selectedModel = MutableStateFlow(availableModels[3]) // GPT-4o como padrão
     val selectedModel: StateFlow<AIModel> = _selectedModel.asStateFlow()
 
     // Expor a lista de modelos
@@ -154,7 +145,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
 
     init {
-        // aguarda a criação da “nova conversa” ou qualquer tarefa
+        // aguarda a criação da "nova conversa" ou qualquer tarefa
         loadInitialConversationOrStartNew()
         _isReady.value = true          // <- PRONTO ✔
         auth.addAuthStateListener { firebaseAuth ->
@@ -267,12 +258,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             .stateIn(scope = viewModelScope, started = SharingStarted.Eagerly, initialValue = emptyList())
 
-    val messages: StateFlow<List<ChatMessage>> =
+    val messages: StateFlow<List<com.ivip.brainstormia.ChatMessage>> =
         _currentConversationId.flatMapLatest { convId ->
             Log.d("ChatViewModel", "[State] CurrentConversationId changed: $convId")
             when (convId) {
                 null, NEW_CONVERSATION_ID -> {
-                    flowOf(listOf(ChatMessage(welcomeMessageText, Sender.BOT)))
+                    flowOf(listOf(com.ivip.brainstormia.ChatMessage(welcomeMessageText, Sender.BOT)))
                 }
                 else -> chatDao.getMessagesForConversation(convId, _userIdFlow.value)
                     .map { entities ->
@@ -563,15 +554,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        val userUiMessage = ChatMessage(userMessageText, Sender.USER)
+        val userUiMessage = com.ivip.brainstormia.ChatMessage(userMessageText, Sender.USER)
         saveMessageToDb(userUiMessage, targetConversationId, timestamp)
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val currentMessagesFromDb = chatDao.getMessagesForConversation(targetConversationId, _userIdFlow.value).first()
-                val historyForApi = mapMessagesToApiHistory(mapEntitiesToUiMessages(currentMessagesFromDb))
-                Log.d("ChatViewModel", "API Call: Sending ${historyForApi.size} history messages for conv $targetConversationId")
-                callGeminiApi(userMessageText, historyForApi, targetConversationId)
+                val historyMessages = mapEntitiesToUiMessages(currentMessagesFromDb)
+
+                Log.d("ChatViewModel", "API Call: Enviando ${historyMessages.size} mensagens para a API para conv $targetConversationId")
+
+                callOpenAIApi(userMessageText, historyMessages, targetConversationId)
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "Error preparing history or calling API for conv $targetConversationId", e)
                 withContext(Dispatchers.Main) {
@@ -646,83 +639,120 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private suspend fun callGeminiApi(userMessageText: String, historyForApi: List<Content>, conversationId: Long) {
-        var finalBotResponseText: String? = null
+    // Substitua o método callOpenAIApi por esta versão simplificada:
+
+    // Este é o método completo que deve ser adicionado ao ChatViewModel.kt
+
+    private suspend fun callOpenAIApi(userMessageText: String, historyMessages: List<com.ivip.brainstormia.ChatMessage>, conversationId: Long) {
         try {
             val currentModel = _selectedModel.value
-            Log.d("ChatViewModel", "Starting API call with model ${currentModel.displayName} for conv $conversationId")
-            val generativeModel = GenerativeModel(
-                modelName = currentModel.apiEndpoint,
-                apiKey = BuildConfig.GEMINI_API_KEY,
-                systemInstruction = content { text(brainstormiaSystemPrompt) },
-                requestOptions = RequestOptions(timeout = 60000)
-            )
-            val chat = generativeModel.startChat(history = historyForApi)
-            val responseFlow: Flow<GenerateContentResponse> = chat.sendMessageStream(
-                content(role = "user") { text(userMessageText) }
-            )
-            var currentBotText = ""
-            responseFlow
-                .mapNotNull { it.text }
-                .onEach { textPart ->
-                    currentBotText += textPart
-                    Log.v("ChatViewModel", "Stream chunk for conv $conversationId: '$textPart'")
-                }
-                .onCompletion { cause ->
-                    if (cause == null) {
-                        Log.i("ChatViewModel", "Stream completed successfully for conv $conversationId.")
-                        finalBotResponseText = currentBotText
-                    } else {
-                        Log.e("ChatViewModel", "Stream completed with error for conv $conversationId", cause)
-                        withContext(Dispatchers.Main) {
-                            _errorMessage.value = "Erro durante a resposta da IA: ${cause.localizedMessage}"
+            Log.d("ChatViewModel", "Iniciando chamada OpenAI com modelo ${currentModel.displayName} para conv $conversationId")
+
+            var responseText = StringBuilder()
+            var modelUsed = currentModel
+
+            withContext(Dispatchers.IO) {
+                try {
+                    // Usar o OpenAIClient para gerar completions com timeout
+                    val result = withTimeoutOrNull(60000) { // Timeout de 60 segundos
+                        openAIClient.generateChatCompletion(
+                            modelId = currentModel.apiEndpoint,
+                            systemPrompt = brainstormiaSystemPrompt,
+                            userMessage = userMessageText,
+                            historyMessages = historyMessages
+                        ).collect { chunk ->
+                            responseText.append(chunk)
+                        }
+                        true // Indica que o fluxo foi concluído com sucesso
+                    }
+
+                    if (result == null) {
+                        // Timeout ocorreu
+                        Log.w("ChatViewModel", "Timeout com modelo ${currentModel.id}")
+
+                        // Se não for o modelo GPT-4o padrão, tentar com ele
+                        if (currentModel.id != "gpt-4o") {
+                            responseText.clear() // Limpar qualquer resposta parcial
+                            Log.w("ChatViewModel", "Tentando com modelo GPT-4o")
+                            val backupModel = availableModels.first { it.id == "gpt-4o" }
+                            modelUsed = backupModel
+
+                            // Tentar com GPT-4o
+                            val backupResult = withTimeoutOrNull(60000) {
+                                openAIClient.generateChatCompletion(
+                                    modelId = backupModel.apiEndpoint,
+                                    systemPrompt = brainstormiaSystemPrompt,
+                                    userMessage = userMessageText,
+                                    historyMessages = historyMessages
+                                ).collect { chunk ->
+                                    responseText.append(chunk)
+                                }
+                                true
+                            }
+
+                            if (backupResult == null) {
+                                // Timeout com o modelo de backup também
+                                throw Exception("Timeout na chamada da API (segunda tentativa)")
+                            }
+                        } else {
+                            throw Exception("Timeout na chamada da API")
                         }
                     }
-                    withContext(Dispatchers.Main) {
-                        if (!finalBotResponseText.isNullOrBlank()) {
-                            saveMessageToDb(ChatMessage(finalBotResponseText!!, Sender.BOT), conversationId)
-                        } else if (cause == null) {
-                            Log.w("ChatViewModel", "Stream for conv $conversationId completed successfully but resulted in null/blank text.")
-                        }
-                        _loadingState.value = LoadingState.IDLE
-                        Log.d("ChatViewModel", "Stream processing finished for conv $conversationId. Resetting loading state.")
-                    }
-                }
-                .catch { e ->
-                    Log.e("ChatViewModel", "Error during Gemini stream collection for conv $conversationId", e)
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "Erro na chamada à API: ${e.message}")
                     throw e
                 }
-                .collect()
+            }
+
+            val finalResponse = responseText.toString()
+            if (finalResponse.isNotBlank()) {
+                Log.d("ChatViewModel", "Resposta da OpenAI recebida para conv $conversationId (${finalResponse.length} caracteres)")
+
+                // Criar a entidade da mensagem e inseri-la diretamente no banco de dados
+                val botMessageEntity = ChatMessageEntity(
+                    id = 0, // ID automático
+                    conversationId = conversationId,
+                    text = finalResponse,
+                    sender = Sender.BOT.name,
+                    timestamp = System.currentTimeMillis(),
+                    userId = _userIdFlow.value
+                )
+
+                viewModelScope.launch(Dispatchers.IO) {
+                    try {
+                        chatDao.insertMessage(botMessageEntity)
+                        Log.d("ChatViewModel", "Mensagem do bot salva no banco de dados para conv $conversationId")
+                    } catch (e: Exception) {
+                        Log.e("ChatViewModel", "Erro ao salvar mensagem do bot no banco de dados", e)
+                    }
+                }
+            } else {
+                Log.w("ChatViewModel", "Resposta vazia da OpenAI para conv $conversationId")
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Resposta vazia da IA. Por favor, tente novamente."
+                }
+            }
         } catch (e: Exception) {
-            Log.e("ChatViewModel", "Error setting up or starting Gemini API call for conv $conversationId", e)
+            Log.e("ChatViewModel", "Erro na chamada à API OpenAI para conv $conversationId", e)
             withContext(Dispatchers.Main) {
-                _errorMessage.value = "Erro ao iniciar comunicação com IA: ${e.localizedMessage}"
-                _loadingState.value = LoadingState.ERROR
+                if (e.message?.contains("Timeout") == true) {
+                    _errorMessage.value = "A IA demorou muito para responder. Por favor, tente novamente."
+                } else {
+                    _errorMessage.value = "Erro ao comunicar com IA: ${e.localizedMessage}"
+                }
+            }
+        } finally {
+            withContext(Dispatchers.Main) {
+                _loadingState.value = LoadingState.IDLE
             }
         }
     }
 
-    private fun saveMessageToDb(message: ChatMessage, conversationId: Long, timestamp: Long = System.currentTimeMillis()) {
-        if (conversationId == NEW_CONVERSATION_ID) {
-            Log.e("ChatViewModel", "Attempted to save message with invalid NEW_CONVERSATION_ID. Message: '${message.text.take(30)}...'")
-            return
-        }
-        viewModelScope.launch(Dispatchers.IO) {
-            val entity = mapUiMessageToEntity(message, conversationId, timestamp)
-            try {
-                chatDao.insertMessage(entity)
-                Log.d("ChatViewModel", "Msg saved (Conv $conversationId, Sender ${entity.sender}): ${entity.text.take(50)}...")
-            } catch (e: Exception) {
-                Log.e("ChatViewModel", "Error inserting message into DB for conv $conversationId", e)
-            }
-        }
-    }
-
-    private fun mapEntitiesToUiMessages(entities: List<ChatMessageEntity>): List<ChatMessage> {
+    private fun mapEntitiesToUiMessages(entities: List<ChatMessageEntity>): List<com.ivip.brainstormia.ChatMessage> {
         return entities.mapNotNull { entity ->
             try {
                 val sender = enumValueOf<Sender>(entity.sender.uppercase())
-                ChatMessage(entity.text, sender)
+                com.ivip.brainstormia.ChatMessage(entity.text, sender)
             } catch (e: IllegalArgumentException) {
                 Log.e("ChatViewModelMapper", "Invalid sender string in DB: ${entity.sender}. Skipping message ID ${entity.id}.")
                 null
@@ -730,7 +760,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun mapUiMessageToEntity(message: ChatMessage, conversationId: Long, timestamp: Long): ChatMessageEntity {
+    private fun mapUiMessageToEntity(message: com.ivip.brainstormia.ChatMessage, conversationId: Long, timestamp: Long): ChatMessageEntity {
         return ChatMessageEntity(
             conversationId = conversationId,
             text = message.text,
@@ -738,14 +768,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             timestamp = timestamp,
             userId = _userIdFlow.value
         )
-    }
-
-    private fun mapMessagesToApiHistory(messages: List<ChatMessage>): List<Content> {
-        return messages.takeLast(MAX_HISTORY_MESSAGES)
-            .map { msg ->
-                val role = if (msg.sender == Sender.USER) "user" else "model"
-                return@map content(role = role) { text(msg.text) }
-            }
     }
 
     private fun generateFallbackTitleSync(conversationId: Long): String {
@@ -804,6 +826,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    private fun saveMessageToDb(uiMessage: com.ivip.brainstormia.ChatMessage, conversationId: Long, timestamp: Long) {
+        val entity = mapUiMessageToEntity(uiMessage, conversationId, timestamp)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                chatDao.insertMessage(entity)
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error saving message to DB", e)
+            }
+        }
+    }
+
+
 
     companion object {
         private val titleDateFormatter = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())

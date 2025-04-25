@@ -277,6 +277,7 @@ fun ChatScreen(
         if (id != null && id != NEW_CONVERSATION_ID) {
             try {
                 exportDialogTitle = chatViewModel.getDisplayTitle(id)
+                exportViewModel.setupDriveService()
                 Log.d("ChatScreen", "Preparando para exportar conversa: $exportDialogTitle (ID: $id)")
             } catch (e: Exception) {
                 Log.e("ChatScreen", "Erro ao buscar título para exportação", e)
@@ -466,13 +467,14 @@ fun ChatScreen(
                             ) {
                                 items(
                                     items = messages,
-                                    key = { message: ChatMessage -> "${message.sender}-${message.text.hashCode()}" }
+                                    key = { message -> "${message.sender}-${message.text.hashCode()}" }
                                 ) { message ->
                                     MessageBubble(
                                         message = message,
                                         isDarkTheme = isDarkTheme
                                     )
                                 }
+
                                 if (isLoading) {
                                     item {
                                         TypingBubbleAnimation(

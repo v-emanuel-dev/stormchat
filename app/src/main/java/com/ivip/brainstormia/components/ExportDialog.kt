@@ -3,7 +3,6 @@ package com.ivip.brainstormia.components
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,14 +11,14 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect as Effect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import com.ivip.brainstormia.ExportState
 import com.ivip.brainstormia.theme.SurfaceColor
 import com.ivip.brainstormia.theme.SurfaceColorDark
@@ -37,8 +36,30 @@ fun ExportDialog(
     val exportGreenColor = Color(0xFF4CAF50)
     val context = LocalContext.current
 
+    // Abre o arquivo exportado diretamente no app Google Drive
+    Effect(exportState) {
+        if (exportState is ExportState.Success) {
+            try {
+                // URI do arquivo no Drive
+                val fileId = exportState.fileId.orEmpty()
+                val driveUri = Uri.parse("https://drive.google.com/file/d/$fileId/view")
+                val intent = Intent(Intent.ACTION_VIEW, driveUri)
+                    .setPackage("com.google.android.apps.docs")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                Log.e("ExportDialog", "Erro ao abrir o Drive: ${e.message}")
+            }
+        }
+    }
+
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (exportState !is ExportState.Loading) {
+                onDismiss()
+            }
+        },
         title = {
             Text(
                 text = "Exportar Conversa",
@@ -80,20 +101,6 @@ fun ExportDialog(
                         )
                     }
                     is ExportState.Success -> {
-                        // Auto-open in Google Drive app when URL is ready
-                        LaunchedEffect(exportState.fileUrl) {
-                            exportState.fileUrl?.let { url ->
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-                                        .setPackage("com.google.android.apps.docs")
-                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    Log.e("ExportDialog", "Erro ao abrir no Drive: ${e.message}")
-                                }
-                            }
-                        }
-
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
                             contentDescription = "Sucesso",
@@ -107,34 +114,41 @@ fun ExportDialog(
                             color = if (isDarkTheme) TextColorLight else TextColorDark
                         )
 
-                        exportState.fileUrl?.let { url ->
-                            OutlinedButton(
-                                onClick = {
-                                    try {
-                                        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
-                                            .setPackage("com.google.android.apps.docs")
-                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        Log.e("ExportDialog", "Erro ao abrir arquivo: ${e.message}")
-                                    }
-                                },
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = exportGreenColor
-                                ),
-                                border = BorderStroke(1.dp, exportGreenColor)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.OpenInNew,
-                                    contentDescription = null,
-                                    tint = exportGreenColor
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Abrir no Google Drive",
-                                    color = exportGreenColor
-                                )
-                            }
+                        Text(
+                            text = "Nome do arquivo: ${exportState.fileName}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Normal,
+                            color = if (isDarkTheme) TextColorLight.copy(alpha = 0.8f) else TextColorDark.copy(alpha = 0.8f)
+                        )
+
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    val fileId = exportState.fileId.orEmpty()
+                                    val driveUri = Uri.parse("https://drive.google.com/file/d/$fileId/view")
+                                    val intent = Intent(Intent.ACTION_VIEW, driveUri)
+                                        .setPackage("com.google.android.apps.docs")
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Log.e("ExportDialog", "Erro ao abrir Drive: ${e.message}")
+                                }
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = exportGreenColor
+                            ),
+                            border = BorderStroke(1.dp, exportGreenColor)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.OpenInNew,
+                                contentDescription = null,
+                                tint = exportGreenColor
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Abrir no Google Drive",
+                                color = exportGreenColor
+                            )
                         }
                     }
                     is ExportState.Error -> {
@@ -182,7 +196,7 @@ fun ExportDialog(
                         )
                     }
                 }
-                is ExportState.Loading -> {}
+                else -> {}
             }
         },
         dismissButton = {

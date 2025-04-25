@@ -1,7 +1,7 @@
 package com.ivip.brainstormia
 
+import android.app.Application
 import android.content.ContentValues
-import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
 import android.util.Log
@@ -18,6 +18,7 @@ import com.google.api.services.drive.model.File as DriveFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -30,24 +31,24 @@ import java.util.Locale
 sealed class ExportState {
     object Initial : ExportState()
     object Loading : ExportState()
-    data class Success(val fileId: String? = null, val fileUrl: String? = null) : ExportState()
+    data class Success(val fileId: String? = null, val fileName: String = "") : ExportState()
     data class Error(val message: String) : ExportState()
 }
 
-class ExportViewModel(application: android.app.Application) : AndroidViewModel(application) {
+class ExportViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _exportState = MutableStateFlow<ExportState>(ExportState.Initial)
-    val exportState: StateFlow<ExportState> = _exportState
+    val exportState: StateFlow<ExportState> = _exportState.asStateFlow()
 
     private var driveService: Drive? = null
+    private val tag = "ExportViewModel"
 
-    // Setup Google Drive service
     fun setupDriveService() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val googleAccount = GoogleSignIn.getLastSignedInAccount(getApplication())
                 if (googleAccount == null) {
-                    Log.w("ExportViewModel", "No Google account found")
+                    Log.w(tag, "Nenhuma conta Google encontrada")
                     return@launch
                 }
 
@@ -65,9 +66,9 @@ class ExportViewModel(application: android.app.Application) : AndroidViewModel(a
                     .setApplicationName("Brainstormia")
                     .build()
 
-                Log.d("ExportViewModel", "Drive service set up successfully")
+                Log.d(tag, "Serviço do Drive configurado com sucesso")
             } catch (e: Exception) {
-                Log.e("ExportViewModel", "Error setting up Drive service", e)
+                Log.e(tag, "Erro ao configurar o serviço do Drive", e)
             }
         }
     }
@@ -83,27 +84,40 @@ class ExportViewModel(application: android.app.Application) : AndroidViewModel(a
         }
 
         _exportState.value = ExportState.Loading
+        Log.d(tag, "Iniciando exportação para conversa: $conversationId, título: $title")
 
         viewModelScope.launch {
             try {
-                // Format conversation as text
-                val conversationText = formatConversationAsText(messages)
+                // Formatar data e hora atual para o nome do arquivo
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault())
+                val dateTime = dateFormat.format(Date())
 
-                // Create filename with the required prefix
-                val fileName = "Brainstormia-${sanitizeFileName(title)}.txt"
+                // Criar um nome de arquivo baseado no título da conversa
+                val sanitizedTitle = sanitizeFileName(title)
+                val fileName = "Brainstormia_${sanitizedTitle}_$dateTime.txt"
+                Log.d(tag, "Nome do arquivo preparado: $fileName")
 
-                // Check if Drive service is available
+                // Converter mensagens para texto formatado
+                val fileContent = formatConversationAsText(messages)
+
+                // Verificar se há conteúdo para exportar
+                if (fileContent.isBlank()) {
+                    _exportState.value = ExportState.Error("Não há conteúdo para exportar")
+                    return@launch
+                }
+
+                // Verificar se o Drive está disponível
                 val drive = driveService
                 if (drive != null) {
-                    // Export to Google Drive
-                    exportToDrive(drive, fileName, conversationText)
+                    // Upload do arquivo para o Google Drive
+                    exportToDrive(drive, fileName, fileContent)
                 } else {
-                    // Fallback to local storage if Drive is not available
-                    exportToLocalStorage(fileName, conversationText)
+                    // Fallback para armazenamento local se o Drive não estiver disponível
+                    exportToLocalStorage(fileName, fileContent)
                 }
             } catch (e: Exception) {
-                Log.e("ExportViewModel", "Error exporting conversation", e)
-                _exportState.value = ExportState.Error("Erro ao exportar: ${e.localizedMessage}")
+                Log.e(tag, "Erro ao exportar conversa", e)
+                _exportState.value = ExportState.Error("Falha na exportação: ${e.localizedMessage ?: "Erro desconhecido"}")
             }
         }
     }
@@ -111,33 +125,50 @@ class ExportViewModel(application: android.app.Application) : AndroidViewModel(a
     private suspend fun exportToDrive(drive: Drive, fileName: String, content: String) {
         withContext(Dispatchers.IO) {
             try {
-                Log.d("ExportViewModel", "Creating file in Google Drive: $fileName")
+                Log.d(tag, "Criando arquivo no Google Drive: $fileName")
 
-                // Create file metadata
+                // Criar metadados do arquivo
                 val fileMetadata = DriveFile().apply {
                     name = fileName
                     mimeType = "text/plain"
                 }
 
-                // Create file content
+                // Criar conteúdo do arquivo
                 val contentStream = ByteArrayContent.fromString("text/plain", content)
 
-                // Create the file in Drive
+                // Criar o arquivo no Drive
                 val file = drive.files().create(fileMetadata, contentStream)
                     .setFields("id,webViewLink")
                     .execute()
 
-                Log.d("ExportViewModel", "File created in Drive with ID: ${file.id}")
+                Log.d(tag, "Arquivo criado no Drive com ID: ${file.id}")
 
-                // Update state with success
+                // Configurar permissões para que o arquivo seja acessível
+                try {
+                    val permission = com.google.api.services.drive.model.Permission()
+                        .setType("user")
+                        .setRole("writer")
+                        .setEmailAddress(GoogleSignIn.getLastSignedInAccount(getApplication())?.email)
+
+                    drive.permissions().create(file.id, permission)
+                        .setFields("id")
+                        .execute()
+
+                    Log.d(tag, "Permissões definidas para o arquivo: ${file.id}")
+                } catch (e: Exception) {
+                    Log.e(tag, "Erro ao configurar permissões do arquivo", e)
+                    // Continuar mesmo se as permissões falharem
+                }
+
+                // Atualizar estado com sucesso
                 withContext(Dispatchers.Main) {
                     _exportState.value = ExportState.Success(
                         fileId = file.id,
-                        fileUrl = file.webViewLink
+                        fileName = fileName
                     )
                 }
             } catch (e: Exception) {
-                Log.e("ExportViewModel", "Error creating file in Drive", e)
+                Log.e(tag, "Erro ao criar arquivo no Drive", e)
                 throw e
             }
         }
@@ -146,8 +177,8 @@ class ExportViewModel(application: android.app.Application) : AndroidViewModel(a
     private suspend fun exportToLocalStorage(fileName: String, content: String) {
         withContext(Dispatchers.IO) {
             try {
-                Log.d("ExportViewModel", "Exporting to local storage: $fileName")
-                val context = getApplication<android.app.Application>()
+                Log.d(tag, "Exportando para armazenamento local: $fileName")
+                val context = getApplication<Application>()
 
                 val values = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
@@ -163,16 +194,16 @@ class ExportViewModel(application: android.app.Application) : AndroidViewModel(a
                         output.write(content.toByteArray())
                     }
 
-                    Log.d("ExportViewModel", "File saved to local storage: $uri")
+                    Log.d(tag, "Arquivo salvo no armazenamento local: $uri")
 
                     withContext(Dispatchers.Main) {
-                        _exportState.value = ExportState.Success()
+                        _exportState.value = ExportState.Success(fileName = fileName)
                     }
                 } else {
                     throw Exception("Não foi possível criar o arquivo local")
                 }
             } catch (e: Exception) {
-                Log.e("ExportViewModel", "Error exporting to local storage", e)
+                Log.e(tag, "Erro ao exportar para armazenamento local", e)
                 throw e
             }
         }
@@ -183,26 +214,42 @@ class ExportViewModel(application: android.app.Application) : AndroidViewModel(a
         val currentDate = dateFormat.format(Date())
 
         return buildString {
-            appendLine("Conversa Brainstormia")
-            appendLine("Exportada em: $currentDate")
-            appendLine("-".repeat(50))
+            appendLine("=== CONVERSA EXPORTADA DO BRAINSTORMIA ===")
+            appendLine("Data: $currentDate")
+            appendLine("Total de mensagens: ${messages.size}")
+            appendLine("=====================================")
             appendLine()
 
-            messages.forEach { message ->
-                val prefix = when (message.sender) {
-                    Sender.USER -> "Você: "
-                    Sender.BOT -> "Brainstormia: "
+            messages.forEachIndexed { index, message ->
+                val sender = when (message.sender) {
+                    Sender.USER -> "Você"
+                    Sender.BOT -> "Brainstormia"
+                    else -> "Desconhecido"
                 }
-                appendLine(prefix + message.text)
-                appendLine()
+
+                appendLine("[$sender]:")
+                appendLine(message.text)
+
+                // Adicionar separador entre mensagens (exceto para a última)
+                if (index < messages.size - 1) {
+                    appendLine()
+                    appendLine("---")
+                    appendLine()
+                }
             }
+
+            // Log do tamanho do conteúdo para depuração
+            val content = toString()
+            Log.d(tag, "Conteúdo formatado: ${content.length} caracteres")
         }
     }
 
-    // Helper function to sanitize filenames
+    // Função auxiliar para sanitizar nomes de arquivos
     private fun sanitizeFileName(name: String): String {
-        // Remove invalid characters for filenames
+        // Remover caracteres inválidos para nomes de arquivos
         return name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+            .replace("\\s+".toRegex(), "_")
+            .take(30)
             .trim()
             .takeIf { it.isNotEmpty() } ?: "Conversa"
     }

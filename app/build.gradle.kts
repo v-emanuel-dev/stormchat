@@ -27,15 +27,16 @@ android {
         applicationId = "com.ivip.brainstormia"
         minSdk = 24
         targetSdk = 35
-        versionCode = 14
-        versionName = "1.4"
+        versionCode = 15
+        versionName = "1.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiKeyFromProperties = localProperties.getProperty("apiKey") ?: ""
         if (apiKeyFromProperties.isBlank()) {
             println("Warning: 'apiKey' not found in local.properties. BuildConfig field will be empty.")
         }
-        buildConfigField("String", "GEMINI_API_KEY", "\"${apiKeyFromProperties}\"")
+
+        buildConfigField("String", "OPENAI_API_KEY", "\"${apiKeyFromProperties}\"")
     }
 
     buildTypes {
@@ -143,4 +144,10 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging-ktx:24.1.1")
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
+
+    // OpenAI API
+    implementation("com.aallam.openai:openai-client:3.5.1")
+    implementation("io.ktor:ktor-client-android:2.3.3")
+    implementation("io.ktor:ktor-client-content-negotiation:2.3.3")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.3")
 }
