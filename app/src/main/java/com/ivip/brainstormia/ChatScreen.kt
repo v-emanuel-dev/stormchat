@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -466,10 +467,10 @@ fun ChatScreen(
                                 contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(
+                                itemsIndexed(
                                     items = messages,
-                                    key = { message -> "${message.sender}-${message.text.hashCode()}" }
-                                ) { message ->
+                                    key = { index, _ -> index }
+                                ) { _, message ->
                                     MessageBubble(
                                         message = message,
                                         isDarkTheme = isDarkTheme
