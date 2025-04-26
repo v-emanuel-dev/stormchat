@@ -25,7 +25,7 @@ import java.util.Date
 import java.util.Locale
 import com.ivip.brainstormia.data.db.ModelPreferenceDao
 import com.ivip.brainstormia.data.db.ModelPreferenceEntity
-import kotlinx.coroutines.TimeoutCancellationException
+import com.ivip.brainstormia.data.models.AIProvider
 import kotlinx.coroutines.withTimeoutOrNull
 
 enum class LoadingState { IDLE, LOADING, ERROR }
@@ -38,6 +38,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // Cliente OpenAI
     private val openAIClient = OpenAIClient(BuildConfig.OPENAI_API_KEY)
+    private val googleAIClient = GoogleAIClient(BuildConfig.GOOGLE_API_KEY) // Adicionar esta linha
+    private val anthropicClient = AnthropicClient(BuildConfig.ANTHROPIC_API_KEY) // Adicionar esta linha
 
     private val auth = FirebaseAuth.getInstance()
     private val appDb = AppDatabase.getDatabase(application)
@@ -46,18 +48,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val modelPreferenceDao: ModelPreferenceDao = appDb.modelPreferenceDao()
 
     // Lista de modelos disponíveis (OpenAI)
-    private val availableModels = listOf(AIModel(id = "gpt-4.1", displayName = "GPT-4.1", apiEndpoint = "gpt-4.1"),
-       AIModel(id = "gpt-4.1-mini", displayName = "GPT-4.1 Mini", apiEndpoint = "gpt-4.1-mini"),
-       AIModel(id = "gpt-4.1-nano", displayName = "GPT-4.1 Nano", apiEndpoint = "gpt-4.1-nano"),
+    private val availableModels = listOf(
+        // Modelos Anthropic
+        AIModel(id = "claude-3-7-sonnet-20250219", displayName = "Claude 3.7 Sonnet", apiEndpoint = "claude-3-7-sonnet-20250219", provider = AIProvider.ANTHROPIC),
+        AIModel(id = "claude-3-5-sonnet-20241022", displayName = "Claude 3.5 Sonnet", apiEndpoint = "claude-3-5-sonnet-20241022", provider = AIProvider.ANTHROPIC),
+        // Modelos Google Gemini
+        AIModel(id = "gemini-2.5-pro", displayName = "Gemini 2.5 Pro", apiEndpoint = "gemini-2.5-pro-exp-03-25", provider = AIProvider.GOOGLE),
+        AIModel(id = "gemini-2.5-flash", displayName = "Gemini 2.5 Flash", apiEndpoint = "gemini-2.5-flash-preview-04-17", provider = AIProvider.GOOGLE),
+        AIModel(id = "gemini-2.0-flash", displayName = "Gemini 2.0 Flash", apiEndpoint = "gemini-2.0-flash", provider = AIProvider.GOOGLE),
+        // Modelos Openai
+        AIModel(id = "gpt-4.1", displayName = "GPT-4.1", apiEndpoint = "gpt-4.1"),
         AIModel(id = "gpt-4o", displayName = "GPT-4o", apiEndpoint = "gpt-4o"),
        AIModel(id = "gpt-4.5-preview", displayName = "GPT-4.5 Preview", apiEndpoint = "gpt-4.5-preview"),
         AIModel(id = "o1", displayName = "GPT o1", apiEndpoint = "o1"),
-        //AIModel(id = "o1-pro", displayName = "GPT o1 Pro", apiEndpoint = "o1-pro"),
         AIModel(id = "o3", displayName = "GPT o3", apiEndpoint = "o3"),
         AIModel(id = "o3-mini", displayName = "GPT o3 Mini", apiEndpoint = "o3-mini"),
         AIModel(id = "o4-mini", displayName = "GPT o4 Mini", apiEndpoint = "o4-mini"),
-        AIModel(id = "gpt-4-turbo", displayName = "GPT-4o Turbo", apiEndpoint = "gpt-4-turbo"),
-        AIModel(id = "gpt-3.5-turbo", displayName = "GPT-3.5 Turbo", apiEndpoint = "gpt-3.5-turbo")
     )
 
     // Definindo o modelo padrão como GPT-4o
@@ -658,41 +664,81 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // Este é o método completo que deve ser adicionado ao ChatViewModel.kt
 
-    private suspend fun callOpenAIApi(userMessageText: String, historyMessages: List<com.ivip.brainstormia.ChatMessage>, conversationId: Long) {
+    private suspend fun callOpenAIApi(
+        userMessageText: String,
+        historyMessages: List<ChatMessage>,
+        conversationId: Long
+    ) {
         try {
             val currentModel = _selectedModel.value
-            Log.d("ChatViewModel", "Iniciando chamada OpenAI com modelo ${currentModel.displayName} para conv $conversationId")
+            Log.d(
+                "ChatViewModel",
+                "Iniciando chamada de API com modelo ${currentModel.displayName} (${currentModel.provider}) para conv $conversationId"
+            )
 
             var responseText = StringBuilder()
             var modelUsed = currentModel
 
             withContext(Dispatchers.IO) {
                 try {
-                    // Usar o OpenAIClient para gerar completions com timeout
-                    val result = withTimeoutOrNull(60000) { // Timeout de 60 segundos
-                        openAIClient.generateChatCompletion(
-                            modelId = currentModel.apiEndpoint,
-                            systemPrompt = brainstormiaSystemPrompt,
-                            userMessage = userMessageText,
-                            historyMessages = historyMessages
-                        ).collect { chunk ->
-                            responseText.append(chunk)
+                    // Escolher o cliente com base no provedor
+                    val result = when (currentModel.provider) {
+                        AIProvider.OPENAI -> {
+                            Log.d("ChatViewModel", "Usando cliente OpenAI")
+                            withTimeoutOrNull(60000) {
+                                openAIClient.generateChatCompletion(
+                                    modelId = currentModel.apiEndpoint,
+                                    systemPrompt = brainstormiaSystemPrompt,
+                                    userMessage = userMessageText,
+                                    historyMessages = historyMessages
+                                ).collect { chunk ->
+                                    responseText.append(chunk)
+                                }
+                                true
+                            }
                         }
-                        true // Indica que o fluxo foi concluído com sucesso
+                        AIProvider.GOOGLE -> {
+                            Log.d("ChatViewModel", "Usando cliente Google")
+                            withTimeoutOrNull(60000) {
+                                googleAIClient.generateChatCompletion(
+                                    modelId = currentModel.apiEndpoint,
+                                    systemPrompt = brainstormiaSystemPrompt,
+                                    userMessage = userMessageText,
+                                    historyMessages = historyMessages
+                                ).collect { chunk ->
+                                    responseText.append(chunk)
+                                }
+                                true
+                            }
+                        }
+                        AIProvider.ANTHROPIC -> {
+                            Log.d("ChatViewModel", "Usando cliente Anthropic")
+                            withTimeoutOrNull(120000) { // Damos mais tempo ao Claude
+                                anthropicClient.generateChatCompletion(
+                                    modelId = currentModel.apiEndpoint,
+                                    systemPrompt = brainstormiaSystemPrompt,
+                                    userMessage = userMessageText,
+                                    historyMessages = historyMessages
+                                ).collect { chunk ->
+                                    responseText.append(chunk)
+                                }
+                                true
+                            }
+                        }
                     }
 
+                    // Verificar se houve timeout
                     if (result == null) {
-                        // Timeout ocorreu
                         Log.w("ChatViewModel", "Timeout com modelo ${currentModel.id}")
 
-                        // Se não for o modelo GPT-4o padrão, tentar com ele
-                        if (currentModel.id != "gpt-4o") {
-                            responseText.clear() // Limpar qualquer resposta parcial
-                            Log.w("ChatViewModel", "Tentando com modelo GPT-4o")
+                        // Tenta usar o modelo de backup (GPT-4o) apenas para modelos OpenAI
+                        if (currentModel.provider == AIProvider.OPENAI && currentModel.id != "gpt-4o") {
+                            responseText.clear()
+                            Log.w("ChatViewModel", "Usando modelo de backup (GPT-4o)")
+
                             val backupModel = availableModels.first { it.id == "gpt-4o" }
                             modelUsed = backupModel
 
-                            // Tentar com GPT-4o
                             val backupResult = withTimeoutOrNull(60000) {
                                 openAIClient.generateChatCompletion(
                                     modelId = backupModel.apiEndpoint,
@@ -706,7 +752,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             }
 
                             if (backupResult == null) {
-                                // Timeout com o modelo de backup também
                                 throw Exception("Timeout na chamada da API (segunda tentativa)")
                             }
                         } else {
@@ -719,13 +764,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
+            // Processamento da resposta
             val finalResponse = responseText.toString()
             if (finalResponse.isNotBlank()) {
-                Log.d("ChatViewModel", "Resposta da OpenAI recebida para conv $conversationId (${finalResponse.length} caracteres)")
+                Log.d("ChatViewModel", "Resposta da API recebida para conv $conversationId (${finalResponse.length} caracteres)")
 
-                // Criar a entidade da mensagem e inseri-la diretamente no banco de dados
                 val botMessageEntity = ChatMessageEntity(
-                    id = 0, // ID automático
+                    id = 0,
                     conversationId = conversationId,
                     text = finalResponse,
                     sender = Sender.BOT.name,
@@ -736,19 +781,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 viewModelScope.launch(Dispatchers.IO) {
                     try {
                         chatDao.insertMessage(botMessageEntity)
-                        Log.d("ChatViewModel", "Mensagem do bot salva no banco de dados para conv $conversationId")
+                        Log.d("ChatViewModel", "Mensagem do bot salva no banco de dados")
                     } catch (e: Exception) {
                         Log.e("ChatViewModel", "Erro ao salvar mensagem do bot no banco de dados", e)
                     }
                 }
             } else {
-                Log.w("ChatViewModel", "Resposta vazia da OpenAI para conv $conversationId")
+                Log.w("ChatViewModel", "Resposta vazia da API para conv $conversationId")
                 withContext(Dispatchers.Main) {
                     _errorMessage.value = "Resposta vazia da IA. Por favor, tente novamente."
                 }
             }
         } catch (e: Exception) {
-            Log.e("ChatViewModel", "Erro na chamada à API OpenAI para conv $conversationId", e)
+            Log.e("ChatViewModel", "Erro na chamada à API para conv $conversationId", e)
             withContext(Dispatchers.Main) {
                 if (e.message?.contains("Timeout") == true) {
                     _errorMessage.value = "A IA demorou muito para responder. Por favor, tente novamente."

@@ -27,18 +27,29 @@ android {
         applicationId = "com.ivip.brainstormia"
         minSdk = 24
         targetSdk = 35
-        versionCode = 19
-        versionName = "1.9"
+        versionCode = 22
+        versionName = "2.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        val apiKeyFromProperties = localProperties.getProperty("apiKey") ?: ""
-        if (apiKeyFromProperties.isBlank()) {
-            println("Warning: 'apiKey' not found in local.properties. BuildConfig field will be empty.")
+        val apiKeyOpenaiFromProperties = localProperties.getProperty("apiKeyOpenai") ?: ""
+        if (apiKeyOpenaiFromProperties.isBlank()) {
+            println("Warning: 'apiKeyOpenai' not found in local.properties. BuildConfig field will be empty.")
         }
 
-        buildConfigField("String", "OPENAI_API_KEY", "\"${apiKeyFromProperties}\"")
-    }
+        val apiKeyGoogleFromProperties = localProperties.getProperty("apiKeyGoogle") ?: ""
+        if (apiKeyGoogleFromProperties.isBlank()) {
+            println("Warning: 'apiKeyGoogle' not found in local.properties. BuildConfig field will be empty.")
+        }
 
+        val apiKeyAnthropicFromProperties = localProperties.getProperty("apiKeyAnthropic") ?: ""
+        if (apiKeyAnthropicFromProperties.isBlank()) {
+            println("Warning: 'apiKeyAnthropic' not found in local.properties. BuildConfig field will be empty.")
+        }
+
+        buildConfigField("String", "OPENAI_API_KEY", "\"${apiKeyOpenaiFromProperties}\"")
+        buildConfigField("String", "GOOGLE_API_KEY", "\"${apiKeyGoogleFromProperties}\"")
+        buildConfigField("String", "ANTHROPIC_API_KEY", "\"${apiKeyAnthropicFromProperties}\"")
+}
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -150,4 +161,6 @@ dependencies {
     implementation("io.ktor:ktor-client-android:2.3.3")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.3")
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.3")
+    implementation ("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation ("org.json:json:20210307")
 }
