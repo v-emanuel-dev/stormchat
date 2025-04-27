@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.brainstormia.ConversationType
+import com.google.firebase.Firebase
 import com.ivip.brainstormia.data.db.AppDatabase
 import com.ivip.brainstormia.data.db.ChatDao
 import com.ivip.brainstormia.data.db.ChatMessageEntity
@@ -13,6 +14,7 @@ import com.ivip.brainstormia.data.db.ConversationInfo
 import com.ivip.brainstormia.data.db.ConversationMetadataDao
 import com.ivip.brainstormia.data.db.ConversationMetadataEntity
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -47,28 +49,225 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val metadataDao: ConversationMetadataDao = appDb.conversationMetadataDao()
     private val modelPreferenceDao: ModelPreferenceDao = appDb.modelPreferenceDao()
 
+
     // Lista de modelos disponíveis (OpenAI)
-    private val availableModels = listOf(
-        // Modelos Anthropic
-        AIModel(id = "claude-3-7-sonnet-20250219", displayName = "Claude 3.7 Sonnet", apiEndpoint = "claude-3-7-sonnet-20250219", provider = AIProvider.ANTHROPIC),
-        AIModel(id = "claude-3-5-sonnet-20241022", displayName = "Claude 3.5 Sonnet", apiEndpoint = "claude-3-5-sonnet-20241022", provider = AIProvider.ANTHROPIC),
-        // Modelos Google Gemini
-        AIModel(id = "gemini-2.5-pro", displayName = "Gemini 2.5 Pro", apiEndpoint = "gemini-2.5-pro-exp-03-25", provider = AIProvider.GOOGLE),
-        AIModel(id = "gemini-2.5-flash", displayName = "Gemini 2.5 Flash", apiEndpoint = "gemini-2.5-flash-preview-04-17", provider = AIProvider.GOOGLE),
-        AIModel(id = "gemini-2.0-flash", displayName = "Gemini 2.0 Flash", apiEndpoint = "gemini-2.0-flash", provider = AIProvider.GOOGLE),
-        // Modelos Openai
-        AIModel(id = "gpt-4.1", displayName = "GPT-4.1", apiEndpoint = "gpt-4.1"),
-        AIModel(id = "gpt-4o", displayName = "GPT-4o", apiEndpoint = "gpt-4o"),
-       AIModel(id = "gpt-4.5-preview", displayName = "GPT-4.5 Preview", apiEndpoint = "gpt-4.5-preview"),
-        AIModel(id = "o1", displayName = "GPT o1", apiEndpoint = "o1"),
-        AIModel(id = "o3", displayName = "GPT o3", apiEndpoint = "o3"),
-        AIModel(id = "o3-mini", displayName = "GPT o3 Mini", apiEndpoint = "o3-mini"),
-        AIModel(id = "o4-mini", displayName = "GPT o4 Mini", apiEndpoint = "o4-mini"),
+
+    val availableModels = listOf(
+        // Anthropic
+        AIModel(
+            id = "claude-3-7-sonnet-20250219",
+            displayName = "Claude 3.7 Sonnet",
+            apiEndpoint = "claude-3-7-sonnet-20250219",
+            provider = AIProvider.ANTHROPIC,
+            isPremium = true
+        ),
+        AIModel(
+            id = "claude-3-5-sonnet-20241022",
+            displayName = "Claude 3.5 Sonnet",
+            apiEndpoint = "claude-3-5-sonnet-20241022",
+            provider = AIProvider.ANTHROPIC,
+            isPremium = true
+        ),
+
+        // Google Gemini
+        AIModel(
+            id = "gemini-2.5-pro",
+            displayName = "Gemini 2.5 Pro",
+            apiEndpoint = "gemini-2.5-pro-exp-03-25",
+            provider = AIProvider.GOOGLE,
+            isPremium = true
+        ),
+        AIModel(
+            id = "gemini-2.5-flash",
+            displayName = "Gemini 2.5 Flash",
+            apiEndpoint = "gemini-2.5-flash-preview-04-17",
+            provider = AIProvider.GOOGLE,
+            isPremium = true
+        ),
+        AIModel(
+            id = "gemini-2.0-flash",
+            displayName = "Gemini 2.0 Flash",
+            apiEndpoint = "gemini-2.0-flash",
+            provider = AIProvider.GOOGLE,
+            isPremium = false
+        ),
+
+        // OpenAI
+        AIModel(
+            id = "gpt-4.1",
+            displayName = "GPT-4.1",
+            apiEndpoint = "gpt-4.1",
+            provider = AIProvider.OPENAI,
+            isPremium = true
+        ),
+        AIModel(
+            id = "gpt-4o",
+            displayName = "GPT-4o",
+            apiEndpoint = "gpt-4o",
+            provider = AIProvider.OPENAI,
+            isPremium = false
+        ),
+        AIModel(
+            id = "gpt-4.5-preview",
+            displayName = "GPT-4.5 Preview",
+            apiEndpoint = "gpt-4.5-preview",
+            provider = AIProvider.OPENAI,
+            isPremium = true
+        ),
+        AIModel(
+            id = "o1",
+            displayName = "GPT o1",
+            apiEndpoint = "o1",
+            provider = AIProvider.OPENAI,
+            isPremium = true
+        ),
+        AIModel(
+            id = "o3",
+            displayName = "GPT o3",
+            apiEndpoint = "o3",
+            provider = AIProvider.OPENAI,
+            isPremium = true
+        ),
+        AIModel(
+            id = "o3-mini",
+            displayName = "GPT o3 Mini",
+            apiEndpoint = "o3-mini",
+            provider = AIProvider.OPENAI,
+            isPremium = false
+        ),
+        AIModel(
+            id = "o4-mini",
+            displayName = "GPT o4 Mini",
+            apiEndpoint = "o4-mini",
+            provider = AIProvider.OPENAI,
+            isPremium = false
+        )
     )
 
-    // Definindo o modelo padrão como GPT-4o
-    private val _selectedModel = MutableStateFlow(availableModels[3]) // GPT-4o como padrão
-    val selectedModel: StateFlow<AIModel> = _selectedModel.asStateFlow()
+    private val defaultModel = AIModel(
+        id = "gpt-4o",
+        displayName = "GPT-4o",
+        apiEndpoint = "https://api.openai.com/v1/chat/completions",
+        provider = AIProvider.OPENAI,
+        isPremium = false // ou true se quiser forçar premium
+    )
+
+    private val _selectedModel = MutableStateFlow(defaultModel)
+    val selectedModel: StateFlow<AIModel> = _selectedModel
+
+    // Método para atualizar o modelo selecionado
+    fun selectModel(model: AIModel) {
+        // Verifica se o usuário tem permissão para usar o modelo selecionado
+        if (model.isPremium && !_isPremiumUser.value) {
+            // Usuário não-premium tentando selecionar modelo premium
+            _errorMessage.value = "Este modelo requer assinatura premium. Usando GPT-4o."
+
+            // Encontra o modelo GPT-4o (modelo padrão não-premium)
+            val defaultModel = availableModels.find { it.id == "gpt-4o" } ?: defaultModel
+
+            // Define GPT-4o como o modelo selecionado
+            if (defaultModel.id != _selectedModel.value.id) {
+                _selectedModel.value = defaultModel
+
+                // Salva a preferência no banco de dados
+                viewModelScope.launch {
+                    try {
+                        modelPreferenceDao.insertOrUpdatePreference(
+                            ModelPreferenceEntity(
+                                userId = _userIdFlow.value,
+                                selectedModelId = defaultModel.id
+                            )
+                        )
+                        Log.i("ChatViewModel", "Reverted to default model: ${defaultModel.displayName}")
+                    } catch (e: Exception) {
+                        Log.e("ChatViewModel", "Error saving default model preference", e)
+                    }
+                }
+            }
+            return
+        }
+
+        // Caso de usuário premium ou modelo gratuito
+        if (model.id != _selectedModel.value.id) {
+            _selectedModel.value = model
+
+            // Salvar no banco de dados
+            viewModelScope.launch {
+                try {
+                    modelPreferenceDao.insertOrUpdatePreference(
+                        ModelPreferenceEntity(
+                            userId = _userIdFlow.value,
+                            selectedModelId = model.id
+                        )
+                    )
+                    Log.i("ChatViewModel", "Saved model preference: ${model.displayName}")
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "Error saving model preference", e)
+                    _errorMessage.value = "Erro ao salvar preferência de modelo: ${e.localizedMessage}"
+                }
+            }
+        }
+    }
+
+    fun checkIfUserIsPremium() {
+        val email = FirebaseAuth.getInstance().currentUser?.email
+        if (email.isNullOrBlank()) {
+            _isPremiumUser.value = false
+            // Forçar verificação do modelo atual
+            validateCurrentModel(false)
+            return
+        }
+
+        val db = Firebase.firestore
+        db.collection("premium_users")
+            .document(email)
+            .get()
+            .addOnSuccessListener { document ->
+                val isPremium = document.exists() && (document.getBoolean("isPremium") == true)
+                _isPremiumUser.value = isPremium
+                Log.d("ChatViewModel", "Usuário $email premium: $isPremium")
+
+                // Após atualizar o status premium, validamos o modelo selecionado
+                validateCurrentModel(isPremium)
+            }
+            .addOnFailureListener { e ->
+                Log.e("ChatViewModel", "Erro ao checar premium: ${e.localizedMessage}")
+                _isPremiumUser.value = false
+
+                // Em caso de erro, assumimos que o usuário não é premium
+                validateCurrentModel(false)
+            }
+    }
+
+    // Novo método para validar o modelo atual com base no status premium
+    private fun validateCurrentModel(isPremium: Boolean) {
+        if (!isPremium && _selectedModel.value.isPremium) {
+            // Usuário não premium usando modelo premium
+            // Retorna ao modelo padrão
+            val defaultModel = availableModels.find { it.id == "gpt-4o" } ?: defaultModel
+
+            viewModelScope.launch {
+                try {
+                    // Atualiza o modelo selecionado
+                    _selectedModel.value = defaultModel
+                    Log.i("ChatViewModel", "Usuário não premium. Revertendo para o modelo padrão: ${defaultModel.displayName}")
+
+                    // Atualiza a preferência no banco de dados
+                    modelPreferenceDao.insertOrUpdatePreference(
+                        ModelPreferenceEntity(
+                            userId = _userIdFlow.value,
+                            selectedModelId = defaultModel.id
+                        )
+                    )
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "Erro ao salvar a preferência do modelo padrão", e)
+                }
+            }
+        }
+    }
+
+    private val _isPremiumUser = MutableStateFlow(false)
+    val isPremiumUser: StateFlow<Boolean> = _isPremiumUser
 
     // Expor a lista de modelos
     val modelOptions: List<AIModel> = availableModels
@@ -100,29 +299,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         // Você pode processá-lo aqui antes de enviá-lo para o serviço
     }
 
-    // Método para atualizar o modelo selecionado
-    fun selectModel(model: AIModel) {
-        if (model.id != _selectedModel.value.id) {
-            _selectedModel.value = model
-
-            // Salvar no banco de dados
-            viewModelScope.launch {
-                try {
-                    modelPreferenceDao.insertOrUpdatePreference(
-                        ModelPreferenceEntity(
-                            userId = _userIdFlow.value,
-                            selectedModelId = model.id
-                        )
-                    )
-                    Log.i("ChatViewModel", "Saved model preference: ${model.displayName}")
-                } catch (e: Exception) {
-                    Log.e("ChatViewModel", "Error saving model preference", e)
-                    _errorMessage.value = "Erro ao salvar preferência de modelo: ${e.localizedMessage}"
-                }
-            }
-        }
-    }
-
     private val _currentConversationId = MutableStateFlow<Long?>(null)
     val currentConversationId: StateFlow<Long?> = _currentConversationId.asStateFlow()
 
@@ -151,9 +327,53 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
 
     init {
+        // Verificação inicial de premium status
+        checkIfUserIsPremium()
+
+        // Observe mudanças no status premium para validar o modelo selecionado
+        viewModelScope.launch {
+            _isPremiumUser.collect { isPremium ->
+                Log.d("ChatViewModel", "Premium status changed: $isPremium")
+                validateCurrentModel(isPremium)
+            }
+        }
+
+        // Verificação de status premium e validação do modelo selecionado
+        viewModelScope.launch {
+            // Primeiro, carrega a preferência do modelo do usuário
+            modelPreferenceDao.getModelPreference(_userIdFlow.value)
+                .collect { preference ->
+                    if (preference != null) {
+                        val savedModel = availableModels.find { it.id == preference.selectedModelId }
+                        if (savedModel != null) {
+                            // Verifica se o usuário é premium ou se o modelo não requer premium
+                            if (!savedModel.isPremium || _isPremiumUser.value) {
+                                _selectedModel.value = savedModel
+                                Log.i("ChatViewModel", "Loaded user model preference: ${savedModel.displayName}")
+                            } else {
+                                // Usuário não é premium, mas está tentando usar um modelo premium
+                                // Forçamos a reversão para o modelo padrão GPT-4o
+                                val defaultModel = availableModels.find { it.id == "gpt-4o" } ?: defaultModel
+                                _selectedModel.value = defaultModel
+                                Log.i("ChatViewModel", "User is not premium. Reverting to default model: ${defaultModel.displayName}")
+
+                                // Atualiza a preferência no banco para o modelo padrão
+                                modelPreferenceDao.insertOrUpdatePreference(
+                                    ModelPreferenceEntity(
+                                        userId = _userIdFlow.value,
+                                        selectedModelId = defaultModel.id
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+        }
+
         // aguarda a criação da "nova conversa" ou qualquer tarefa
         loadInitialConversationOrStartNew()
         _isReady.value = true          // <- PRONTO ✔
+
         auth.addAuthStateListener { firebaseAuth ->
             val newUser = firebaseAuth.currentUser
             val newUserId = newUser?.uid ?: "local_user"
@@ -182,19 +402,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+
         loadInitialConversationOrStartNew()
-        viewModelScope.launch {
-            modelPreferenceDao.getModelPreference(_userIdFlow.value)
-                .collect { preference ->
-                    if (preference != null) {
-                        val savedModel = availableModels.find { it.id == preference.selectedModelId }
-                        if (savedModel != null) {
-                            _selectedModel.value = savedModel
-                            Log.i("ChatViewModel", "Loaded user model preference: ${savedModel.displayName}")
-                        }
-                    }
-                }
-        }
     }
 
     private fun getCurrentUserId(): String =

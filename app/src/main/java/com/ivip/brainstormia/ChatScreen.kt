@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -59,6 +60,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -70,6 +74,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -243,6 +248,13 @@ fun ChatScreen(
     var showDeleteConfirmationDialog by remember { mutableStateOf<Long?>(null) }
     var conversationIdToExport by remember { mutableStateOf<Long?>(null) } // Novo estado
     var exportDialogTitle by remember { mutableStateOf("") } // Novo estado
+    val isPremiumUser by chatViewModel.isPremiumUser.collectAsState()
+
+    LaunchedEffect(currentUser) {
+        if (currentUser != null) {
+            chatViewModel.checkIfUserIsPremium()
+        }
+    }
 
     LaunchedEffect(logoutEvent) {
         if (logoutEvent) {
@@ -341,41 +353,55 @@ fun ChatScreen(
                         .background(PrimaryColor)
                 )
 
+                val snackbarHostState = remember { SnackbarHostState() }
+                val coroutineScope = rememberCoroutineScope()
+                var showPremiumMessage by remember { mutableStateOf(false) }
+
+// Quando clicar, vamos lançar o Snackbar
+                LaunchedEffect(showPremiumMessage) {
+                    if (showPremiumMessage) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar("Você é um usuário Premium!")
+                            showPremiumMessage = false
+                        }
+                    }
+                }
+
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
+                    snackbarHost = { SnackbarHost(snackbarHostState) },
                     contentWindowInsets = WindowInsets(0),
                     topBar = {
                         CenterAlignedTopAppBar(
                             windowInsets = WindowInsets(0),
                             title = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         painter = painterResource(id = R.drawable.ic_bolt_foreground),
-                                        contentDescription = null,
-                                        tint = raioBrandColor, // Usando a cor amarela aqui
+                                        contentDescription = "Ícone Brainstormia",
+                                        tint = Color(0xFFFFD700),
                                         modifier = Modifier.size(32.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = "Brainstormia",
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color.White
                                     )
                                 }
                             },
                             navigationIcon = {
                                 Row {
-                                    IconButton(onClick = { coroutineScope.launch { drawerState.open() } }) {
+                                    IconButton(onClick = {
+                                        coroutineScope.launch { drawerState.open() }
+                                    }) {
                                         Icon(
-                                            Icons.Filled.Menu,
-                                            stringResource(R.string.open_drawer_description),
+                                            imageVector = Icons.Default.Menu,
+                                            contentDescription = "Menu",
                                             tint = Color.White
                                         )
                                     }
 
-                                    // Botão de exportação movido para cá, ao lado do hambúrguer
                                     if (currentConversationId != null && currentConversationId != NEW_CONVERSATION_ID) {
                                         IconButton(
                                             onClick = {
@@ -393,7 +419,30 @@ fun ChatScreen(
                                 }
                             },
                             actions = {
-                                // Botão de login/logout (mantido na direita)
+                                val rotation = rememberInfiniteTransition()
+                                val angle by rotation.animateFloat(
+                                    initialValue = 0f,
+                                    targetValue = 360f,
+                                    animationSpec = infiniteRepeatable(
+                                        animation = tween(durationMillis = 6000),
+                                        repeatMode = RepeatMode.Restart
+                                    )
+                                )
+                                if (isPremiumUser) {
+                                    IconButton(
+                                        onClick = { showPremiumMessage = true },
+                                        modifier = Modifier
+                                            .padding(end = 8.dp)
+                                            .graphicsLayer { rotationZ = angle }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = "Usuário Premium",
+                                            tint = Color(0xFFFFD700)
+                                        )
+                                    }
+                                }
+
                                 IconButton(
                                     onClick = {
                                         if (currentUser != null) {
@@ -402,8 +451,7 @@ fun ChatScreen(
                                             onLogin()
                                         }
                                     },
-                                    modifier = Modifier
-                                        .padding(end = 8.dp)
+                                    modifier = Modifier.padding(end = 8.dp)
                                 ) {
                                     Icon(
                                         imageVector = if (currentUser != null) Icons.AutoMirrored.Filled.Logout else Icons.AutoMirrored.Filled.Login,
@@ -413,7 +461,7 @@ fun ChatScreen(
                                 }
                             },
                             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                                containerColor = if (isDarkTheme) TopBarColorDark else PrimaryColor,
+                                containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color(0xFF1976D2),
                                 titleContentColor = Color.White,
                                 navigationIconContentColor = Color.White,
                                 actionIconContentColor = Color.White
@@ -446,12 +494,15 @@ fun ChatScreen(
                     ) {
                         // Add AI model selector only if user is logged in
                         if (currentUser != null) {
-                            ModelSelectionDropdown(
-                                models = chatViewModel.modelOptions,
-                                selectedModel = selectedModel,
-                                onModelSelected = { chatViewModel.selectModel(it) },
-                                isDarkTheme = isDarkTheme
-                            )
+                            key(isPremiumUser) {
+                                ModelSelectionDropdown(
+                                    models = chatViewModel.modelOptions,
+                                    selectedModel = selectedModel,
+                                    onModelSelected = { chatViewModel.selectModel(it) },
+                                    isPremiumUser = isPremiumUser,
+                                    isDarkTheme = isDarkTheme
+                                )
+                            }
                         }
 
                         Box(

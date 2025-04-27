@@ -36,20 +36,20 @@ class AuthViewModel : ViewModel() {
     }
 
     fun signInWithGoogle(idToken: String) {
-        viewModelScope.launch {
-            _authState.value = AuthState.Loading
-            try {
-                val credential = GoogleAuthProvider.getCredential(idToken, null)
-                val result = auth.signInWithCredential(credential).await()
-                _currentUser.value = result.user
-                result.user?.let {
-                    _authState.value = AuthState.Success(it)
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        auth.signInWithCredential(credential)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    val user = auth.currentUser
+                    _currentUser.value = user
+                    Log.d("AuthViewModel", "Usuário logado com Google: ${user?.email}")
+                    user?.let {
+                        _authState.value = AuthState.Success(it)
+                    }
+                } else {
+                    _authState.value = AuthState.Error(task.exception?.message ?: "Erro desconhecido")
                 }
-            } catch (e: Exception) {
-                Log.e("AuthViewModel", "signInWithGoogle failed", e)
-                _authState.value = AuthState.Error(e.message ?: "Authentication failed")
             }
-        }
     }
 
     fun loginWithEmail(email: String, password: String) {

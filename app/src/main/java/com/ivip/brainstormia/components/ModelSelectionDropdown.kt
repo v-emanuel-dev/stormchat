@@ -1,34 +1,21 @@
 package com.ivip.brainstormia.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.ivip.brainstormia.data.models.AIModel
 
 @Composable
@@ -36,75 +23,155 @@ fun ModelSelectionDropdown(
     models: List<AIModel>,
     selectedModel: AIModel,
     onModelSelected: (AIModel) -> Unit,
-    isDarkTheme: Boolean
+    isPremiumUser: Boolean,
+    isDarkTheme: Boolean = true
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var containerWidth by remember { mutableStateOf(0.dp) }
-    val localDensity = LocalDensity.current
 
-    // Cores atualizadas para o tema escuro
-    val backgroundColor = if (isDarkTheme) Color(0xFF212121) else Color(0xFFF0F4F7)
-    val textColor = if (isDarkTheme) Color.White else Color.Black
-    val dropdownBackgroundColor = if (isDarkTheme) Color(0xFF333333) else Color.White
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp)
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
     ) {
-        OutlinedCard(
+        // Botão de seleção principal sem cantos arredondados
+        Surface(
+            onClick = { expanded = true },
+            color = if (isDarkTheme) Color(0xFF2C2C2C) else Color(0xFFE0E0E0),
+            shape = RectangleShape,
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .clickable { expanded = true }
-                .onGloballyPositioned { coordinates ->
-                    containerWidth = with(localDensity) { coordinates.size.width.toDp() }
-                }
+                .height(40.dp)
         ) {
-            Box(
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(backgroundColor)
-                    .padding(12.dp)
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Modelo: ${selectedModel.displayName}",
-                    color = textColor,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp,
-                    modifier = Modifier.align(Alignment.CenterStart)
+                    text = selectedModel.displayName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
-
                 Icon(
-                    imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = "Selecionar modelo",
-                    tint = textColor,
-                    modifier = Modifier.align(Alignment.CenterEnd)
+                    imageVector = Icons.Filled.ArrowDropDown,
+                    contentDescription = "Expandir",
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
 
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier
-                .width(containerWidth)
-                .background(dropdownBackgroundColor)
-        ) {
-            models.forEach { model ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = model.displayName,
-                            color = textColor,
-                            fontWeight = if (model.id == selectedModel.id) FontWeight.Bold else FontWeight.Normal
-                        )
-                    },
-                    onClick = {
-                        onModelSelected(model)
-                        expanded = false
-                    }
+        if (expanded) {
+            Dialog(
+                onDismissRequest = { expanded = false },
+                properties = DialogProperties(
+                    dismissOnBackPress = true,
+                    dismissOnClickOutside = true,
+                    usePlatformDefaultWidth = false
                 )
+            ) {
+                // Fundo que ocupa a tela inteira
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = if (isDarkTheme) Color(0xCC121212) else Color(0xCCF5F5F5)
+                ) {
+                    // Conteúdo clicável que fecha o diálogo ao clicar fora
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clickable { expanded = false },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Lista de modelos
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight(0.7f)
+                                // Previne que cliques na coluna se propaguem para o Box
+                                .clickable(onClick = {}, enabled = false),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            // Cabeçalho
+                            Text(
+                                text = "Modelo",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (isDarkTheme) Color.White else Color.Black,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+
+                            // Lista de modelos
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.9f),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color(0xFFFFFFFF)
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    models.forEach { model ->
+                                        val isEnabled = !model.isPremium || isPremiumUser
+                                        val textColor = when {
+                                            !isEnabled -> if (isDarkTheme) Color.Gray else Color.LightGray
+                                            model == selectedModel -> MaterialTheme.colorScheme.primary
+                                            else -> if (isDarkTheme) Color.White else Color.Black
+                                        }
+
+                                        Surface(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(36.dp),
+                                            color = if (model == selectedModel) {
+                                                Color(0xFFFFC107) // Amarelo para o modelo selecionado
+                                            } else {
+                                                if (isDarkTheme) Color(0xFF2C2C2C) else Color(0xFFF5F5F5)
+                                            }
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clickable(enabled = isEnabled) {
+                                                        onModelSelected(model)
+                                                        expanded = false
+                                                    }
+                                                    .padding(horizontal = 12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = model.displayName,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = textColor,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+
+                                                if (model.isPremium) {
+                                                    Icon(
+                                                        imageVector = Icons.Filled.Star,
+                                                        contentDescription = "Premium",
+                                                        tint = if (isDarkTheme) Color(0xFFFFD700) else Color(0xFFFFD700),
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                        // Espaçamento mínimo entre itens
+                                        if (model != models.last()) {
+                                            Spacer(modifier = Modifier.height(1.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

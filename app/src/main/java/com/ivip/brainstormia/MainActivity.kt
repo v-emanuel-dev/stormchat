@@ -174,6 +174,8 @@ class MainActivity : ComponentActivity() {
             var exporting by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) {
                 exportVM.exportState.collectLatest { exporting = it is ExportState.Loading }
+                chatVM.checkIfUserIsPremium()
+
             }
 
             BrainstormiaTheme(darkTheme = dark) {
