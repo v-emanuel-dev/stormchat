@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,11 +23,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.brainstormia.ConversationType
 import com.ivip.brainstormia.components.ThemeSwitch
 import com.ivip.brainstormia.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
+import androidx.compose.runtime.getValue
 
 @Composable
 fun AppDrawerContent(
@@ -37,8 +40,10 @@ fun AppDrawerContent(
     onDeleteConversationRequest: (Long) -> Unit,
     onRenameConversationRequest: (Long) -> Unit,
     onExportConversationRequest: (Long) -> Unit,
+    onNavigateToProfile: () -> Unit,
     isDarkTheme: Boolean,
-    onThemeChanged: (Boolean) -> Unit = {}
+    onThemeChanged: (Boolean) -> Unit = {},
+    chatViewModel: ChatViewModel = viewModel()
 ) {
     val backgroundColor = if (isDarkTheme) Color(0xFF121212) else BackgroundColor
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
@@ -184,17 +189,22 @@ fun AppDrawerContent(
                                 )
                             }
 
-                            IconButton(
-                                onClick = { onExportConversationRequest(item.id) },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Upload,
-                                    contentDescription = "Exportar conversa",
-                                    tint = iconTint,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                            val isPremiumUser by chatViewModel.isPremiumUser.collectAsState()
+
+                            if (isPremiumUser == true) {
+                                IconButton(
+                                    onClick = { onExportConversationRequest(item.id) },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Upload,
+                                        contentDescription = "Exportar conversa",
+                                        tint = iconTint,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
+
 
                             IconButton(
                                 onClick = { onDeleteConversationRequest(item.id) },

@@ -55,6 +55,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import com.ivip.brainstormia.UserProfileScreen
 
 /* ───────────── DataStore (tema claro/escuro) ───────────── */
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("settings")
@@ -218,11 +219,36 @@ class MainActivity : ComponentActivity() {
                                 ChatScreen(
                                     onLogin         = { launchLogin() },
                                     onLogout        = { authVM.logout() },
+                                    onNavigateToProfile = { navController.navigate(Routes.USER_PROFILE) },
                                     chatViewModel   = chatVM,
                                     authViewModel   = authVM,
                                     exportViewModel = exportVM,
                                     isDarkTheme     = dark,
                                     onThemeChanged  = { setDark(it) }
+                                )
+                            }
+                            composable(Routes.USER_PROFILE) {
+                                UserProfileScreen(
+                                    onNavigateBack = { navController.popBackStack() },
+                                    onNavigateToPayment = {
+                                        navController.navigate(Routes.PAYMENT)
+                                    },
+                                    authViewModel = authVM,
+                                    chatViewModel = chatVM,
+                                    isDarkTheme = dark
+                                )
+                            }
+
+                            composable(Routes.PAYMENT) {
+                                PaymentScreen(
+                                    onNavigateBack = { navController.popBackStack() },
+                                    onPurchaseComplete = {
+                                        chatVM.checkIfUserIsPremium() // Atualiza o status premium
+                                        navController.navigate(Routes.MAIN) {
+                                            popUpTo(Routes.MAIN) { inclusive = true }
+                                        }
+                                    },
+                                    isDarkTheme = dark
                                 )
                             }
                         }

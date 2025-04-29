@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -210,6 +211,8 @@ fun MessageBubble(
 fun ChatScreen(
     onLogin: () -> Unit = {},
     onLogout: () -> Unit = {},
+    onNavigateToProfile: () -> Unit = {}, // Adicione este parâmetro
+    onNavigateToPayment: () -> Unit = {},   // ← Opcional
     chatViewModel: ChatViewModel,  // Non-nullable parameter
     authViewModel: AuthViewModel = viewModel(),
     exportViewModel: ExportViewModel,  // Non-nullable parameter
@@ -334,8 +337,10 @@ fun ChatScreen(
                     exportViewModel.resetExportState()
                     conversationIdToExport = conversationId
                 },
+                onNavigateToProfile = onNavigateToProfile,
                 isDarkTheme = isDarkTheme,
-                onThemeChanged = onThemeChanged  // Add this
+                onThemeChanged = onThemeChanged,
+                chatViewModel = chatViewModel
             )
         }
     ) {
@@ -400,7 +405,9 @@ fun ChatScreen(
                                         )
                                     }
 
-                                    if (currentConversationId != null && currentConversationId != NEW_CONVERSATION_ID) {
+                                    val isPremiumUser by chatViewModel.isPremiumUser.collectAsState()
+
+                                    if (isPremiumUser == true && currentConversationId != null && currentConversationId != NEW_CONVERSATION_ID) {
                                         IconButton(
                                             onClick = {
                                                 exportViewModel.resetExportState()
@@ -414,6 +421,8 @@ fun ChatScreen(
                                             )
                                         }
                                     }
+
+
                                 }
                             },
                             actions = {
@@ -433,11 +442,15 @@ fun ChatScreen(
                                             .padding(end = 8.dp)
                                             .graphicsLayer { rotationZ = angle }
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Star,
-                                            contentDescription = "Usuário Premium",
-                                            tint = Color(0xFFFFD700)
-                                        )
+                                        IconButton(
+                                            onClick = { onNavigateToProfile() }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Star,
+                                                contentDescription = "Usuário Premium",
+                                                tint = Color(0xFFFFD700)
+                                            )
+                                        }
                                     }
                                 }
 
@@ -456,6 +469,18 @@ fun ChatScreen(
                                         contentDescription = if (currentUser != null) "Sair" else "Entrar",
                                         tint = Color.White
                                     )
+                                }
+                                if (!isPremiumUser) {
+                                    IconButton(
+                                        onClick = { onNavigateToProfile() },
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = "Perfil",
+                                            tint = Color.White
+                                        )
+                                    }
                                 }
                             },
                             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
