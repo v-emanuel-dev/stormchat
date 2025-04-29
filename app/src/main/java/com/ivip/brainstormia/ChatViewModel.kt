@@ -156,32 +156,59 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val selectedModel: StateFlow<AIModel> = _selectedModel
 
     // Método para atualizar o modelo selecionado
+    // Versão corrigida da função selectModel()
     fun selectModel(model: AIModel) {
-        // Verifica se o usuário tem permissão para usar o modelo selecionado
+        // Limpar qualquer mensagem de erro anterior
+        _errorMessage.value = null
+
+        // Verificar se o usuário está logado
+        val currentUserId = _userIdFlow.value
+        if (currentUserId.isBlank() || currentUserId == "local_user") {
+            Log.w("ChatViewModel", "Tentativa de selecionar modelo sem usuário logado")
+            _errorMessage.value = "Você precisa estar logado para alterar o modelo"
+            return
+        }
+
+        // Verificar se o usuário tem permissão para usar o modelo premium
         if (model.isPremium && !_isPremiumUser.value) {
-            // Usuário não-premium tentando selecionar modelo premium
             _errorMessage.value = "Este modelo requer assinatura premium. Usando GPT-4o."
 
-            // Encontra o modelo GPT-4o (modelo padrão não-premium)
+            // Encontrar o modelo padrão não-premium (GPT-4o)
             val defaultModel = availableModels.find { it.id == "gpt-4o" } ?: defaultModel
 
-            // Define GPT-4o como o modelo selecionado
-            if (defaultModel.id != _selectedModel.value.id) {
-                _selectedModel.value = defaultModel
-
-                // Salva a preferência no banco de dados
-                viewModelScope.launch {
-                    try {
-                        modelPreferenceDao.insertOrUpdatePreference(
-                            ModelPreferenceEntity(
-                                userId = _userIdFlow.value,
-                                selectedModelId = defaultModel.id
-                            )
+            // Forçar a atualização do modelo com uma abordagem mais agressiva
+            viewModelScope.launch {
+                try {
+                    // 1. Primeiro, vamos resetar completamente o modelo para null (não existe)
+                    withContext(Dispatchers.Main) {
+                        (_selectedModel as MutableStateFlow).value = AIModel(
+                            id = "resetting",
+                            displayName = "Resetando...",
+                            apiEndpoint = "",
+                            provider = AIProvider.OPENAI,
+                            isPremium = false
                         )
-                        Log.i("ChatViewModel", "Reverted to default model: ${defaultModel.displayName}")
-                    } catch (e: Exception) {
-                        Log.e("ChatViewModel", "Error saving default model preference", e)
                     }
+
+                    // 2. Pequeno delay para garantir que a UI seja atualizada
+                    delay(100)
+
+                    // 3. Agora definir o modelo padrão
+                    withContext(Dispatchers.Main) {
+                        (_selectedModel as MutableStateFlow).value = defaultModel
+                    }
+
+                    // 4. Salvar a preferência no banco de dados
+                    modelPreferenceDao.insertOrUpdatePreference(
+                        ModelPreferenceEntity(
+                            userId = currentUserId,
+                            selectedModelId = defaultModel.id
+                        )
+                    )
+
+                    Log.i("ChatViewModel", "Modelo revertido para padrão: ${defaultModel.displayName}")
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "Erro ao salvar preferência de modelo padrão", e)
                 }
             }
             return
@@ -189,20 +216,37 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         // Caso de usuário premium ou modelo gratuito
         if (model.id != _selectedModel.value.id) {
-            _selectedModel.value = model
-
-            // Salvar no banco de dados
             viewModelScope.launch {
                 try {
+                    // Abordagem de reset e set para garantir que a UI atualize
+                    withContext(Dispatchers.Main) {
+                        // 1. Resetar
+                        (_selectedModel as MutableStateFlow).value = AIModel(
+                            id = "changing",
+                            displayName = "Alterando...",
+                            apiEndpoint = "",
+                            provider = AIProvider.OPENAI,
+                            isPremium = false
+                        )
+
+                        // 2. Pequeno delay
+                        delay(100)
+
+                        // 3. Definir novo modelo
+                        (_selectedModel as MutableStateFlow).value = model
+                    }
+
+                    // 4. Salvar no banco de dados
                     modelPreferenceDao.insertOrUpdatePreference(
                         ModelPreferenceEntity(
-                            userId = _userIdFlow.value,
+                            userId = currentUserId,
                             selectedModelId = model.id
                         )
                     )
-                    Log.i("ChatViewModel", "Saved model preference: ${model.displayName}")
+
+                    Log.i("ChatViewModel", "Preferência de modelo salva: ${model.displayName}")
                 } catch (e: Exception) {
-                    Log.e("ChatViewModel", "Error saving model preference", e)
+                    Log.e("ChatViewModel", "Erro ao salvar preferência de modelo", e)
                     _errorMessage.value = "Erro ao salvar preferência de modelo: ${e.localizedMessage}"
                 }
             }
@@ -556,7 +600,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     """
     fun handleLogin() {
         Log.d("ChatViewModel", "handleLogin() called - user=${_userIdFlow.value}")
-
+        _selectedModel.value = defaultModel
         // Make sure conversations are visible
         _showConversations.value = true
 
@@ -652,6 +696,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun handleLogout() {
         startNewConversation()
+        _selectedModel.value = defaultModel
         _clearConversationListEvent.value = true
         _showConversations.value = false
         viewModelScope.launch {

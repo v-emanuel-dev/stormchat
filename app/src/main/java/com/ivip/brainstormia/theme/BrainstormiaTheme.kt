@@ -2,13 +2,18 @@ package com.ivip.brainstormia.theme
 
 import android.app.Activity
 import android.os.Build
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -46,69 +51,27 @@ private val DarkColorScheme = darkColorScheme(
     onSurface = TextColorLight
 )
 
+// Cores personalizadas para seleção de texto
+private val lightSelectionColors = TextSelectionColors(
+    handleColor = PrimaryColor,
+    backgroundColor = PrimaryColor.copy(alpha = 0.3f)
+)
+
+private val darkSelectionColors = TextSelectionColors(
+    handleColor = Color(0xFF90CAF9), // Azul claro para as alças
+    backgroundColor = Color(0xFF4A6572).copy(alpha = 0.7f) // Azul acinzentado claro para o fundo
+)
+
 // Typography with improved readability
 val BrainstormiaTypography = Typography(
-    displayLarge = TextStyle(
-        fontFamily = appFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 28.sp,
-        lineHeight = 36.sp
-    ),
-    displayMedium = TextStyle(
-        fontFamily = appFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 24.sp,
-        lineHeight = 32.sp
-    ),
-    displaySmall = TextStyle(
-        fontFamily = appFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 28.sp
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = appFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 18.sp,
-        lineHeight = 24.sp
-    ),
-    titleLarge = TextStyle(
-        fontFamily = appFontFamily,
-        fontWeight = FontWeight.Bold,
-        fontSize = 18.sp,
-        lineHeight = 24.sp
-    ),
-    titleMedium = TextStyle(
-        fontFamily = appFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 22.sp
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = appFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 16.sp,
-        lineHeight = 24.sp
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = appFontFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp
-    ),
-    labelLarge = TextStyle(
-        fontFamily = appFontFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp,
-        lineHeight = 20.sp
-    )
+    // ... resto do seu código de tipografia permanece o mesmo
 )
 
 @Composable
 fun BrainstormiaTheme(
-    darkTheme: Boolean = true,
-    // Dynamic color available on Android 12+
-    dynamicColor: Boolean = false,
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    // Dynamic color is available on Android 12+
+    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -124,14 +87,23 @@ fun BrainstormiaTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
+            // Usar a cor original da sua barra de status
+            window.statusBarColor = if (darkTheme) TopBarColorDark.toArgb() else PrimaryColor.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = BrainstormiaTypography,
-        content = content
-    )
+    // Escolher as cores de seleção com base no tema
+    val textSelectionColors = if (darkTheme) darkSelectionColors else lightSelectionColors
+
+    // Fornecer as cores de seleção customizadas para todo o conteúdo
+    CompositionLocalProvider(
+        LocalTextSelectionColors provides textSelectionColors,
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = BrainstormiaTypography,
+            content = content
+        )
+    }
 }

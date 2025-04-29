@@ -34,7 +34,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -60,7 +59,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -84,13 +82,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -102,17 +100,17 @@ import com.ivip.brainstormia.components.ExportDialog
 import com.ivip.brainstormia.components.ModelSelectionDropdown
 import com.ivip.brainstormia.components.SimpleVoiceInputButton
 import com.ivip.brainstormia.theme.BackgroundColor
-import com.ivip.brainstormia.theme.BackgroundColorDark
 import com.ivip.brainstormia.theme.BotBubbleColor
 import com.ivip.brainstormia.theme.PrimaryColor
 import com.ivip.brainstormia.theme.SurfaceColor
 import com.ivip.brainstormia.theme.SurfaceColorDark
 import com.ivip.brainstormia.theme.TextColorDark
 import com.ivip.brainstormia.theme.TextColorLight
-import com.ivip.brainstormia.theme.TopBarColorDark
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.material3.Icon
 
 @Composable
 fun MessageBubble(
@@ -530,7 +528,7 @@ fun ChatScreen(
 
                                 if (isLoading) {
                                     item {
-                                        TypingBubbleAnimation(
+                                        LightningLoadingAnimation(
                                             modifier = Modifier.padding(vertical = 4.dp),
                                             isDarkTheme = isDarkTheme
                                         )
@@ -883,6 +881,109 @@ fun TypingIndicatorAnimation(
 }
 
 @Composable
+fun LightningLoadingAnimation(
+    isDarkTheme: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    // Cores para a animação do raio
+    val baseColor = Color(0xFFFFD700) // Amarelo dourado (padrão)
+    val accentColor = Color(0xFFFF9500) // Laranja
+
+    // Animação de rotação
+    val rotation = rememberInfiniteTransition(label = "rotationTransition")
+    val rotateAngle by rotation.animateFloat(
+        initialValue = -3f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "rotateAnimation"
+    )
+
+    // Animação de escala (pulsar)
+    val scale = rememberInfiniteTransition(label = "scaleTransition")
+    val scaleSize by scale.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(650, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scaleAnimation"
+    )
+
+    // Animação de cor
+    val colorTransition = rememberInfiniteTransition(label = "colorTransition")
+    val colorProgress by colorTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "colorAnimation"
+    )
+
+    // Interpolação de cor manual
+    val currentColor = androidx.compose.ui.graphics.lerp(
+        baseColor,
+        accentColor,
+        colorProgress
+    )
+
+    // Animação de brilho (glow)
+    val glow = rememberInfiniteTransition(label = "glowTransition")
+    val glowIntensity by glow.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(700, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glowAnimation"
+    )
+
+    Box(
+        modifier = modifier
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Adicionar um efeito de círculo de "glow" atrás do raio
+        Box(
+            modifier = Modifier
+                .size(70.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            currentColor.copy(alpha = 0.3f * glowIntensity),
+                            currentColor.copy(alpha = 0.1f * glowIntensity),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
+
+        // Ícone do raio
+        Icon(
+            painter = painterResource(id = R.drawable.ic_bolt_foreground),
+            contentDescription = "Carregando...",
+            modifier = Modifier
+                .size(48.dp)
+                .graphicsLayer {
+                    rotationZ = rotateAngle
+                    scaleX = scaleSize
+                    scaleY = scaleSize
+                    alpha = glowIntensity
+                },
+            tint = currentColor
+        )
+    }
+}
+
+// Substitua a função TypingBubbleAnimation existente por esta:
+@Composable
 fun TypingBubbleAnimation(
     modifier: Modifier = Modifier,
     isDarkTheme: Boolean = true
@@ -893,12 +994,12 @@ fun TypingBubbleAnimation(
             .padding(vertical = 4.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        // Removendo o Card e deixando apenas a animação
+        // Substitui a animação de pontos pelo raio animado
         Box(
             modifier = modifier
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            TypingIndicatorAnimation(
+            LightningLoadingAnimation(
                 isDarkTheme = isDarkTheme
             )
         }

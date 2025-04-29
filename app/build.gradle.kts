@@ -1,3 +1,4 @@
+import com.android.build.api.dsl.Packaging
 import java.util.Properties
 import java.io.FileInputStream
 
@@ -27,8 +28,8 @@ android {
         applicationId = "com.ivip.brainstormia"
         minSdk = 24
         targetSdk = 35
-        versionCode = 22
-        versionName = "2.2"
+        versionCode = 26
+        versionName = "2.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiKeyOpenaiFromProperties = localProperties.getProperty("apiKeyOpenai") ?: ""
@@ -87,6 +88,8 @@ android {
             excludes.add("META-INF/notice.txt")
             excludes.add("META-INF/ASL2.0")
             excludes.add("META-INF/*.kotlin_module")
+
+            pickFirsts.add("mozilla/public-suffix-list.txt")
         }
     }
 }
@@ -111,6 +114,7 @@ dependencies {
     implementation(libs.androidx.ui.text.google.fonts)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences.core.android)
+    implementation(libs.firebase.crashlytics.buildtools)
     ksp(libs.androidx.room.compiler)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)

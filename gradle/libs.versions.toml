@@ -26,6 +26,7 @@ kotlinxCoroutinesTest = "1.7.3"
 uiTextGoogleFonts = "1.7.8"
 navigationCompose = "2.8.9"
 datastorePreferencesCoreAndroid = "1.2.0-alpha01"
+firebaseCrashlyticsBuildtools = "3.0.3"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -67,6 +68,7 @@ play-services-auth-v2120 = { module = "com.google.android.gms:play-services-auth
 androidx-ui-text-google-fonts = { group = "androidx.compose.ui", name = "ui-text-google-fonts", version.ref = "uiTextGoogleFonts" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 androidx-datastore-preferences-core-android = { group = "androidx.datastore", name = "datastore-preferences-core-android", version.ref = "datastorePreferencesCoreAndroid" }
+firebase-crashlytics-buildtools = { group = "com.google.firebase", name = "firebase-crashlytics-buildtools", version.ref = "firebaseCrashlyticsBuildtools" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
