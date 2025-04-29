@@ -28,8 +28,8 @@ android {
         applicationId = "com.ivip.brainstormia"
         minSdk = 24
         targetSdk = 35
-        versionCode = 27
-        versionName = "2.7"
+        versionCode = 30
+        versionName = "3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiKeyOpenaiFromProperties = localProperties.getProperty("apiKeyOpenai") ?: ""
@@ -167,4 +167,6 @@ dependencies {
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.3")
     implementation ("com.squareup.okhttp3:okhttp:4.12.0")
     implementation ("org.json:json:20210307")
+    implementation ("com.android.billingclient:billing-ktx:7.1.1")
+
 }

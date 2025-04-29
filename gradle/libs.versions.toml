@@ -1,5 +1,5 @@
 [versions]
-agp = "8.10.0-rc03"
+agp = "8.10.0-rc04"
 composeMarkdown = "0.3.5"
 composeMarkdownVersion = "0.5.0"
 credentials = "1.5.0"
