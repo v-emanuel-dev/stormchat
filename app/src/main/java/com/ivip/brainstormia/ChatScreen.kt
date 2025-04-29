@@ -453,7 +453,19 @@ fun ChatScreen(
                                         }
                                     }
                                 }
-
+                                if (!isPremiumUser) {
+                                    IconButton(
+                                        onClick = { onNavigateToProfile() },
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Star, // <-- Agora sempre estrela ⭐
+                                            contentDescription = "Perfil",
+                                            tint = if (isPremiumUser) Color(0xFFFFD700) else Color.White, // Dourada se premium, branca se normal
+                                            modifier = Modifier.size(28.dp) // Tamanho bonito para TopBar
+                                        )
+                                    }
+                                }
                                 IconButton(
                                     onClick = {
                                         if (currentUser != null) {
@@ -469,18 +481,6 @@ fun ChatScreen(
                                         contentDescription = if (currentUser != null) "Sair" else "Entrar",
                                         tint = Color.White
                                     )
-                                }
-                                if (!isPremiumUser) {
-                                    IconButton(
-                                        onClick = { onNavigateToProfile() },
-                                        modifier = Modifier.padding(end = 8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Person,
-                                            contentDescription = "Perfil",
-                                            tint = Color.White
-                                        )
-                                    }
                                 }
                             },
                             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(

@@ -148,34 +148,30 @@ fun PaymentScreen(
                             bestValue = false,
                             features = listOf(
                                 "Acesso a todos os modelos",
-                                "Respostas prioritárias",
-                                "Armazenamento ilimitado"
+                                "Exportar para o Google Drive",
                             )
                         )
 
                         // Plano anual (com desconto)
                         PlanCard(
                             title = "Anual",
-                            price = "R$ 179,90",
+                            price = "R$ 99,90",
                             period = "por ano",
-                            discount = "25% OFF",
+                            discount = "58% OFF",
                             isSelected = selectedPlan == 1,
                             onSelect = { selectedPlan = 1 },
                             isDarkTheme = isDarkTheme,
                             bestValue = true,
                             features = listOf(
                                 "Acesso a todos os modelos",
-                                "Respostas prioritárias",
-                                "Armazenamento ilimitado",
-                                "Exportação avançada",
-                                "Suporte prioritário"
+                                "Exportar para o Google Drive",
                             )
                         )
 
                         // Plano vitalício
                         PlanCard(
                             title = "Vitalício",
-                            price = "R$ 499,90",
+                            price = "R$ 299",
                             period = "pagamento único",
                             isSelected = selectedPlan == 2,
                             onSelect = { selectedPlan = 2 },
@@ -183,11 +179,7 @@ fun PaymentScreen(
                             bestValue = false,
                             features = listOf(
                                 "Acesso a todos os modelos",
-                                "Respostas prioritárias",
-                                "Armazenamento ilimitado",
-                                "Exportação avançada",
-                                "Suporte prioritário",
-                                "Atualizações vitalícias"
+                                "Exportar para o Google Drive",
                             )
                         )
                     }
@@ -214,38 +206,7 @@ fun PaymentScreen(
                                 color = textColor
                             )
 
-                            Spacer(modifier = Modifier.height(16.dp))
-
                             // Opções de pagamento
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                PaymentOptionButton(
-                                    icon = Icons.Default.CreditCard,
-                                    label = "Cartão",
-                                    isSelected = true,
-                                    onClick = { },
-                                    isDarkTheme = isDarkTheme
-                                )
-
-                                PaymentOptionButton(
-                                    icon = Icons.Default.AccountBalance,
-                                    label = "Pix",
-                                    isSelected = false,
-                                    onClick = { },
-                                    isDarkTheme = isDarkTheme
-                                )
-
-                                PaymentOptionButton(
-                                    icon = Icons.Default.Receipt,
-                                    label = "Boleto",
-                                    isSelected = false,
-                                    onClick = { },
-                                    isDarkTheme = isDarkTheme
-                                )
-                            }
-
                             Spacer(modifier = Modifier.height(24.dp))
 
                             // Inputs de cartão de crédito
@@ -347,8 +308,8 @@ fun PaymentScreen(
                                         Text(
                                             text = when(selectedPlan) {
                                                 0 -> "R$ 19,90"
-                                                1 -> "R$ 179,90"
-                                                else -> "R$ 499,90"
+                                                1 -> "R$ 99,90"
+                                                else -> "R$ 299"
                                             },
                                             fontWeight = FontWeight.Bold,
                                             color = textColor
@@ -357,21 +318,6 @@ fun PaymentScreen(
 
                                     if (selectedPlan == 1) {
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Text(
-                                                text = "Economia anual (25%)",
-                                                color = Color(0xFF4CAF50)
-                                            )
-
-                                            Text(
-                                                text = "- R$ 59,90",
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF4CAF50)
-                                            )
-                                        }
                                     }
 
                                     Spacer(modifier = Modifier.height(8.dp))
@@ -391,8 +337,8 @@ fun PaymentScreen(
                                         Text(
                                             text = when(selectedPlan) {
                                                 0 -> "R$ 19,90"
-                                                1 -> "R$ 179,90"
-                                                else -> "R$ 499,90"
+                                                1 -> "R$ 99,90"
+                                                else -> "R$ 299"
                                             },
                                             fontWeight = FontWeight.Bold,
                                             color = if (isDarkTheme) Color(0xFFFFD700) else Color(0xFF1976D2)
