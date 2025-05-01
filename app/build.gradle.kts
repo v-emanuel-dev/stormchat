@@ -28,8 +28,8 @@ android {
         applicationId = "com.ivip.brainstormia"
         minSdk = 24
         targetSdk = 35
-        versionCode = 30
-        versionName = "3.0"
+        versionCode = 35
+        versionName = "3.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiKeyOpenaiFromProperties = localProperties.getProperty("apiKeyOpenai") ?: ""
@@ -168,5 +168,8 @@ dependencies {
     implementation ("com.squareup.okhttp3:okhttp:4.12.0")
     implementation ("org.json:json:20210307")
     implementation ("com.android.billingclient:billing-ktx:7.1.1")
+    implementation ("io.noties.markwon:core:4.6.2")
+    implementation ("io.noties.markwon:html:4.6.2") // para suporte a HTML
+    implementation ("io.noties.markwon:linkify:4.6.2")
 
 }

@@ -170,15 +170,21 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         _purchaseInProgress.value = true
         Log.d(TAG, "Iniciando fluxo de compra para ${productDetails.productId}")
 
-        val offerToken = productDetails.subscriptionOfferDetails?.firstOrNull()?.offerToken
-        if (offerToken == null) {
-            Log.e(TAG, "Erro: offerToken não encontrado para ${productDetails.productId}")
-            _purchaseInProgress.value = false
-            return
-        }
+        // Verificar se é um produto INAPP ou SUBS
+        val isSubscription = productDetails.productType == BillingClient.ProductType.SUBS
 
-        val billingFlowParams = BillingFlowParams.newBuilder()
-            .setProductDetailsParamsList(
+        val billingFlowParamsBuilder = BillingFlowParams.newBuilder()
+
+        if (isSubscription) {
+            // Para assinaturas, precisamos do offerToken
+            val offerToken = productDetails.subscriptionOfferDetails?.firstOrNull()?.offerToken
+            if (offerToken == null) {
+                Log.e(TAG, "Erro: offerToken não encontrado para ${productDetails.productId}")
+                _purchaseInProgress.value = false
+                return
+            }
+
+            billingFlowParamsBuilder.setProductDetailsParamsList(
                 listOf(
                     BillingFlowParams.ProductDetailsParams.newBuilder()
                         .setProductDetails(productDetails)
@@ -186,8 +192,18 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
                         .build()
                 )
             )
-            .build()
+        } else {
+            // Para produtos únicos (INAPP), não precisamos do offerToken
+            billingFlowParamsBuilder.setProductDetailsParamsList(
+                listOf(
+                    BillingFlowParams.ProductDetailsParams.newBuilder()
+                        .setProductDetails(productDetails)
+                        .build()
+                )
+            )
+        }
 
+        val billingFlowParams = billingFlowParamsBuilder.build()
         val responseCode = billingClient.launchBillingFlow(activity, billingFlowParams).responseCode
 
         if (responseCode != BillingClient.BillingResponseCode.OK) {
@@ -201,6 +217,15 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
     override fun onPurchasesUpdated(result: BillingResult, purchases: List<Purchase>?) {
         Log.d(TAG, "onPurchasesUpdated: ${result.responseCode} - ${result.debugMessage}")
         _purchaseInProgress.value = false
+
+        // Log detalhado para depuração
+        if (purchases != null) {
+            for (purchase in purchases) {
+                Log.d(TAG, "Detalhes da compra: ID=${purchase.orderId}, Produtos=${purchase.products}, Estado=${purchase.purchaseState}")
+            }
+        } else {
+            Log.d(TAG, "Lista de compras é nula")
+        }
 
         when (result.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
@@ -232,27 +257,33 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
 
     private fun handlePurchase(purchase: Purchase) {
         Log.d(TAG, "Processando compra: ${purchase.products[0]}, estado: ${purchase.purchaseState}")
+        Log.d(TAG, "Detalhes completos da compra: ${purchase}")
 
         if (purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
             // Verificar se é uma assinatura válida
             val isSubscriptionValid = isPurchaseValid(purchase)
+            Log.d(TAG, "Assinatura válida? $isSubscriptionValid")
 
             // Persistir status localmente
             if (isSubscriptionValid) {
                 Log.d(TAG, "Assinatura válida, atualizando status premium")
                 savePremiumStatusLocally(true)
+
+                // Atualizar estado no app
+                _isPremiumUser.value = true
+
+                // Atualizar no Firebase para persistência entre dispositivos
+                saveUserStatusToFirebase(true)
+
+                // Reconhecer a compra para que a Google saiba que foi processada
+                if (!purchase.isAcknowledged) {
+                    acknowledgePurchase(purchase)
+                }
+            } else {
+                Log.e(TAG, "Assinatura inválida, não atualizando status")
             }
-
-            // Atualizar estado no app
-            _isPremiumUser.value = isSubscriptionValid
-
-            // Atualizar no Firebase para persistência entre dispositivos (sem backend)
-            saveUserStatusToFirebase(isSubscriptionValid)
-
-            // Reconhecer a compra para que a Google saiba que foi processada
-            if (!purchase.isAcknowledged) {
-                acknowledgePurchase(purchase)
-            }
+        } else {
+            Log.d(TAG, "Compra em estado diferente de PURCHASED: ${purchase.purchaseState}")
         }
     }
 
@@ -373,28 +404,45 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             return
         }
 
+        val userEmail = currentUser.email ?: currentUser.uid
+        Log.d(TAG, "Tentando atualizar status premium no Firebase para $userEmail: $isPremium")
+
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val db = Firebase.firestore
-                val userEmail = currentUser.email ?: currentUser.uid
 
-                Log.d(TAG, "Atualizando status premium no Firebase para $userEmail: $isPremium")
+                val userData = mapOf(
+                    "isPremium" to isPremium,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                    "deviceId" to android.os.Build.MODEL,
+                    "lastUpdatedMillis" to System.currentTimeMillis()
+                )
+
+                Log.d(TAG, "Dados a serem salvos no Firebase: $userData")
 
                 db.collection("premium_users")
                     .document(userEmail)
-                    .set(mapOf(
-                        "isPremium" to isPremium,
-                        "updatedAt" to FieldValue.serverTimestamp(),
-                        "deviceId" to android.os.Build.MODEL // para debugging
-                    ))
+                    .set(userData)
                     .addOnSuccessListener {
-                        Log.d(TAG, "Status premium atualizado no Firebase com sucesso")
+                        Log.d(TAG, "Status premium atualizado no Firebase com sucesso para $userEmail")
+
+                        // Verificar se o documento foi realmente criado
+                        db.collection("premium_users")
+                            .document(userEmail)
+                            .get()
+                            .addOnSuccessListener { document ->
+                                if (document != null && document.exists()) {
+                                    Log.d(TAG, "Verificação: documento existe no Firebase: ${document.data}")
+                                } else {
+                                    Log.e(TAG, "Verificação falhou: documento não existe no Firebase após salvar")
+                                }
+                            }
                     }
                     .addOnFailureListener { e ->
-                        Log.e(TAG, "Erro ao atualizar status premium no Firebase", e)
+                        Log.e(TAG, "Erro ao atualizar status premium no Firebase: ${e.message}", e)
                     }
             } catch (e: Exception) {
-                Log.e(TAG, "Erro ao salvar status no Firebase", e)
+                Log.e(TAG, "Exceção ao salvar status no Firebase: ${e.message}", e)
             }
         }
     }

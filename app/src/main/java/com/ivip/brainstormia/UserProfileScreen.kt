@@ -34,7 +34,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.ivip.brainstormia.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,8 +44,14 @@ fun UserProfileScreen(
     chatViewModel: ChatViewModel,
     isDarkTheme: Boolean = true
 ) {
-    val backgroundColor = if (isDarkTheme) Color(0xFF121212) else BackgroundColor
-    val textColor = if (isDarkTheme) TextColorLight else TextColorDark
+    // Definições de cores do tema dourado
+    val goldColor = Color(0xFFFFD700)
+    val darkGoldColor = Color(0xFFFFBB33)
+
+    // Cores de fundo baseadas no tema
+    val backgroundColor = if (isDarkTheme) Color(0xFF121212) else Color.White
+    val cardBackgroundColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color.White
+    val textColor = if (isDarkTheme) Color.White else Color.Black
 
     val currentUser by authViewModel.currentUser.collectAsState()
     val isPremiumUser by chatViewModel.isPremiumUser.collectAsState()
@@ -68,7 +73,7 @@ fun UserProfileScreen(
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color(0xFF1976D2)
+                        containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else goldColor
                     )
                 )
             }
@@ -89,7 +94,7 @@ fun UserProfileScreen(
                 when (isPremiumUser) {
                     null -> {
                         CircularProgressIndicator(
-                            color = Color(0xFFFFD700),
+                            color = goldColor,
                             modifier = Modifier.padding(16.dp)
                         )
                     }
@@ -97,7 +102,7 @@ fun UserProfileScreen(
                         PremiumUserContent(isDarkTheme = isDarkTheme)
                     }
                     false -> {
-                        BasicUserContent(
+                        BasicUserContentWithButtonFirst(
                             onUpgradeToPremium = onNavigateToPayment,
                             isDarkTheme = isDarkTheme
                         )
@@ -114,11 +119,10 @@ fun UserProfileHeader(
     isPremium: Boolean,
     isDarkTheme: Boolean
 ) {
-    val gradientColors = if (isPremium) {
-        listOf(Color(0xFFFFD700), Color(0xFFFFBB33))
-    } else {
-        listOf(Color(0xFF1976D2), Color(0xFF2196F3))
-    }
+    val goldColor = Color(0xFFFFD700)
+    val darkGoldColor = Color(0xFFFFBB33)
+
+    val gradientColors = listOf(goldColor, darkGoldColor)
 
     val transition = rememberInfiniteTransition(label = "Selo Animation")
     val alphaAnim by transition.animateFloat(
@@ -163,7 +167,7 @@ fun UserProfileHeader(
                         imageVector = Icons.Default.Person,
                         contentDescription = null,
                         modifier = Modifier.size(50.dp),
-                        tint = if (isPremium) Color(0xFFFFD700) else Color.White
+                        tint = goldColor
                     )
                 }
             }
@@ -172,20 +176,17 @@ fun UserProfileHeader(
                 Text(
                     text = email,
                     style = MaterialTheme.typography.titleMedium,
-                    color = if (isDarkTheme) TextColorLight else TextColorDark
+                    color = if (isDarkTheme) Color.White else Color.Black
                 )
             }
 
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (isPremium)
-                    Color(0xFFFFD700).copy(alpha = alphaAnim)
-                else
-                    Color(0xFF1976D2).copy(alpha = 0.2f)
+                color = goldColor.copy(alpha = alphaAnim)
             ) {
                 Text(
                     text = if (isPremium) "Membro Premium" else "Membro Básico",
-                    color = if (isPremium) Color(0xFFFFD700) else Color(0xFF1976D2),
+                    color = goldColor,
                     modifier = Modifier
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                     style = MaterialTheme.typography.labelMedium
@@ -195,9 +196,11 @@ fun UserProfileHeader(
     }
 }
 
-
 @Composable
 fun PremiumUserContent(isDarkTheme: Boolean) {
+    val goldColor = Color(0xFFFFD700)
+    val textColor = if (isDarkTheme) Color.White else Color.Black
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -207,7 +210,7 @@ fun PremiumUserContent(isDarkTheme: Boolean) {
         Text(
             text = "Obrigado por ser Premium!",
             style = MaterialTheme.typography.headlineMedium,
-            color = Color(0xFFFFD700)
+            color = goldColor
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -218,22 +221,12 @@ fun PremiumUserContent(isDarkTheme: Boolean) {
             exit = fadeOut()
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-
+                // Recursos premium - mantidos
                 PremiumFeatureCard(title = "Modelos Avançados", description = "Acesse os melhores modelos de IA.", isDarkTheme = isDarkTheme)
                 PremiumFeatureCard(title = "Exportação Avançada", description = "Exporte suas ideias em vários formatos.", isDarkTheme = isDarkTheme)
                 PremiumFeatureCard(title = "Suporte Prioritário", description = "Receba atendimento VIP.", isDarkTheme = isDarkTheme)
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Text(
-                    text = "Suas Estatísticas",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = Color(0xFFFFD700)
-                )
-
-                PremiumStatCard(label = "Conversas Criadas", value = "124", isDarkTheme = isDarkTheme)
-                PremiumStatCard(label = "Mensagens Enviadas", value = "782", isDarkTheme = isDarkTheme)
-                PremiumStatCard(label = "Tempo de Uso", value = "48h", isDarkTheme = isDarkTheme)
+                // A seção de estatísticas foi removida
             }
         }
     }
@@ -241,38 +234,23 @@ fun PremiumUserContent(isDarkTheme: Boolean) {
 
 @Composable
 fun PremiumFeatureCard(title: String, description: String, isDarkTheme: Boolean) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color.White
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(description, style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
+    val goldColor = Color(0xFFFFD700)
+    val textColor = if (isDarkTheme) Color.White else Color.Black
 
-@Composable
-fun PremiumStatCard(label: String, value: String, isDarkTheme: Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color.White
+            containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color.White,
+            contentColor = textColor
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Text(label, style = MaterialTheme.typography.titleMedium)
-            Text(value, style = MaterialTheme.typography.bodySmall)
+            Text(title, style = MaterialTheme.typography.titleMedium, color = goldColor)
+            Text(description, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -283,6 +261,8 @@ fun PulseButton(
     text: String,
     isDarkTheme: Boolean
 ) {
+    val goldColor = Color(0xFFFFD700)
+
     val infiniteTransition = rememberInfiniteTransition(label = "Pulse Button")
     val scale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -298,8 +278,8 @@ fun PulseButton(
         modifier = Modifier.scale(scale),
         shape = RoundedCornerShape(24.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (isDarkTheme) Color(0xFF1976D2) else Color(0xFF0D47A1),
-            contentColor = Color.White
+            containerColor = goldColor,
+            contentColor = Color.Black
         )
     ) {
         Text(text)
@@ -307,20 +287,31 @@ fun PulseButton(
 }
 
 @Composable
-fun BasicUserContent(
+fun BasicUserContentWithButtonFirst(
     onUpgradeToPremium: () -> Unit,
     isDarkTheme: Boolean
 ) {
+    val goldColor = Color(0xFFFFD700)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Botão colocado antes do texto
+        PulseButton(
+            onClick = onUpgradeToPremium,
+            text = "Atualizar para Premium",
+            isDarkTheme = isDarkTheme
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         Text(
             text = "Liberte seu potencial!",
             style = MaterialTheme.typography.headlineMedium,
-            color = if (isDarkTheme) Color(0xFF1976D2) else Color(0xFF0D47A1)
+            color = goldColor
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -348,13 +339,5 @@ fun BasicUserContent(
                 )
             }
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        PulseButton(
-            onClick = onUpgradeToPremium,
-            text = "Atualizar para Premium",
-            isDarkTheme = isDarkTheme
-        )
     }
 }

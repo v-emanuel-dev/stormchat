@@ -18,6 +18,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardVoice
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
@@ -110,8 +112,13 @@ import com.ivip.brainstormia.theme.TextColorLight
 import dev.jeziellago.compose.markdowntext.MarkdownText
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.material3.Icon
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.viewinterop.AndroidView
+import io.noties.markwon.Markwon
+import io.noties.markwon.html.HtmlPlugin
+import io.noties.markwon.linkify.LinkifyPlugin
 
 @Composable
 fun MessageBubble(
@@ -127,7 +134,7 @@ fun MessageBubble(
         bottomEnd = 6.dp
     )
 
-    // Cores
+    // Colors
     val userBubbleColor = BotBubbleColor
     val userTextColor   = Color.White
     val botTextColor    = if (isDarkTheme) TextColorLight else TextColorDark
@@ -146,7 +153,7 @@ fun MessageBubble(
         contentAlignment = if (isUserMessage) Alignment.CenterEnd else Alignment.CenterStart
     ) {
         if (isUserMessage) {
-            // Bolha do usuário
+            // User bubble (unchanged)
             Card(
                 modifier = Modifier
                     .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.88f),
@@ -158,7 +165,7 @@ fun MessageBubble(
             ) {
                 Box(
                     modifier = Modifier
-                        .background(userBubbleColor) // mantém o fundo só na bolha do usuário
+                        .background(userBubbleColor)
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     SelectionContainer {
@@ -173,7 +180,7 @@ fun MessageBubble(
                 }
             }
         } else {
-            // Mensagem do bot — sem fundo sólido, apenas padding
+            // Bot message with Markwon rendering
             AnimatedVisibility(
                 visibleState = visibleState,
                 enter = fadeIn(animationSpec = tween(300)) +
@@ -185,23 +192,79 @@ fun MessageBubble(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp) // nenhum background aqui
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
-                    SelectionContainer {
-                        MarkdownText(
-                            markdown   = message.text,
-                            modifier   = Modifier.fillMaxWidth(),
-                            color      = botTextColor,
-                            linkColor  = linkColor,
-                            fontSize   = MaterialTheme.typography.bodyLarge.fontSize,
-                            textAlign  = TextAlign.Start,
-                            maxLines   = Int.MAX_VALUE,
-                            isTextSelectable = true,
-                            style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp)
-                        )
-                    }
+                    // Use AndroidView com TextView + Markwon
+                    AndroidView(
+                        factory = { context ->
+                            TextView(context).apply {
+                                // Configuração básica do TextView
+                                layoutParams = ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.WRAP_CONTENT
+                                )
+                                setTextColor(botTextColor.toArgb())
+                                textSize = 16f
+                                setLineSpacing(4f, 1f) // Use setLineSpacing em vez de atribuir a lineSpacingExtra
+
+                                // Aplicar técnica de correção de seleção de texto
+                                setTextIsSelectable(false)
+                                post {
+                                    setTextIsSelectable(true)
+                                }
+
+                                // Configurar Markwon para renderizar Markdown
+                                val markwon = Markwon.builder(context)
+                                    .usePlugin(HtmlPlugin.create())
+                                    .usePlugin(LinkifyPlugin.create())
+                                    .build()
+
+                                // Renderizar o Markdown
+                                markwon.setMarkdown(this, message.text)
+                            }
+                        },
+                        update = { textView ->
+                            // Atualizar quando a mensagem mudar
+                            val markwon = Markwon.create(textView.context)
+
+                            // Resetar o estado de seleção para corrigir o bug
+                            textView.setTextIsSelectable(false)
+
+                            // Renderizar Markdown e reativar seleção
+                            markwon.setMarkdown(textView, message.text)
+                            textView.post {
+                                textView.setTextIsSelectable(true)
+                            }
+                        }
+                    )
                 }
             }
+        }
+    }
+}
+
+/**
+ * A SelectionContainer that tries to maintain selection when tapping outside
+ */
+@Composable
+fun PersistentSelectionContainer(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val selectionIsImportant = remember { mutableStateOf(false) }
+
+    Box(
+        modifier = modifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null // No ripple effect
+            ) {
+                // Do nothing on click, but capture the click event
+                // This prevents clicks from bubbling up and canceling selection
+            }
+    ) {
+        SelectionContainer {
+            content()
         }
     }
 }
@@ -484,7 +547,7 @@ fun ChatScreen(
                                 }
                             },
                             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                                containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color(0xFF1976D2),
+                                containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else PrimaryColor,
                                 titleContentColor = Color.White,
                                 navigationIconContentColor = Color.White,
                                 actionIconContentColor = Color.White
@@ -533,33 +596,42 @@ fun ChatScreen(
                                 .weight(1f)
                                 .fillMaxWidth()
                         ) {
-                            LazyColumn(
-                                state = listState,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 16.dp),
-                                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                itemsIndexed(
-                                    items = messages,
-                                    key = { index, _ -> index }
-                                ) { _, message ->
-                                    MessageBubble(
-                                        message = message,
-                                        isDarkTheme = isDarkTheme
-                                    )
-                                }
-
-                                if (isLoading) {
-                                    item {
-                                        LightningLoadingAnimation(
-                                            modifier = Modifier.padding(vertical = 4.dp),
+                            // Wrap the entire LazyColumn with a SelectionContainer
+                            SelectionContainer {
+                                LazyColumn(
+                                    state = listState,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 16.dp)
+                                        // Important: prevent click events from bubbling up
+                                        .clickable(
+                                            enabled = false,
+                                            onClick = {}
+                                        ),
+                                    contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    itemsIndexed(
+                                        items = messages,
+                                        key = { index, _ -> index }
+                                    ) { _, message ->
+                                        MessageBubble(
+                                            message = message,
                                             isDarkTheme = isDarkTheme
                                         )
                                     }
+
+                                    if (isLoading) {
+                                        item {
+                                            LightningLoadingAnimation(
+                                                modifier = Modifier.padding(vertical = 4.dp),
+                                                isDarkTheme = isDarkTheme
+                                            )
+                                        }
+                                    }
                                 }
                             }
+
 
                             errorMessage?.let { errorMsg ->
                                 Text(
@@ -691,36 +763,41 @@ fun MessageInput(
     isDarkTheme: Boolean = true,
     viewModel: ChatViewModel
 ) {
-    var isExpanded by remember { mutableStateOf(false) }
-    var isFocused  by remember { mutableStateOf(false) }
+    var isFocused by remember { mutableStateOf(false) }
     val isListening by viewModel.isListening.collectAsState()
+
+    // Estado para verificar se tem texto sendo digitado
+    val isTyping = message.isNotBlank()
 
     // Animação de piscar para a borda
     val infiniteTransition = rememberInfiniteTransition()
     val blinkAlpha by infiniteTransition.animateFloat(
         initialValue = 0.3f,
-        targetValue   = 1f,
+        targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation  = tween(durationMillis = 600, easing = LinearEasing),
+            animation = tween(durationMillis = 600, easing = LinearEasing),
             repeatMode = RepeatMode.Reverse
         )
     )
 
     // Cores do tema
-    val backgroundColor        = if (isDarkTheme) Color(0xFF121212) else BackgroundColor
-    val surfaceColor           = if (isDarkTheme) Color(0xFF333333) else Color(0xFFC8C8C9) // Cor cinza mais escura para o input no tema escuro
+    val backgroundColor = if (isDarkTheme) Color(0xFF121212) else BackgroundColor
+    val surfaceColor = if (isDarkTheme) Color(0xFF333333) else Color(0xFFC8C8C9)
     val disabledContainerColor = if (isDarkTheme) Color(0xFF282828) else PrimaryColor.copy(alpha = 0.15f)
-    val disabledTextColor      = if (isDarkTheme) Color.LightGray.copy(alpha = 0.5f) else Color.DarkGray.copy(alpha = 0.7f)
-    val disabledCursorColor    = if (isDarkTheme) PrimaryColor.copy(alpha = 0.7f) else PrimaryColor.copy(alpha = 0.6f)
+    val disabledTextColor = if (isDarkTheme) Color.LightGray.copy(alpha = 0.5f) else Color.DarkGray.copy(alpha = 0.7f)
+    val disabledCursorColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.7f) else PrimaryColor.copy(alpha = 0.6f)
+
+    // Cor da bolha do usuário (azul usado no botão de enviar)
+    val userBubbleColor = if (isDarkTheme) Color(0xFF0D47A1) else Color(0xFF1976D2) // Azul da bolha do usuário
 
     // Cor do placeholder
     val placeholderColor = if (isDarkTheme)
         Color.LightGray.copy(alpha = 0.6f)
     else
-        Color.Black.copy(alpha = 0.6f) // Texto preto com transparência para o placeholder no tema claro
+        Color.Black.copy(alpha = 0.6f)
 
     // Cor branca para borda e cursor
-    val focusColor  = if (isDarkTheme) Color.White else PrimaryColor
+    val focusColor = if (isDarkTheme) Color.White else PrimaryColor
     val borderColor = if (isFocused) focusColor.copy(alpha = blinkAlpha) else Color.Transparent
     val cursorColor = if (isFocused) focusColor else disabledCursorColor
 
@@ -730,7 +807,7 @@ fun MessageInput(
         modifier = Modifier
             .fillMaxWidth()
             .background(backgroundColor)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 14.dp, vertical = 6.dp) // Reduzido padding para maximizar espaço
     ) {
         Row(
             modifier = Modifier
@@ -740,7 +817,7 @@ fun MessageInput(
                     shape = RoundedCornerShape(28.dp)
                 )
                 .border(width = 2.dp, color = borderColor, shape = RoundedCornerShape(28.dp))
-                .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 8.dp),
+                .padding(start = 8.dp, end = 4.dp, top = 2.dp, bottom = 6.dp), // Reduzido padding geral
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextField(
@@ -751,95 +828,131 @@ fun MessageInput(
                         text = "Mensagem...",
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontWeight = FontWeight.Medium,
-                            fontSize   = 16.sp,
-                            color      = if (isSendEnabled) placeholderColor else disabledTextColor
+                            fontSize = 16.sp,
+                            color = if (isSendEnabled) placeholderColor else disabledTextColor
                         )
                     )
                 },
                 textStyle = TextStyle(
                     fontWeight = FontWeight.Medium,
-                    fontSize   = 16.sp,
-                    color      = if (isDarkTheme) TextColorLight else TextColorDark // Texto de entrada
+                    fontSize = 16.sp,
+                    color = if (isDarkTheme) TextColorLight else TextColorDark
                 ),
                 modifier = Modifier
                     .weight(1f)
-                    .heightIn(min = 56.dp)
+                    .heightIn(min = 50.dp) // Reduzido a altura mínima
                     .onFocusChanged { focusState ->
                         isFocused = focusState.isFocused
                     },
                 shape = RoundedCornerShape(24.dp),
                 colors = TextFieldDefaults.colors(
-                    focusedIndicatorColor   = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor  = Color.Transparent,
-                    errorIndicatorColor     = Color.Transparent,
-                    focusedContainerColor   = if (isSendEnabled) surfaceColor else disabledContainerColor,
+                    disabledIndicatorColor = Color.Transparent,
+                    errorIndicatorColor = Color.Transparent,
+                    focusedContainerColor = if (isSendEnabled) surfaceColor else disabledContainerColor,
                     unfocusedContainerColor = if (isSendEnabled) surfaceColor else disabledContainerColor,
-                    disabledContainerColor  = disabledContainerColor,
-                    cursorColor             = cursorColor,
-                    focusedTextColor        = if (isDarkTheme) TextColorLight else TextColorDark,
-                    unfocusedTextColor      = if (isDarkTheme) TextColorLight else TextColorDark
+                    disabledContainerColor = disabledContainerColor,
+                    cursorColor = cursorColor,
+                    focusedTextColor = if (isDarkTheme) TextColorLight else TextColorDark,
+                    unfocusedTextColor = if (isDarkTheme) TextColorLight else TextColorDark
                 ),
-                enabled  = isSendEnabled,
-                maxLines = if (isExpanded) 8 else 3
+                enabled = isSendEnabled,
+                maxLines = 7 // Aumentado para 7 linhas
             )
 
-            // O resto do código permanece igual
-            Spacer(modifier = Modifier.width(8.dp))
+            // Espaço reduzido entre os componentes
+            Spacer(modifier = Modifier.width(4.dp))
 
-            val lineCount = if (message.isBlank()) 1 else message.count { it == '\n' } + 1
-            val showExpand = lineCount >= 2 || message.length > 80
-            if (showExpand) {
-                val icon = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp
+            // Áreas de botões agrupados
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(end = 1.dp)
+            ) {
+                // Botão de microfone (visível apenas quando não está digitando)
+                if (!isTyping) {
+                    SimpleVoiceInputButton(
+                        onTextResult = { text -> onMessageChange(text); viewModel.handleVoiceInput(text) },
+                        isListening = isListening,
+                        onStartListening = { viewModel.startListening() },
+                        onStopListening = { viewModel.stopListening() },
+                        isSendEnabled = isSendEnabled,
+                        isDarkTheme = isDarkTheme,
+                        size = 36.dp,
+                        iconSize = 18.dp
+                    )
+
+                    // Espaço mínimo entre microfone e botão de enviar
+                    Spacer(modifier = Modifier.width(2.dp))
+                }
+
+                // Botão de enviar (maior que o microfone)
                 Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .size(48.dp) // Tamanho aumentado
                         .clip(CircleShape)
                         .background(
-                            if (isSendEnabled) Color.Gray.copy(alpha = 0.3f)
-                            else PrimaryColor.copy(alpha = 0.25f)
+                            when {
+                                !isSendEnabled -> if (isDarkTheme) Color(0xFF333333) else PrimaryColor.copy(alpha = 0.4f)
+                                message.isNotBlank() -> if (isDarkTheme) Color(0xFF333333) else Color.White
+                                else -> if (isDarkTheme) Color(0xFF333333).copy(alpha = 0.6f) else PrimaryColor.copy(alpha = 0.5f)
+                            }
                         )
-                        .clickable(enabled = isSendEnabled) { isExpanded = !isExpanded },
+                        .clickable(enabled = message.isNotBlank() && isSendEnabled) { onSendClick() },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(20.dp))
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-
-            SimpleVoiceInputButton(
-                onTextResult     = { text -> onMessageChange(text); viewModel.handleVoiceInput(text) },
-                isListening      = isListening,
-                onStartListening = { viewModel.startListening() },
-                onStopListening  = { viewModel.stopListening() },
-                isSendEnabled    = isSendEnabled,
-                isDarkTheme      = isDarkTheme
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(
-                        when {
-                            !isSendEnabled       -> if (isDarkTheme) Color(0xFF333333) else PrimaryColor.copy(alpha = 0.4f)
-                            message.isNotBlank() -> if (isDarkTheme) Color(0xFF333333) else PrimaryColor
-                            else                 -> if (isDarkTheme) Color(0xFF333333).copy(alpha = 0.6f) else PrimaryColor.copy(alpha = 0.5f)
-                        }
+                    Icon(
+                        Icons.AutoMirrored.Filled.Send,
+                        contentDescription = null,
+                        modifier = Modifier.size(26.dp), // Ícone aumentado
+                        tint = Color.White // Cor da bolha do usuário
                     )
-                    .clickable(enabled = message.isNotBlank() && isSendEnabled) { onSendClick() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.Send,
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp),
-                    tint = Color.White
-                )
+                }
             }
         }
+    }
+}
+
+// Componente de botão de voz otimizado com tamanho personalizável
+@Composable
+fun SimpleVoiceInputButton(
+    onTextResult: (String) -> Unit,
+    isListening: Boolean,
+    onStartListening: () -> Unit,
+    onStopListening: () -> Unit,
+    isSendEnabled: Boolean,
+    isDarkTheme: Boolean,
+    size: Dp = 36.dp,        // Tamanho do botão (personalizável)
+    iconSize: Dp = 18.dp     // Tamanho do ícone (personalizável)
+) {
+    // Implementação existente, mas com tamanhos personalizáveis
+    val backgroundColor = if (isDarkTheme) {
+        if (isListening) Color.Red.copy(alpha = 0.5f) else Color.Gray.copy(alpha = 0.3f)
+    } else {
+        if (isListening) Color.Red.copy(alpha = 0.6f) else PrimaryColor.copy(alpha = 0.25f)
+    }
+
+    Box(
+        modifier = Modifier
+            .size(size) // Tamanho personalizável
+            .clip(CircleShape)
+            .background(backgroundColor)
+            .clickable(enabled = isSendEnabled) {
+                if (isListening) {
+                    onStopListening()
+                } else {
+                    onStartListening()
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        // Use Icons.Default.KeyboardVoice em vez de Icons.Default.Mic
+        Icon(
+            imageVector = Icons.Default.KeyboardVoice, // Alternativa para Icons.Default.Mic
+            contentDescription = null,
+            modifier = Modifier.size(iconSize), // Tamanho do ícone personalizável
+            tint = if (isDarkTheme) Color.White else Color.Black
+        )
     }
 }
 

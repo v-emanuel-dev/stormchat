@@ -98,7 +98,9 @@ fun AppDrawerContent(
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "Nova conversa",
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+
             )
         }
 
