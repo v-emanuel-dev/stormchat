@@ -21,7 +21,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -32,8 +31,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ivip.brainstormia.billing.BillingViewModel
+import com.ivip.brainstormia.theme.PrimaryColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,21 +44,26 @@ fun UserProfileScreen(
     onNavigateToPayment: () -> Unit,
     authViewModel: AuthViewModel = viewModel(),
     chatViewModel: ChatViewModel,
+    billingViewModel: BillingViewModel = viewModel(),
     isDarkTheme: Boolean = true
 ) {
-    // Definições de cores do tema dourado
-    val goldColor = Color(0xFFFFD700)
-    val darkGoldColor = Color(0xFFFFBB33)
+    // Definições de cores do tema dourado - ajustadas para melhor visibilidade no tema claro
+    val goldColor = if (isDarkTheme) Color(0xFFFFD700) else Color(0xFFB8860B) // Dourado mais escuro para tema claro
+    val darkGoldColor = if (isDarkTheme) Color(0xFFFFBB33) else Color(0xFF8B6914) // Dourado ainda mais escuro para tema claro
 
     // Cores de fundo baseadas no tema
-    val backgroundColor = if (isDarkTheme) Color(0xFF121212) else Color.White
-    val cardBackgroundColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color.White
-    val textColor = if (isDarkTheme) Color.White else Color.Black
+    val backgroundColor = if (isDarkTheme) Color(0xFF121212) else Color(0xFFF5F5F5) // Cinza bem claro para tema claro
 
     val currentUser by authViewModel.currentUser.collectAsState()
+
+    // Correção para os erros de inferência de tipo
     val isPremiumUser by chatViewModel.isPremiumUser.collectAsState()
+
+    // Não utilizamos o userPlanType aqui, apenas o status premium
+
     val email = currentUser?.email ?: "Usuário não logado"
 
+    val textColor = if (isDarkTheme) Color.White else Color.Black
     val scrollState = rememberScrollState()
 
     Surface(
@@ -69,11 +76,15 @@ fun UserProfileScreen(
                     title = { Text("Seu Perfil", color = Color.White) },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Voltar", tint = Color.White)
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = "Voltar",
+                                tint = Color.White
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else goldColor
+                        containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else PrimaryColor // Usando o azul PrimaryColor do tema
                     )
                 )
             }
@@ -87,26 +98,22 @@ fun UserProfileScreen(
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                UserProfileHeader(email = email, isPremium = isPremiumUser == true, isDarkTheme = isDarkTheme)
+                UserProfileHeader(
+                    email = email,
+                    isPremium = isPremiumUser,
+                    isDarkTheme = isDarkTheme
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                when (isPremiumUser) {
-                    null -> {
-                        CircularProgressIndicator(
-                            color = goldColor,
-                            modifier = Modifier.padding(16.dp)
-                        )
-                    }
-                    true -> {
-                        PremiumUserContent(isDarkTheme = isDarkTheme)
-                    }
-                    false -> {
-                        BasicUserContentWithButtonFirst(
-                            onUpgradeToPremium = onNavigateToPayment,
-                            isDarkTheme = isDarkTheme
-                        )
-                    }
+                // Simplificado para usar apenas o status premium
+                if (isPremiumUser) {
+                    PremiumUserContent(isDarkTheme = isDarkTheme)
+                } else {
+                    BasicUserContentWithButtonFirst(
+                        onUpgradeToPremium = onNavigateToPayment,
+                        isDarkTheme = isDarkTheme
+                    )
                 }
             }
         }
@@ -119,8 +126,11 @@ fun UserProfileHeader(
     isPremium: Boolean,
     isDarkTheme: Boolean
 ) {
-    val goldColor = Color(0xFFFFD700)
-    val darkGoldColor = Color(0xFFFFBB33)
+    // No modo escuro, manter o dourado original mais brilhante
+    val goldColor = if (isDarkTheme) Color(0xFFFFD700) else Color(0xFFB8860B)
+    val darkGoldColor = if (isDarkTheme) Color(0xFFFFBB33) else Color(0xFF8B6914)
+    val cardBackground = if (isDarkTheme) Color(0xFF1E1E1E) else Color(0xFFEEEEEE)
+    // textColor já está sendo usado diretamente em componentes
 
     val gradientColors = listOf(goldColor, darkGoldColor)
 
@@ -134,13 +144,23 @@ fun UserProfileHeader(
         ), label = "Alpha Animation"
     )
 
+    // Animação para o selo premium
+    val scaleAnim by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ), label = "Scale Animation Premium"
+    )
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color.White
+            containerColor = cardBackground
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
@@ -176,21 +196,27 @@ fun UserProfileHeader(
                 Text(
                     text = email,
                     style = MaterialTheme.typography.titleMedium,
-                    color = if (isDarkTheme) Color.White else Color.Black
+                    color = if (isDarkTheme) Color.White else Color.Black,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
 
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = goldColor.copy(alpha = alphaAnim)
+                color = goldColor, // Cor sólida sem efeito fade para ambos os temas
+                modifier = Modifier.scale(if (isPremium) scaleAnim else 1f)
             ) {
-                Text(
-                    text = if (isPremium) "Membro Premium" else "Membro Básico",
-                    color = goldColor,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    style = MaterialTheme.typography.labelMedium
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = if (isPremium) "Membro Premium" else "Membro Básico",
+                        color = Color.Black, // Texto preto sobre fundo dourado para melhor contraste
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
@@ -198,7 +224,7 @@ fun UserProfileHeader(
 
 @Composable
 fun PremiumUserContent(isDarkTheme: Boolean) {
-    val goldColor = Color(0xFFFFD700)
+    val goldColor = if (isDarkTheme) Color(0xFFFFD700) else Color(0xFFB8860B)
     val textColor = if (isDarkTheme) Color.White else Color.Black
 
     Column(
@@ -210,7 +236,8 @@ fun PremiumUserContent(isDarkTheme: Boolean) {
         Text(
             text = "Obrigado por ser Premium!",
             style = MaterialTheme.typography.headlineMedium,
-            color = goldColor
+            color = goldColor,
+            fontWeight = FontWeight.Bold
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -222,9 +249,21 @@ fun PremiumUserContent(isDarkTheme: Boolean) {
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 // Recursos premium - mantidos
-                PremiumFeatureCard(title = "Modelos Avançados", description = "Acesse os melhores modelos de IA.", isDarkTheme = isDarkTheme)
-                PremiumFeatureCard(title = "Exportação Avançada", description = "Exporte suas ideias em vários formatos.", isDarkTheme = isDarkTheme)
-                PremiumFeatureCard(title = "Suporte Prioritário", description = "Receba atendimento VIP.", isDarkTheme = isDarkTheme)
+                PremiumFeatureCard(
+                    title = "Modelos Avançados",
+                    description = "Acesse os melhores modelos de IA.",
+                    isDarkTheme = isDarkTheme
+                )
+                PremiumFeatureCard(
+                    title = "Exportação Avançada",
+                    description = "Exporte suas ideias em vários formatos.",
+                    isDarkTheme = isDarkTheme
+                )
+                PremiumFeatureCard(
+                    title = "Suporte Prioritário",
+                    description = "Receba atendimento VIP.",
+                    isDarkTheme = isDarkTheme
+                )
 
                 // A seção de estatísticas foi removida
             }
@@ -234,14 +273,15 @@ fun PremiumUserContent(isDarkTheme: Boolean) {
 
 @Composable
 fun PremiumFeatureCard(title: String, description: String, isDarkTheme: Boolean) {
-    val goldColor = Color(0xFFFFD700)
+    val goldColor = if (isDarkTheme) Color(0xFFFFD700) else Color(0xFFB8860B)
     val textColor = if (isDarkTheme) Color.White else Color.Black
+    val cardBgColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color(0xFFEEEEEE)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color.White,
+            containerColor = cardBgColor,
             contentColor = textColor
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -249,8 +289,18 @@ fun PremiumFeatureCard(title: String, description: String, isDarkTheme: Boolean)
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = goldColor)
-            Text(description, style = MaterialTheme.typography.bodySmall)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = goldColor,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = textColor,
+                fontWeight = FontWeight.Normal
+            )
         }
     }
 }
@@ -261,7 +311,10 @@ fun PulseButton(
     text: String,
     isDarkTheme: Boolean
 ) {
-    val goldColor = Color(0xFFFFD700)
+    val goldColor = if (isDarkTheme) Color(0xFFFFD700) else Color(0xFFB8860B)
+
+    // Definir cor do texto como preto quando for botão Premium
+    val textColor = if (text.contains("Premium")) Color.Black else Color.White
 
     val infiniteTransition = rememberInfiniteTransition(label = "Pulse Button")
     val scale by infiniteTransition.animateFloat(
@@ -279,10 +332,13 @@ fun PulseButton(
         shape = RoundedCornerShape(24.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = goldColor,
-            contentColor = Color.Black
+            contentColor = textColor // Cor condicional baseada no texto
         )
     ) {
-        Text(text)
+        Text(
+            text = text,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -291,7 +347,8 @@ fun BasicUserContentWithButtonFirst(
     onUpgradeToPremium: () -> Unit,
     isDarkTheme: Boolean
 ) {
-    val goldColor = Color(0xFFFFD700)
+    val goldColor = if (isDarkTheme) Color(0xFFFFD700) else Color(0xFFB8860B)
+    val textColor = if (isDarkTheme) Color.White else Color.Black
 
     Column(
         modifier = Modifier
@@ -311,7 +368,8 @@ fun BasicUserContentWithButtonFirst(
         Text(
             text = "Liberte seu potencial!",
             style = MaterialTheme.typography.headlineMedium,
-            color = goldColor
+            color = goldColor,
+            fontWeight = FontWeight.Bold
         )
 
         Spacer(modifier = Modifier.height(24.dp))

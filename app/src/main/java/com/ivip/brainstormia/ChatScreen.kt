@@ -134,11 +134,12 @@ fun MessageBubble(
         bottomEnd = 6.dp
     )
 
-    // Colors
+    // Colors - FIXED: Made bot text color more contrast-aware
     val userBubbleColor = BotBubbleColor
     val userTextColor   = Color.White
-    val botTextColor    = if (isDarkTheme) TextColorLight else TextColorDark
-    val linkColor       = if (isDarkTheme) Color(0xFFCCE9FF) else Color(0xFFB8E2FF)
+    // Change the bot text color logic to ensure proper contrast in both themes
+    val botTextColor    = if (isDarkTheme) TextColorLight else Color.Black // Changed to black in light theme
+    val linkColor       = if (isDarkTheme) Color(0xFFCCE9FF) else Color(0xFF0066CC) // Darker blue links in light theme
 
     val visibleState = remember { MutableTransitionState(initialState = isUserMessage) }
 
@@ -203,6 +204,7 @@ fun MessageBubble(
                                     ViewGroup.LayoutParams.MATCH_PARENT,
                                     ViewGroup.LayoutParams.WRAP_CONTENT
                                 )
+                                // FIXED: Set bot text color with better contrast
                                 setTextColor(botTextColor.toArgb())
                                 textSize = 16f
                                 setLineSpacing(4f, 1f) // Use setLineSpacing em vez de atribuir a lineSpacingExtra
@@ -229,6 +231,9 @@ fun MessageBubble(
 
                             // Resetar o estado de seleção para corrigir o bug
                             textView.setTextIsSelectable(false)
+
+                            // FIXED: Always update text color when isDarkTheme changes
+                            textView.setTextColor(botTextColor.toArgb())
 
                             // Renderizar Markdown e reativar seleção
                             markwon.setMarkdown(textView, message.text)
@@ -790,6 +795,13 @@ fun MessageInput(
     // Cor da bolha do usuário (azul usado no botão de enviar)
     val userBubbleColor = if (isDarkTheme) Color(0xFF0D47A1) else Color(0xFF1976D2) // Azul da bolha do usuário
 
+    // FIXED: Cor do botão de enviar quando tem texto (PrimaryColor em vez de branco no tema claro)
+    val sendButtonColor = when {
+        !isSendEnabled -> if (isDarkTheme) Color(0xFF333333) else PrimaryColor.copy(alpha = 0.4f)
+        message.isNotBlank() -> if (isDarkTheme) Color(0xFF333333) else PrimaryColor // AQUI: Mudado para PrimaryColor
+        else -> if (isDarkTheme) Color(0xFF333333).copy(alpha = 0.6f) else PrimaryColor.copy(alpha = 0.5f)
+    }
+
     // Cor do placeholder
     val placeholderColor = if (isDarkTheme)
         Color.LightGray.copy(alpha = 0.6f)
@@ -891,21 +903,18 @@ fun MessageInput(
                     modifier = Modifier
                         .size(48.dp) // Tamanho aumentado
                         .clip(CircleShape)
-                        .background(
-                            when {
-                                !isSendEnabled -> if (isDarkTheme) Color(0xFF333333) else PrimaryColor.copy(alpha = 0.4f)
-                                message.isNotBlank() -> if (isDarkTheme) Color(0xFF333333) else Color.White
-                                else -> if (isDarkTheme) Color(0xFF333333).copy(alpha = 0.6f) else PrimaryColor.copy(alpha = 0.5f)
-                            }
-                        )
+                        .background(sendButtonColor) // FIXED: Usando a cor corrigida
                         .clickable(enabled = message.isNotBlank() && isSendEnabled) { onSendClick() },
                     contentAlignment = Alignment.Center
                 ) {
+                    // FIXED: Cor do ícone de enviar ajustada para garantir contraste
+                    val iconColor = if (!isDarkTheme && message.isNotBlank()) Color.White else Color.White
+
                     Icon(
                         Icons.AutoMirrored.Filled.Send,
                         contentDescription = null,
                         modifier = Modifier.size(26.dp), // Ícone aumentado
-                        tint = Color.White // Cor da bolha do usuário
+                        tint = iconColor // Cor ajustada para garantir visibilidade
                     )
                 }
             }
@@ -1023,9 +1032,10 @@ fun LightningLoadingAnimation(
     isDarkTheme: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    // Cores para a animação do raio
-    val baseColor = Color(0xFFFFD700) // Amarelo dourado (padrão)
-    val accentColor = Color(0xFFFF9500) // Laranja
+    // FIXED: Enhanced colors for light theme
+    // Cores para a animação do raio ajustadas para melhor contraste em tema claro
+    val baseColor = if (isDarkTheme) Color(0xFFFFD700) else Color(0xFFB8860B) // Amarelo dourado (escuro) para tema claro
+    val accentColor = if (isDarkTheme) Color(0xFFFF9500) else Color(0xFFFFA500) // Laranja mais intenso para tema claro
 
     // Animação de rotação
     val rotation = rememberInfiniteTransition(label = "rotationTransition")
@@ -1070,7 +1080,7 @@ fun LightningLoadingAnimation(
         colorProgress
     )
 
-    // Animação de brilho (glow)
+    // Animação de brilho (glow) - ENHANCED
     val glow = rememberInfiniteTransition(label = "glowTransition")
     val glowIntensity by glow.animateFloat(
         initialValue = 0.5f,
@@ -1087,21 +1097,40 @@ fun LightningLoadingAnimation(
             .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Adicionar um efeito de círculo de "glow" atrás do raio
+        // FIXED: Glow effect enhanced for light theme
+        // Adicionar um efeito de círculo de "glow" atrás do raio com opacidade aumentada para tema claro
         Box(
             modifier = Modifier
                 .size(70.dp)
                 .background(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            currentColor.copy(alpha = 0.3f * glowIntensity),
-                            currentColor.copy(alpha = 0.1f * glowIntensity),
+                            currentColor.copy(alpha = if(isDarkTheme) 0.3f * glowIntensity else 0.5f * glowIntensity),
+                            currentColor.copy(alpha = if(isDarkTheme) 0.1f * glowIntensity else 0.25f * glowIntensity),
                             Color.Transparent
                         )
                     ),
                     shape = CircleShape
                 )
         )
+
+        // FIXED: Shadow effect for better visibility in light theme
+        if (!isDarkTheme) {
+            // Add an extra drop shadow effect for light theme
+            Icon(
+                painter = painterResource(id = R.drawable.ic_bolt_foreground),
+                contentDescription = "Carregando...",
+                modifier = Modifier
+                    .size(50.dp)
+                    .graphicsLayer {
+                        rotationZ = rotateAngle
+                        scaleX = scaleSize
+                        scaleY = scaleSize
+                        alpha = 0.5f
+                    },
+                tint = Color.DarkGray.copy(alpha = 0.5f)
+            )
+        }
 
         // Ícone do raio
         Icon(
