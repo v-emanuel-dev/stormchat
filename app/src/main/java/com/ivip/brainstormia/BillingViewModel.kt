@@ -1,6 +1,5 @@
 package com.ivip.brainstormia.billing
 
-import android.app.Activity
 import android.app.Application
 import android.content.Context
 import android.util.Log
@@ -21,21 +20,28 @@ import android.os.Looper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.pow
 
-class BillingViewModel(application: Application) : AndroidViewModel(application), PurchasesUpdatedListener {
+/**
+ * ViewModel que gerencia a integração com Google Play Billing para assinaturas e compras.
+ * Esta classe é desenhada para funcionar como um Singleton via BrainstormiaApplication.
+ */
+class BillingViewModel private constructor(application: Application) : AndroidViewModel(application), PurchasesUpdatedListener {
     private val TAG = "BillingViewModel"
 
+    // Client de faturamento do Google Play
     private val billingClient = BillingClient.newBuilder(application)
         .enablePendingPurchases()
         .setListener(this)
         .build()
 
-    // Adicionando a definição que estava faltando
+    // Estado da verificação de premium
     private val _isPremiumUser = MutableStateFlow(false)
     val isPremiumUser = _isPremiumUser.asStateFlow()
 
@@ -45,68 +51,90 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
     private val _userPlanType = MutableStateFlow<String?>(null)
     val userPlanType = _userPlanType.asStateFlow()
 
+    // Lista de produtos disponíveis
     private val _products = MutableStateFlow<List<ProductDetails>>(emptyList())
     val products = _products.asStateFlow()
 
+    // Estado da compra em andamento
     private val _purchaseInProgress = MutableStateFlow(false)
     val purchaseInProgress = _purchaseInProgress.asStateFlow()
 
+    // Controle de tentativas de conexão
     private val _connectionAttempts = MutableStateFlow(0)
     private val MAX_CONNECTION_ATTEMPTS = 5
 
+    // Reconexão
     private val handler = Handler(Looper.getMainLooper())
     private var reconnectRunnable: Runnable? = null
 
     // Controle de verificação ativa
     private var activeCheckJob: Job? = null
+    private val isInitializing = AtomicBoolean(true)
 
-    // --- IDs Atuais ---
-    private val SUBSCRIPTION_IDS_ONLY = listOf("mensal", "anual")
-    private val INAPP_IDS_ONLY = listOf("vital") // Usando o novo ID
-    // --------------------
+    // IDs de produtos
+    private val SUBSCRIPTION_IDS = listOf("mensal", "anual")
+    private val INAPP_IDS = listOf("vital")
 
-    // Adicionando cache para melhorar performance
+    // Cache de verificação
     private var lastVerifiedTimestamp = 0L
     private val CACHE_VALIDITY_PERIOD = 30000L // 30 segundos
-    private var isInitialCheckComplete = false
+    private val isInitialCheckComplete = AtomicBoolean(false)
 
     init {
-        Log.d(TAG, "Inicializando BillingViewModel")
-        loadPremiumStatusLocally() // Primeiro carrega do cache local
-        startBillingConnection() // Depois conecta ao serviço de billing
+        Log.d(TAG, "Inicializando BillingViewModel (Singleton)")
+        // Inicialização realizada em duas fases para evitar race conditions
+        viewModelScope.launch {
+            loadPremiumStatusLocally() // Primeiro carrega do cache local para resposta imediata
+            startBillingConnection()   // Depois conecta ao serviço de billing
+            isInitializing.set(false)  // Marca inicialização como concluída
+        }
     }
 
+    /**
+     * Inicia ou restaura a conexão com o serviço de faturamento do Google Play.
+     */
     private fun startBillingConnection() {
+        // Se já está conectado, apenas consulta produtos e verificar status
         if (billingClient.isReady) {
             Log.i(TAG, "BillingClient já está pronto. Consultando produtos e compras.")
             queryAvailableProducts()
-            if (!isInitialCheckComplete) {
+            if (!isInitialCheckComplete.get()) {
                 checkUserSubscription() // Fonte da verdade
-                isInitialCheckComplete = true
+                isInitialCheckComplete.set(true)
             }
             return
         }
+
+        // Verifica se excedeu tentativas máximas
         if (_connectionAttempts.value >= MAX_CONNECTION_ATTEMPTS && !_purchaseInProgress.value) {
             Log.w(TAG, "Máximo de tentativas de conexão atingido (${MAX_CONNECTION_ATTEMPTS}).")
             _isPremiumLoading.value = false // Importante: Encerrar o loading
             return
         }
-        Log.i(TAG, "Iniciando conexão com BillingClient (tentativa: ${_connectionAttempts.value + 1})")
+
+        // Incrementa contador de tentativas
         _connectionAttempts.value++
+
+        Log.i(TAG, "Iniciando conexão com BillingClient (tentativa: ${_connectionAttempts.value})")
+
+        // Inicia a conexão com o serviço de faturamento
         billingClient.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(billingResult: BillingResult) {
                 Log.d(TAG, "onBillingSetupFinished - Resposta: ${billingResult.responseCode}, Mensagem: ${billingResult.debugMessage}")
+
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
                     Log.i(TAG, "Conectado com sucesso ao BillingClient.")
                     _connectionAttempts.value = 0
                     queryAvailableProducts()
-                    if (!isInitialCheckComplete) {
+
+                    if (!isInitialCheckComplete.get()) {
                         checkUserSubscription() // Fonte da verdade
-                        isInitialCheckComplete = true
+                        isInitialCheckComplete.set(true)
                     }
                 } else {
                     Log.e(TAG, "Erro na conexão com BillingClient: ${billingResult.responseCode} - ${billingResult.debugMessage}")
                     _isPremiumLoading.value = false // Importante: Encerrar o loading em caso de erro
+
                     if (_connectionAttempts.value < MAX_CONNECTION_ATTEMPTS) {
                         scheduleReconnection()
                     } else {
@@ -114,6 +142,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
                     }
                 }
             }
+
             override fun onBillingServiceDisconnected() {
                 Log.w(TAG, "Conexão com BillingClient perdida.")
                 scheduleReconnection()
@@ -121,38 +150,67 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         })
     }
 
+    /**
+     * Agenda uma reconexão com backoff exponencial para evitar sobrecarga.
+     */
     private fun scheduleReconnection() {
         reconnectRunnable?.let { handler.removeCallbacks(it) }
+
         if (_connectionAttempts.value >= MAX_CONNECTION_ATTEMPTS && !_purchaseInProgress.value) {
             Log.w(TAG, "Não agendando reconexão: máximo de tentativas.")
             _isPremiumLoading.value = false // Importante: Encerrar o loading
             return
         }
+
+        // Calcula delay com backoff exponencial
         val delayMs = 1000L * (2.0.pow(_connectionAttempts.value.coerceAtMost(6) - 1)).toLong()
         Log.d(TAG, "Agendando reconexão em $delayMs ms")
+
         reconnectRunnable = Runnable {
             if (!billingClient.isReady) startBillingConnection()
         }
+
         handler.postDelayed(reconnectRunnable!!, delayMs)
     }
 
+    /**
+     * Consulta os produtos disponíveis no Google Play.
+     */
     fun queryAvailableProducts() {
         if (!billingClient.isReady) {
             Log.w(TAG, "queryAvailableProducts: BillingClient não está pronto.")
             startBillingConnection()
             return
         }
-        Log.i(TAG, "queryAvailableProducts (Aninhado): Consultando produtos...")
+
+        Log.i(TAG, "queryAvailableProducts: Consultando produtos...")
         val combinedProductList = mutableListOf<ProductDetails>()
-        val subscriptionProductQueryList = SUBSCRIPTION_IDS_ONLY.mapNotNull { id -> if (id.isBlank()) null else QueryProductDetailsParams.Product.newBuilder().setProductId(id).setProductType(BillingClient.ProductType.SUBS).build() }
+
+        // Consulta assinaturas
+        val subscriptionProductQueryList = SUBSCRIPTION_IDS.mapNotNull { id ->
+            if (id.isBlank()) null
+            else QueryProductDetailsParams.Product.newBuilder()
+                .setProductId(id)
+                .setProductType(BillingClient.ProductType.SUBS)
+                .build()
+        }
 
         if (subscriptionProductQueryList.isNotEmpty()) {
-            val subsParams = QueryProductDetailsParams.newBuilder().setProductList(subscriptionProductQueryList).build()
-            Log.d(TAG, "Consultando SUBS com IDs: ${SUBSCRIPTION_IDS_ONLY.joinToString()}")
+            val subsParams = QueryProductDetailsParams.newBuilder()
+                .setProductList(subscriptionProductQueryList)
+                .build()
+
+            Log.d(TAG, "Consultando SUBS com IDs: ${SUBSCRIPTION_IDS.joinToString()}")
+
             billingClient.queryProductDetailsAsync(subsParams) { resSubs, subsList ->
                 Log.d(TAG, "queryProductDetailsAsync SUBS CALLBACK: Resposta=${resSubs.responseCode}, Tamanho=${subsList?.size ?: "null"}")
-                if (resSubs.responseCode == BillingClient.BillingResponseCode.OK && subsList != null) combinedProductList.addAll(subsList)
-                else Log.e(TAG, "Erro SUBS: ${resSubs.responseCode} - ${resSubs.debugMessage}")
+
+                if (resSubs.responseCode == BillingClient.BillingResponseCode.OK && subsList != null) {
+                    combinedProductList.addAll(subsList)
+                } else {
+                    Log.e(TAG, "Erro SUBS: ${resSubs.responseCode} - ${resSubs.debugMessage}")
+                }
+
                 queryInAppProducts(combinedProductList)
             }
         } else {
@@ -161,15 +219,34 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Consulta produtos de compra única.
+     */
     private fun queryInAppProducts(currentCombinedList: MutableList<ProductDetails>) {
-        val inAppProductQueryList = INAPP_IDS_ONLY.mapNotNull { id -> if (id.isBlank()) null else QueryProductDetailsParams.Product.newBuilder().setProductId(id).setProductType(BillingClient.ProductType.INAPP).build() }
+        val inAppProductQueryList = INAPP_IDS.mapNotNull { id ->
+            if (id.isBlank()) null
+            else QueryProductDetailsParams.Product.newBuilder()
+                .setProductId(id)
+                .setProductType(BillingClient.ProductType.INAPP)
+                .build()
+        }
+
         if (inAppProductQueryList.isNotEmpty()) {
-            val inAppParams = QueryProductDetailsParams.newBuilder().setProductList(inAppProductQueryList).build()
-            Log.d(TAG, "Consultando INAPP com IDs: ${INAPP_IDS_ONLY.joinToString()}")
+            val inAppParams = QueryProductDetailsParams.newBuilder()
+                .setProductList(inAppProductQueryList)
+                .build()
+
+            Log.d(TAG, "Consultando INAPP com IDs: ${INAPP_IDS.joinToString()}")
+
             billingClient.queryProductDetailsAsync(inAppParams) { resInApp, inAppList ->
                 Log.d(TAG, "queryProductDetailsAsync INAPP CALLBACK: Resposta=${resInApp.responseCode}, Tamanho=${inAppList?.size ?: "null"}")
-                if (resInApp.responseCode == BillingClient.BillingResponseCode.OK && inAppList != null) currentCombinedList.addAll(inAppList)
-                else Log.e(TAG, "Erro INAPP: ${resInApp.responseCode} - ${resInApp.debugMessage}")
+
+                if (resInApp.responseCode == BillingClient.BillingResponseCode.OK && inAppList != null) {
+                    currentCombinedList.addAll(inAppList)
+                } else {
+                    Log.e(TAG, "Erro INAPP: ${resInApp.responseCode} - ${resInApp.debugMessage}")
+                }
+
                 processFinalProductList(currentCombinedList)
             }
         } else {
@@ -178,17 +255,30 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Processa a lista final de produtos e atualiza o estado.
+     */
     private fun processFinalProductList(finalList: List<ProductDetails>) {
         if (finalList.isNotEmpty()) {
             Log.i(TAG, "Processando lista final (${finalList.size}):")
+
             finalList.forEach { p ->
                 val price = if (p.productType == BillingClient.ProductType.SUBS)
                     p.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.formattedPrice
-                else p.oneTimePurchaseOfferDetails?.formattedPrice
+                else
+                    p.oneTimePurchaseOfferDetails?.formattedPrice
+
                 Log.i(TAG, "  - ID: ${p.productId}, Nome: ${p.name}, Tipo: ${p.productType}, Preço: $price")
             }
+
+            // Ordenar produtos para exibição
             _products.value = finalList.sortedBy { prod ->
-                when { prod.productId.contains("mensal") -> 1; prod.productId.contains("anual") -> 2; prod.productId.equals("vital", ignoreCase = true) -> 3; else -> 4 }
+                when {
+                    prod.productId.contains("mensal") -> 1
+                    prod.productId.contains("anual") -> 2
+                    prod.productId.equals("vital", ignoreCase = true) -> 3
+                    else -> 4
+                }
             }
         } else {
             Log.w(TAG, "Lista final de produtos vazia.")
@@ -196,6 +286,9 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Tenta reconexão manual com o serviço de faturamento.
+     */
     fun retryConnection() {
         Log.i(TAG, "Tentativa manual de reconexão e recarga de produtos solicitada.")
         _connectionAttempts.value = 0
@@ -203,13 +296,17 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         startBillingConnection()
     }
 
-    fun launchBillingFlow(activity: Activity, productDetails: ProductDetails) {
+    /**
+     * Inicia o fluxo de compra para um produto.
+     */
+    fun launchBillingFlow(activity: android.app.Activity, productDetails: ProductDetails) {
         if (!billingClient.isReady) {
             Log.e(TAG, "launchBillingFlow: BillingClient não está pronto.")
             _purchaseInProgress.value = false
             retryConnection()
             return
         }
+
         if (_purchaseInProgress.value) {
             Log.w(TAG, "launchBillingFlow: Compra já em andamento.")
             return
@@ -222,12 +319,15 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
 
         if (productDetails.productType == BillingClient.ProductType.SUBS) {
             val offerToken = productDetails.subscriptionOfferDetails?.firstOrNull()?.offerToken
+
             if (offerToken.isNullOrBlank()) {
                 Log.e(TAG, "Erro CRÍTICO: offerToken não encontrado para ${productDetails.productId}. A compra não pode prosseguir.")
                 _purchaseInProgress.value = false
                 return
             }
+
             Log.d(TAG, "Usando offerToken: $offerToken para ${productDetails.productId}")
+
             productDetailsParamsList.add(
                 BillingFlowParams.ProductDetailsParams.newBuilder()
                     .setProductDetails(productDetails)
@@ -262,35 +362,54 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Callback recebido quando há atualização de compras pelo Google Play.
+     */
     override fun onPurchasesUpdated(billingResult: BillingResult, purchases: List<Purchase>?) {
         Log.i(TAG, "onPurchasesUpdated: Código de Resposta=${billingResult.responseCode}, Mensagem=${billingResult.debugMessage}")
         _purchaseInProgress.value = false
 
-        if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && !purchases.isNullOrEmpty()) {
-            Log.i(TAG, "Compras atualizadas com sucesso (${purchases.size} itens). Processando...")
-            purchases.forEach { purchase ->
-                Log.d(TAG, "Detalhes da compra: OrderId=${purchase.orderId}, Produtos=${purchase.products.joinToString()}, Estado=${purchase.purchaseState}, Token=${purchase.purchaseToken}, É Reconhecida=${purchase.isAcknowledged}")
-                handlePurchase(purchase)
+        when (billingResult.responseCode) {
+            BillingClient.BillingResponseCode.OK -> {
+                if (!purchases.isNullOrEmpty()) {
+                    Log.i(TAG, "Compras atualizadas com sucesso (${purchases.size} itens). Processando...")
+
+                    purchases.forEach { purchase ->
+                        Log.d(TAG, "Detalhes da compra: OrderId=${purchase.orderId}, Produtos=${purchase.products.joinToString()}, Estado=${purchase.purchaseState}, Token=${purchase.purchaseToken}, É Reconhecida=${purchase.isAcknowledged}")
+                        handlePurchase(purchase)
+                    }
+
+                    // Após processar uma compra bem-sucedida, força atualização imediata do cache
+                    lastVerifiedTimestamp = 0
+                    checkUserSubscription()
+                }
             }
 
-            // Após processar uma compra bem-sucedida, força atualização imediata do cache
-            lastVerifiedTimestamp = 0
-        } else if (billingResult.responseCode == BillingClient.BillingResponseCode.USER_CANCELED) {
-            Log.i(TAG, "Compra cancelada pelo usuário.")
-        } else if (billingResult.responseCode == BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED) {
-            Log.i(TAG, "Usuário já possui este item/assinatura. Verificando status...")
-            // Força atualização imediata do cache
-            lastVerifiedTimestamp = 0
-            checkUserSubscription()
-        } else {
-            Log.e(TAG, "Erro na atualização de compras: ${billingResult.responseCode} - ${billingResult.debugMessage}")
-            if (billingResult.responseCode == BillingClient.BillingResponseCode.SERVICE_DISCONNECTED ||
-                billingResult.responseCode == BillingClient.BillingResponseCode.SERVICE_UNAVAILABLE) {
-                scheduleReconnection()
+            BillingClient.BillingResponseCode.USER_CANCELED -> {
+                Log.i(TAG, "Compra cancelada pelo usuário.")
+            }
+
+            BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> {
+                Log.i(TAG, "Usuário já possui este item/assinatura. Verificando status...")
+                // Força atualização imediata do cache
+                lastVerifiedTimestamp = 0
+                checkUserSubscription()
+            }
+
+            else -> {
+                Log.e(TAG, "Erro na atualização de compras: ${billingResult.responseCode} - ${billingResult.debugMessage}")
+
+                if (billingResult.responseCode == BillingClient.BillingResponseCode.SERVICE_DISCONNECTED ||
+                    billingResult.responseCode == BillingClient.BillingResponseCode.SERVICE_UNAVAILABLE) {
+                    scheduleReconnection()
+                }
             }
         }
     }
 
+    /**
+     * Processa uma compra recebida.
+     */
     private fun handlePurchase(purchase: Purchase) {
         Log.d(TAG, "Processando compra: ${purchase.products.joinToString()}, estado: ${purchase.purchaseState}")
 
@@ -299,14 +418,16 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             val planType = determinePlanType(productId)
 
             Log.i(TAG, "Compra VÁLIDA para ${productId}. Atualizando status premium. Plano: $planType")
-            // A atualização do estado agora é feita principalmente por checkUserSubscription após a compra ser confirmada pelo Play.
-            // Mas podemos definir aqui para uma resposta mais rápida na UI, checkUserSubscription confirmará depois.
+
+            // Atualização imediata na UI para resposta rápida
             _isPremiumUser.value = true
             _userPlanType.value = planType
 
+            // Salvar status localmente e no Firebase
             savePremiumStatusLocally(true, planType)
             saveUserStatusToFirebase(true, planType, purchase.orderId, purchase.purchaseTime, productId)
 
+            // Reconhecer a compra se ainda não foi reconhecida
             if (!purchase.isAcknowledged) {
                 acknowledgePurchase(purchase)
             }
@@ -322,12 +443,15 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Determina o tipo de plano com base no ID do produto.
+     */
     private fun determinePlanType(productId: String?): String {
         return when {
             productId == null -> "Desconhecido"
             productId.equals("mensal", ignoreCase = true) -> "Mensal"
             productId.equals("anual", ignoreCase = true) -> "Anual"
-            productId.equals("vital", ignoreCase = true) -> "Vitalício" // <-- USA O NOVO ID
+            productId.equals("vital", ignoreCase = true) -> "Vitalício"
             else -> {
                 Log.w(TAG, "Tipo de plano não reconhecido para productId: $productId. Usando 'Premium'.")
                 "Premium"
@@ -335,13 +459,21 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Reconhece uma compra no Google Play.
+     */
     private fun acknowledgePurchase(purchase: Purchase) {
         if (purchase.purchaseToken.isNullOrBlank()) {
             Log.e(TAG, "Token de compra nulo ou vazio. OrderId: ${purchase.orderId}")
             return
         }
+
         Log.i(TAG, "Reconhecendo compra: ${purchase.orderId}")
-        val params = AcknowledgePurchaseParams.newBuilder().setPurchaseToken(purchase.purchaseToken).build()
+
+        val params = AcknowledgePurchaseParams.newBuilder()
+            .setPurchaseToken(purchase.purchaseToken)
+            .build()
+
         billingClient.acknowledgePurchase(params) { ackResult ->
             if (ackResult.responseCode == BillingClient.BillingResponseCode.OK) {
                 Log.i(TAG, "Compra RECONHECIDA com sucesso: ${purchase.orderId}")
@@ -351,19 +483,44 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Verifica se uma assinatura está ativa.
+     */
     private fun isSubscriptionActive(purchase: Purchase): Boolean {
-        if (purchase.products.any { it.equals("vital", ignoreCase = true) || it.equals("vitalicio", ignoreCase = true) }) {
+        // Compra vitalícia: basta verificar se foi comprada
+        if (purchase.products.any { it.equals("vital", ignoreCase = true) }) {
             return purchase.purchaseState == Purchase.PurchaseState.PURCHASED
         }
+
+        // Para assinaturas: verificar se está ativa ou dentro do período de graça
         return purchase.purchaseState == Purchase.PurchaseState.PURCHASED &&
                 (purchase.isAutoRenewing || (purchase.purchaseTime + GRACE_PERIOD_MS > System.currentTimeMillis()))
     }
 
-    private val GRACE_PERIOD_MS = 2 * 24 * 60 * 60 * 1000L // 2 dias
+    // Período de graça após término da assinatura (2 dias)
+    private val GRACE_PERIOD_MS = 2 * 24 * 60 * 60 * 1000L
 
+    /**
+     * Verifica o status de assinatura do usuário.
+     * Implementação com proteção contra concorrência.
+     */
     fun checkUserSubscription() {
+        // Se estamos inicializando, aguarde
+        if (isInitializing.get()) {
+            Log.d(TAG, "checkUserSubscription durante inicialização, adiando verificação")
+            viewModelScope.launch {
+                delay(1000)
+                if (!isInitializing.get()) {
+                    checkUserSubscription()
+                }
+            }
+            return
+        }
+
         // Cancela qualquer verificação em andamento para evitar conflitos
-        activeCheckJob?.cancel()
+        synchronized(this) {
+            activeCheckJob?.cancel()
+        }
 
         // Se já temos uma verificação recente, use o cache
         val currentTime = System.currentTimeMillis()
@@ -394,8 +551,13 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
 
                 // Executa a verificação com timeout
                 val verificationSuccess = withTimeoutOrNull(4000) { // 4 segundos máximo
-                    performUserStatusVerification(currentUserEmail)
-                    true
+                    try {
+                        performUserStatusVerification(currentUserEmail)
+                        true
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Erro na verificação: ${e.message}", e)
+                        false
+                    }
                 }
 
                 // Se chegou ao timeout, apenas use o que temos
@@ -414,7 +576,9 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // Função que realiza a verificação propriamente dita (pode ser cancelada pelo timeout)
+    /**
+     * Função que realiza a verificação propriamente dita (pode ser cancelada pelo timeout).
+     */
     private suspend fun performUserStatusVerification(currentUserEmail: String) = coroutineScope {
         // Primeiro carrega os dados locais para resposta rápida
         val localData = async(Dispatchers.IO) {
@@ -465,7 +629,9 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    // Verifica as compras no Play Store
+    /**
+     * Verifica as compras no Play Store.
+     */
     private suspend fun checkBillingPurchases(
         userEmail: String,
         firebaseIsPremium: Boolean,
@@ -575,6 +741,9 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Salva o status premium do usuário no Firebase.
+     */
     private fun saveUserStatusToFirebase(isPremium: Boolean, planType: String?, orderId: String?, purchaseTime: Long?, productId: String?) {
         val currentUser = FirebaseAuth.getInstance().currentUser ?: return
         val userEmail = currentUser.email ?: currentUser.uid
@@ -605,6 +774,9 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Carrega o status premium do usuário do armazenamento local.
+     */
     private fun loadPremiumStatusLocally() {
         viewModelScope.launch(Dispatchers.Main) {
             try {
@@ -639,6 +811,9 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Salva o status premium do usuário no armazenamento local.
+     */
     private fun savePremiumStatusLocally(isPremium: Boolean, planType: String? = null) {
         try {
             val prefs = getApplication<Application>().getSharedPreferences("billing_prefs", Context.MODE_PRIVATE)
@@ -664,7 +839,12 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
                 lastVerifiedTimestamp = 0
 
                 // Garantir que qualquer verificação anterior seja cancelada
-                activeCheckJob?.cancel()
+                synchronized(this@BillingViewModel) {
+                    activeCheckJob?.cancel()
+                    activeCheckJob?.invokeOnCompletion {
+                        viewModelScope.coroutineContext[Job]?.cancelChildren()
+                    }
+                }
 
                 // Iniciar nova verificação com timeout garantido
                 withTimeoutOrNull(3000) {
@@ -683,12 +863,82 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun checkForCancellation() {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Verificando possível cancelamento de assinatura...")
+
+                // Forçar verificação completa
+                lastVerifiedTimestamp = 0
+
+                _isPremiumLoading.value = true
+
+                // Garante que qualquer verificação anterior seja cancelada
+                synchronized(this@BillingViewModel) {
+                    activeCheckJob?.cancel()
+                }
+
+                val currentUser = FirebaseAuth.getInstance().currentUser
+                if (currentUser == null) {
+                    _isPremiumUser.value = false
+                    _userPlanType.value = null
+                    _isPremiumLoading.value = false
+                    return@launch
+                }
+
+                val userEmail = currentUser.email ?: currentUser.uid
+
+                // Verificar no Firebase primeiro
+                val db = Firebase.firestore
+                val docRef = db.collection("premium_users").document(userEmail)
+
+                try {
+                    val document = docRef.get().await()
+                    val isPremiumFirebase = document.getBoolean("isPremium") ?: false
+
+                    if (!isPremiumFirebase && _isPremiumUser.value) {
+                        Log.w(TAG, "Possível cancelamento detectado no Firebase!")
+                        // Verificar com Play para confirmar
+                        checkUserSubscription()
+                    } else {
+                        // Verificar também com o Play para garantir sincronia
+                        checkUserSubscription()
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Erro verificando cancelamento no Firebase: ${e.message}", e)
+                    // Se falhar, ainda tentamos verificar com o Play
+                    checkUserSubscription()
+                }
+
+                // Garantir que o loading seja finalizado após um tempo
+                delay(3000)
+                _isPremiumLoading.value = false
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Erro ao verificar cancelamento: ${e.message}", e)
+                _isPremiumLoading.value = false
+            }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         reconnectRunnable?.let { handler.removeCallbacks(it) }
+        activeCheckJob?.cancel()
         if (billingClient.isReady) {
             Log.d(TAG, "Fechando conexão com BillingClient")
             billingClient.endConnection()
+        }
+    }
+
+    companion object {
+        private var INSTANCE: BillingViewModel? = null
+
+        @Synchronized
+        fun getInstance(application: Application): BillingViewModel {
+            return INSTANCE ?: BillingViewModel(application).also {
+                INSTANCE = it
+            }
         }
     }
 }

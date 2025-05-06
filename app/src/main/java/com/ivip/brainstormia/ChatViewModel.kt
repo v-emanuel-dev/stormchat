@@ -15,7 +15,6 @@ import com.ivip.brainstormia.data.db.ConversationMetadataDao
 import com.ivip.brainstormia.data.db.ConversationMetadataEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.firestore
-import com.ivip.brainstormia.billing.BillingViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -157,7 +156,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     val selectedModel: StateFlow<AIModel> = _selectedModel
 
     // Método para atualizar o modelo selecionado
-    // Versão corrigida da função selectModel()
     fun selectModel(model: AIModel) {
         // Limpar qualquer mensagem de erro anterior
         _errorMessage.value = null
@@ -254,8 +252,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Esta função corrigida deve substituir a existente no ChatViewModel.kt
-
+    // Função atualizada para verificar status premium via singleton BillingViewModel
     fun checkIfUserIsPremium() {
         val currentUser = FirebaseAuth.getInstance().currentUser
         val email = currentUser?.email
@@ -271,12 +268,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         // Add debugging to track the process
         Log.d("ChatViewModel", "Checking premium status for user: $email")
 
-        // Criar e usar o BillingViewModel para verificação definitiva
+        // Get singleton BillingViewModel through application
         viewModelScope.launch {
             try {
-                val billingViewModel = BillingViewModel(getApplication())
+                // Get the BillingViewModel singleton through the application
+                val app = getApplication<Application>() as BrainstormiaApplication
+                val billingViewModel = app.billingViewModel
 
-                // Primeiro, observar as mudanças no BillingViewModel
+                // Observe the premium status changes from BillingViewModel
                 launch {
                     billingViewModel.isPremiumUser.collect { isPremiumFromBilling ->
                         // Atualizar nosso estado baseado no resultado do BillingViewModel
@@ -933,10 +932,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Substitua o método callOpenAIApi por esta versão simplificada:
-
-    // Este é o método completo que deve ser adicionado ao ChatViewModel.kt
-
     private suspend fun callOpenAIApi(
         userMessageText: String,
         historyMessages: List<ChatMessage>,
@@ -1170,8 +1165,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-
-
 
     companion object {
         private val titleDateFormatter = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())

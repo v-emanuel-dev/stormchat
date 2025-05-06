@@ -56,7 +56,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import com.ivip.brainstormia.UserProfileScreen
-import com.ivip.brainstormia.billing.BillingViewModel // Import BillingViewModel
 
 /* ───────────── DataStore (tema claro/escuro) ───────────── */
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("settings")
@@ -116,12 +115,7 @@ class MainActivity : ComponentActivity() {
 
         val app = application as BrainstormiaApplication
         // Ensure ViewModels are initialized if they are meant to be singletons via Application
-        if (app.exportViewModel == null) app.exportViewModel = ExportViewModel(application)
-        if (app.chatViewModel   == null) app.chatViewModel   = ChatViewModel(application)
-        // BillingViewModel can be initialized here if it's also a singleton, or obtained via viewModel()
-        // For this example, we'll assume it can be obtained via viewModel() where needed,
-        // or you can create a global instance similar to chatViewModel if desired.
-        // val billingVM = viewModel<BillingViewModel>() // Example if using Hilt or standard viewModel factory
+        initViewModels(app)
 
         signInClient = GoogleSignIn.getClient(
             this,
@@ -159,22 +153,13 @@ class MainActivity : ComponentActivity() {
             val currentUser by authVM.currentUser.collectAsState()
 
             val app = application as BrainstormiaApplication
-            val exportVM = app.exportViewModel!!
-            val chatVM   = app.chatViewModel!!
-
-            // Usar a instância singleton do BillingViewModel
+            val exportVM = app.exportViewModel
+            val chatVM = app.chatViewModel
             val billingVM = app.billingViewModel
-                ?: BillingViewModel(application).also { app.billingViewModel = it }
-
-            // Garantir que o BillingViewModel está inicializado
-            if (app.billingViewModel == null) {
-                app.billingViewModel = billingVM
-            }
 
             var exporting by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) {
-                exportVM.exportState.collectLatest { exporting = it is ExportState.Loading }
-                // chatVM.checkIfUserIsPremium() // This might be called in ChatScreen or UserProfileScreen's LaunchedEffect too
+                exportVM?.exportState?.collectLatest { exporting = it is ExportState.Loading }
             }
 
             BrainstormiaTheme(darkTheme = dark) {
@@ -214,16 +199,20 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             composable(Routes.MAIN) {
-                                ChatScreen(
-                                    onLogin         = { launchLogin() },
-                                    onLogout        = { authVM.logout() },
-                                    onNavigateToProfile = { navController.navigate(Routes.USER_PROFILE) },
-                                    chatViewModel   = chatVM, // Pass the application-scoped chatVM
-                                    authViewModel   = authVM,
-                                    exportViewModel = exportVM,
-                                    isDarkTheme     = dark,
-                                    onThemeChanged  = { setDark(it) }
-                                )
+                                chatVM?.let { chatViewModel ->
+                                    exportVM?.let { exportViewModel ->
+                                        ChatScreen(
+                                            onLogin         = { launchLogin() },
+                                            onLogout        = { authVM.logout() },
+                                            onNavigateToProfile = { navController.navigate(Routes.USER_PROFILE) },
+                                            chatViewModel   = chatViewModel,
+                                            authViewModel   = authVM,
+                                            exportViewModel = exportViewModel,
+                                            isDarkTheme     = dark,
+                                            onThemeChanged  = { setDark(it) }
+                                        )
+                                    }
+                                }
                             }
                             composable(Routes.USER_PROFILE) {
                                 UserProfileScreen(
@@ -239,13 +228,11 @@ class MainActivity : ComponentActivity() {
                                 PaymentScreen(
                                     onNavigateBack = { navController.popBackStack() },
                                     onPurchaseComplete = {
-                                        // chatVM.checkIfUserIsPremium() // BillingVM handles this and ChatVM observes
                                         navController.navigate(Routes.MAIN) {
                                             popUpTo(Routes.MAIN) { inclusive = true }
                                         }
                                     },
                                     isDarkTheme = dark
-                                    // billingViewModel is obtained via viewModel() inside PaymentScreen
                                 )
                             }
                         }
@@ -257,8 +244,17 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
 
-        // (application as BrainstormiaApplication).chatViewModel?.handleLogin() // Called on login success
+    // Helper function to initialize ViewModels if they're null
+    private fun initViewModels(app: BrainstormiaApplication) {
+        if (app.chatViewModel == null) {
+            app.chatViewModel = ChatViewModel(application)
+        }
+        if (app.exportViewModel == null) {
+            app.exportViewModel = ExportViewModel(application)
+        }
+        // BillingViewModel is lazy-initialized in the Application class
     }
 
     private fun setDark(enabled: Boolean) =
@@ -277,12 +273,7 @@ class MainActivity : ComponentActivity() {
 
         val app = application as BrainstormiaApplication
         app.exportViewModel?.setupDriveService()
-
-        // Re-initialize or ensure ChatViewModel is ready for the logged-in user
-        // If chatViewModel is already initialized in onCreate and is a singleton,
-        // you might just need to call a method on it to handle the login.
-        app.chatViewModel?.handleLogin() // Ensure this method correctly reloads/handles user-specific data
-        // app.chatViewModel?.checkIfUserIsPremium() // BillingViewModel/UserProfileScreen might handle this check
+        app.chatViewModel?.handleLogin()
 
         Toast.makeText(
             this,
@@ -315,6 +306,14 @@ class MainActivity : ComponentActivity() {
     private fun handleNotificationIntent(intent: Intent?) {
         try {
             if (intent == null) return
+
+            // Check if we need to verify subscription status (from a notification)
+            if (intent.getBooleanExtra("check_subscription", false)) {
+                Log.d("MainActivity", "Recebida notificação sobre assinatura, verificando status...")
+                (application as BrainstormiaApplication).handleSubscriptionCancellationNotification()
+            }
+
+            // Handle conversation opening from notification
             val conversationId = intent.getLongExtra("conversation_id", -1L)
             if (conversationId != -1L) {
                 Log.d("MainActivity", "Abrindo conversa da notificação: $conversationId")

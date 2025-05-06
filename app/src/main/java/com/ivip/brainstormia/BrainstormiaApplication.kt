@@ -4,61 +4,143 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
-import android.graphics.Color
 import android.os.Build
 import android.util.Log
+import com.google.firebase.FirebaseApp
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.ktx.analytics
+import com.google.firebase.crashlytics.FirebaseCrashlytics
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.messaging.FirebaseMessaging
 import com.ivip.brainstormia.billing.BillingViewModel
 
 /**
- * Application-class global do Brainstormia.
- *  • Mantém instâncias globais dos ViewModels que precisam sobreviver ao processo.
- *  • Garante que o canal de notificação padrão seja criado antes de qualquer FCM chegar.
+ * Classe de aplicação que gerencia ViewModels e recursos globais.
+ * Implementa o padrão Singleton para ViewModels que precisam de uma única
+ * instância em toda a aplicação.
  */
 class BrainstormiaApplication : Application() {
 
-    // ViewModels acessados globalmente em todo o app
-    var exportViewModel: ExportViewModel? = null
+    // ViewModels globais com getters públicos
     var chatViewModel: ChatViewModel? = null
-    var billingViewModel: BillingViewModel? = null // Adicionando BillingViewModel como singleton
+        internal set // Permite escrita apenas dentro do mesmo módulo
+
+    var exportViewModel: ExportViewModel? = null
+        internal set // Permite escrita apenas dentro do mesmo módulo
+
+    // BillingViewModel como singleton verdadeiro
+    val billingViewModel by lazy {
+        Log.d("BrainstormiaApp", "Inicializando BillingViewModel singleton")
+        BillingViewModel.getInstance(this)
+    }
 
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "BrainstormiaApplication onCreate called")
 
-        // Inicialização antecipada dos ViewModels principais para garantir instância única
-        if (exportViewModel == null) exportViewModel = ExportViewModel(this)
-        if (chatViewModel == null) chatViewModel = ChatViewModel(this)
-        if (billingViewModel == null) billingViewModel = BillingViewModel(this)
+        // Inicializar FirebaseApp
+        FirebaseApp.initializeApp(this)
 
-        Log.d(TAG, "ViewModels globais inicializados como singletons")
+        // Configurar Analytics e Crashlytics
+        FirebaseAnalytics.getInstance(this)
+        FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
 
+        // Criar canal de notificação para Android 8.0+
         createNotificationChannel()
+
+        // Inicializar ViewModels globais
+        initializeViewModels()
+
+        // Obter token FCM para notificações
+        setupNotifications()
+
+        // Garantir que o BillingViewModel seja inicializado apenas uma vez
+        // A chamada à propriedade lazy é suficiente
+        val billing = billingViewModel
+        Log.d("BrainstormiaApp", "BillingViewModel inicializado: $billing")
     }
 
-    /** Cria (uma vez) o canal usado pelo Firebase Cloud Messaging e outras notificações. */
+    /**
+     * Cria canal de notificação para Android 8.0 (Oreo) e superior.
+     */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Notificações do Brainstormia",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Canal para mensagens push e lembretes."
-                enableLights(true)
-                lightColor = Color.YELLOW
+            val name = "Notificações Brainstormia"
+            val descriptionText = "Notificações do aplicativo Brainstormia"
+            val importance = NotificationManager.IMPORTANCE_HIGH
+            val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
+                description = descriptionText
                 enableVibration(true)
-                setShowBadge(true)
             }
 
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            nm.createNotificationChannel(channel)
-            Log.d(TAG, "NotificationChannel \"$CHANNEL_ID\" criado/atualizado")
+            // Registrar o canal com o sistema
+            val notificationManager: NotificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.createNotificationChannel(channel)
+
+            Log.d("BrainstormiaApp", "Canal de notificação criado: $CHANNEL_ID")
         }
     }
 
+    /**
+     * Inicializa os ViewModels globais.
+     */
+    private fun initializeViewModels() {
+        try {
+            // Inicializar o ChatViewModel se ainda não existe
+            if (chatViewModel == null) {
+                chatViewModel = ChatViewModel(this)
+                Log.d("BrainstormiaApp", "ChatViewModel inicializado")
+            }
+
+            // Inicializar o ExportViewModel se ainda não existe
+            if (exportViewModel == null) {
+                exportViewModel = ExportViewModel(this)
+                Log.d("BrainstormiaApp", "ExportViewModel inicializado")
+            }
+        } catch (e: Exception) {
+            Log.e("BrainstormiaApp", "Erro ao inicializar ViewModels", e)
+            FirebaseCrashlytics.getInstance().recordException(e)
+        }
+    }
+
+    /**
+     * Configura as notificações e registra o token FCM.
+     */
+    private fun setupNotifications() {
+        try {
+            FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    val token = task.result
+                    Log.d("FCM_TOKEN", "Token FCM obtido: $token")
+
+                    // Salvar token localmente
+                    val prefs = getSharedPreferences("brainstormia_prefs", Context.MODE_PRIVATE)
+                    prefs.edit().putString("fcm_token", token).apply()
+
+                    // Aqui você pode enviar o token para seu servidor se necessário
+                } else {
+                    Log.e("FCM_TOKEN", "Falha ao obter token FCM: ${task.exception}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("BrainstormiaApp", "Erro ao configurar notificações", e)
+        }
+    }
+
+    /**
+     * Isso pode ser chamado de qualquer lugar da aplicação.
+     */
+    fun handleSubscriptionCancellationNotification() {
+        Log.d("BrainstormiaApp", "Processando notificação de cancelamento de assinatura")
+        billingViewModel.checkForCancellation()
+    }
+
     companion object {
-        /** Mesmo ID usado em MyFirebaseService.kt ※ mantenha em sincronia. */
-        const val CHANNEL_ID = "brainstormia_default"
-        private const val TAG = "BrainstormiaApp"
+        // ID do canal de notificação para Android 8.0+
+        const val CHANNEL_ID = "brainstormia_notification_channel"
+
+        // IDs de tipos de notificação
+        const val NOTIFICATION_TYPE_CHAT = "chat"
+        const val NOTIFICATION_TYPE_SUBSCRIPTION = "subscription"
     }
 }
