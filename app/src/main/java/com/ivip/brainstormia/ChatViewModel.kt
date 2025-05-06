@@ -254,6 +254,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Esta função corrigida deve substituir a existente no ChatViewModel.kt
+
     fun checkIfUserIsPremium() {
         val currentUser = FirebaseAuth.getInstance().currentUser
         val email = currentUser?.email
@@ -269,46 +271,56 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         // Add debugging to track the process
         Log.d("ChatViewModel", "Checking premium status for user: $email")
 
-        val db = Firebase.firestore
-        db.collection("premium_users")
-            .document(email)
-            .get()
-            .addOnSuccessListener { document ->
-                val isPremium = document.exists() && (document.getBoolean("isPremium") == true)
-                _isPremiumUser.value = isPremium
-
-                Log.d("ChatViewModel", "Premium status result for $email: $isPremium (Document exists: ${document.exists()})")
-
-                // After updating premium status, validate the selected model
-                validateCurrentModel(isPremium)
-
-                // Add detailed logging of document content
-                if (document.exists()) {
-                    Log.d("ChatViewModel", "Premium document data: ${document.data}")
-                }
-            }
-            .addOnFailureListener { e ->
-                Log.e("ChatViewModel", "Error checking premium status for $email: ${e.localizedMessage}", e)
-                _isPremiumUser.value = false
-
-                // In case of error, assume user is not premium
-                validateCurrentModel(false)
-            }
-
-        // Also check in billing viewmodel as a backup
+        // Criar e usar o BillingViewModel para verificação definitiva
         viewModelScope.launch {
             try {
                 val billingViewModel = BillingViewModel(getApplication())
-                billingViewModel.isPremiumUser.collect { isPremium ->
-                    // If billing says user is premium but our check didn't, update
-                    if (isPremium && !_isPremiumUser.value) {
-                        Log.d("ChatViewModel", "BillingViewModel indicates user is premium, updating status")
-                        _isPremiumUser.value = true
-                        validateCurrentModel(true)
+
+                // Primeiro, observar as mudanças no BillingViewModel
+                launch {
+                    billingViewModel.isPremiumUser.collect { isPremiumFromBilling ->
+                        // Atualizar nosso estado baseado no resultado do BillingViewModel
+                        Log.d("ChatViewModel", "BillingViewModel reportou premium status: $isPremiumFromBilling")
+                        _isPremiumUser.value = isPremiumFromBilling
+                        validateCurrentModel(isPremiumFromBilling)
                     }
                 }
+
+                // Agora, forçar verificação no BillingViewModel
+                Log.d("ChatViewModel", "Forçando verificação com BillingViewModel")
+                billingViewModel.checkUserSubscription()
             } catch (e: Exception) {
-                Log.e("ChatViewModel", "Error checking premium in BillingViewModel", e)
+                Log.e("ChatViewModel", "Error checking premium with BillingViewModel", e)
+
+                // Em caso de falha, verificar via Firebase como backup
+                val db = Firebase.firestore
+                db.collection("premium_users")
+                    .document(email)
+                    .get()
+                    .addOnSuccessListener { document ->
+                        val isPremium = document.exists() && (document.getBoolean("isPremium") == true)
+                        val productId = document.getString("productId")
+
+                        Log.d("ChatViewModel", "Fallback Firebase check: isPremium=$isPremium, productId=$productId")
+
+                        // Verificar se o ID do produto é o antigo "vitalicio"
+                        val isOldVitalicioId = productId?.equals("vitalicio", ignoreCase = true) == true
+
+                        if (isPremium && isOldVitalicioId) {
+                            // Se for um ID antigo, não confiamos nele
+                            Log.w("ChatViewModel", "Firebase indicates Vitalício with old ID. NOT trusting it.")
+                            _isPremiumUser.value = false
+                        } else {
+                            _isPremiumUser.value = isPremium
+                        }
+
+                        validateCurrentModel(_isPremiumUser.value)
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("ChatViewModel", "Error with Firebase fallback: ${e.message}", e)
+                        _isPremiumUser.value = false
+                        validateCurrentModel(false)
+                    }
             }
         }
     }

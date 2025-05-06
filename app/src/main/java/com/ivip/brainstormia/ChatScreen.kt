@@ -280,7 +280,6 @@ fun ChatScreen(
     onLogin: () -> Unit = {},
     onLogout: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {}, // Adicione este parâmetro
-    onNavigateToPayment: () -> Unit = {},   // ← Opcional
     chatViewModel: ChatViewModel,  // Non-nullable parameter
     authViewModel: AuthViewModel = viewModel(),
     exportViewModel: ExportViewModel,  // Non-nullable parameter
@@ -310,7 +309,6 @@ fun ChatScreen(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val uriHandler = LocalUriHandler.current
 
     var conversationIdToRename by remember { mutableStateOf<Long?>(null) }
     var currentTitleForDialog by remember { mutableStateOf<String?>(null) }
@@ -322,6 +320,21 @@ fun ChatScreen(
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
             chatViewModel.checkIfUserIsPremium()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        // Verificação imediata ao iniciar a tela
+        if (currentUser != null) {
+            chatViewModel.checkIfUserIsPremium()
+        }
+
+        // Verificação periódica
+        while (true) {
+            delay(60000) // 1 minuto
+            if (currentUser != null) {
+                chatViewModel.checkIfUserIsPremium()
+            }
         }
     }
 
@@ -365,6 +378,21 @@ fun ChatScreen(
             } catch (e: Exception) {
                 Log.e("ChatScreen", "Erro ao buscar título para exportação", e)
                 conversationIdToExport = null
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        // Verificar imediatamente ao iniciar
+        if (currentUser != null) {
+            chatViewModel.checkIfUserIsPremium()
+        }
+
+        // Depois verificar a cada minuto
+        while (true) {
+            delay(60000) // 1 minuto
+            if (currentUser != null) {
+                chatViewModel.checkIfUserIsPremium()
             }
         }
     }
@@ -503,34 +531,31 @@ fun ChatScreen(
                                         repeatMode = RepeatMode.Restart
                                     )
                                 )
+                                // Para usuários premium, mostrar a estrela dourada animada
                                 if (isPremiumUser) {
                                     IconButton(
-                                        onClick = { showPremiumMessage = true },
+                                        onClick = { onNavigateToProfile() },
                                         modifier = Modifier
                                             .padding(end = 8.dp)
                                             .graphicsLayer { rotationZ = angle }
                                     ) {
-                                        IconButton(
-                                            onClick = { onNavigateToProfile() }
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Star,
-                                                contentDescription = "Usuário Premium",
-                                                tint = Color(0xFFFFD700)
-                                            )
-                                        }
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = "Usuário Premium",
+                                            tint = Color(0xFFFFD700) // Usar cor dourada consistente
+                                        )
                                     }
-                                }
-                                if (!isPremiumUser) {
+                                } else {
+                                    // Para usuários normais, mostrar a estrela branca
                                     IconButton(
                                         onClick = { onNavigateToProfile() },
                                         modifier = Modifier.padding(end = 8.dp)
                                     ) {
                                         Icon(
-                                            imageVector = Icons.Default.Star, // <-- Agora sempre estrela ⭐
+                                            imageVector = Icons.Default.Star,
                                             contentDescription = "Perfil",
-                                            tint = if (isPremiumUser) Color(0xFFFFD700) else Color.White, // Dourada se premium, branca se normal
-                                            modifier = Modifier.size(28.dp) // Tamanho bonito para TopBar
+                                            tint = Color.White,
+                                            modifier = Modifier.size(28.dp)
                                         )
                                     }
                                 }

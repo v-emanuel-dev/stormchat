@@ -158,13 +158,18 @@ class MainActivity : ComponentActivity() {
             val authVM : AuthViewModel = viewModel()
             val currentUser by authVM.currentUser.collectAsState()
 
-            // Use the application-scoped ViewModels
+            val app = application as BrainstormiaApplication
             val exportVM = app.exportViewModel!!
             val chatVM   = app.chatViewModel!!
-            // Obtain BillingViewModel. If it's globally managed in BrainstormiaApplication, use that.
-            // Otherwise, viewModel() will create/provide a locally scoped one.
-            val billingVM: BillingViewModel = viewModel()
 
+            // Usar a instância singleton do BillingViewModel
+            val billingVM = app.billingViewModel
+                ?: BillingViewModel(application).also { app.billingViewModel = it }
+
+            // Garantir que o BillingViewModel está inicializado
+            if (app.billingViewModel == null) {
+                app.billingViewModel = billingVM
+            }
 
             var exporting by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) {
@@ -227,8 +232,6 @@ class MainActivity : ComponentActivity() {
                                         navController.navigate(Routes.PAYMENT)
                                     },
                                     authViewModel = authVM,
-                                    chatViewModel = chatVM, // <<< PASSANDO O chatVM
-                                    billingViewModel = billingVM, // Pass the billingVM
                                     isDarkTheme = dark
                                 )
                             }

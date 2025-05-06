@@ -7,6 +7,7 @@ import android.content.Context
 import android.graphics.Color
 import android.os.Build
 import android.util.Log
+import com.ivip.brainstormia.billing.BillingViewModel
 
 /**
  * Application-class global do Brainstormia.
@@ -17,11 +18,19 @@ class BrainstormiaApplication : Application() {
 
     // ViewModels acessados globalmente em todo o app
     var exportViewModel: ExportViewModel? = null
-    var chatViewModel: ChatViewModel?   = null
+    var chatViewModel: ChatViewModel? = null
+    var billingViewModel: BillingViewModel? = null // Adicionando BillingViewModel como singleton
 
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "BrainstormiaApplication onCreate called")
+
+        // Inicialização antecipada dos ViewModels principais para garantir instância única
+        if (exportViewModel == null) exportViewModel = ExportViewModel(this)
+        if (chatViewModel == null) chatViewModel = ChatViewModel(this)
+        if (billingViewModel == null) billingViewModel = BillingViewModel(this)
+
+        Log.d(TAG, "ViewModels globais inicializados como singletons")
 
         createNotificationChannel()
     }
@@ -36,7 +45,7 @@ class BrainstormiaApplication : Application() {
             ).apply {
                 description = "Canal para mensagens push e lembretes."
                 enableLights(true)
-                lightColor = android.graphics.Color.YELLOW
+                lightColor = Color.YELLOW
                 enableVibration(true)
                 setShowBadge(true)
             }

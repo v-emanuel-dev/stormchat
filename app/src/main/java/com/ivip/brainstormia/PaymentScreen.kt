@@ -38,10 +38,12 @@ fun PaymentScreen(
     onPurchaseComplete: () -> Unit,
     isDarkTheme: Boolean = true
 ) {
-    val billingViewModel: BillingViewModel = viewModel()
+    // Obter a instância singleton do BillingViewModel
+    val context = LocalContext.current
+    val billingViewModel = (context.applicationContext as BrainstormiaApplication).billingViewModel
+        ?: throw IllegalStateException("BillingViewModel não inicializado na Application")
     val productsResult by billingViewModel.products.collectAsState() // Renomeado para clareza
     val isPremiumUser by billingViewModel.isPremiumUser.collectAsState()
-    val context = LocalContext.current
     val scrollState = rememberScrollState()
 
     val backgroundColor = if (isDarkTheme) Color(0xFF121212) else BackgroundColor
