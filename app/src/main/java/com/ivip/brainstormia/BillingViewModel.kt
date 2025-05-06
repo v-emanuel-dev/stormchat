@@ -652,7 +652,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         } catch (e: Exception) {
             Log.e(TAG, "Erro save local", e)
         }
-    }s
+    }
 
     fun forceRefreshPremiumStatus() {
         viewModelScope.launch {
