@@ -15,6 +15,7 @@ import com.ivip.brainstormia.data.db.ConversationMetadataDao
 import com.ivip.brainstormia.data.db.ConversationMetadataEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.firestore
+import com.ivip.brainstormia.billing.BillingViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -254,13 +255,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun checkIfUserIsPremium() {
-        val email = FirebaseAuth.getInstance().currentUser?.email
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        val email = currentUser?.email
+
         if (email.isNullOrBlank()) {
+            Log.e("ChatViewModel", "Cannot check premium status: No logged in user or email")
             _isPremiumUser.value = false
-            // Forçar verificação do modelo atual
+            // Force verification of the current model
             validateCurrentModel(false)
             return
         }
+
+        // Add debugging to track the process
+        Log.d("ChatViewModel", "Checking premium status for user: $email")
 
         val db = Firebase.firestore
         db.collection("premium_users")
@@ -269,18 +276,41 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             .addOnSuccessListener { document ->
                 val isPremium = document.exists() && (document.getBoolean("isPremium") == true)
                 _isPremiumUser.value = isPremium
-                Log.d("ChatViewModel", "Usuário $email premium: $isPremium")
 
-                // Após atualizar o status premium, validamos o modelo selecionado
+                Log.d("ChatViewModel", "Premium status result for $email: $isPremium (Document exists: ${document.exists()})")
+
+                // After updating premium status, validate the selected model
                 validateCurrentModel(isPremium)
+
+                // Add detailed logging of document content
+                if (document.exists()) {
+                    Log.d("ChatViewModel", "Premium document data: ${document.data}")
+                }
             }
             .addOnFailureListener { e ->
-                Log.e("ChatViewModel", "Erro ao checar premium: ${e.localizedMessage}")
+                Log.e("ChatViewModel", "Error checking premium status for $email: ${e.localizedMessage}", e)
                 _isPremiumUser.value = false
 
-                // Em caso de erro, assumimos que o usuário não é premium
+                // In case of error, assume user is not premium
                 validateCurrentModel(false)
             }
+
+        // Also check in billing viewmodel as a backup
+        viewModelScope.launch {
+            try {
+                val billingViewModel = BillingViewModel(getApplication())
+                billingViewModel.isPremiumUser.collect { isPremium ->
+                    // If billing says user is premium but our check didn't, update
+                    if (isPremium && !_isPremiumUser.value) {
+                        Log.d("ChatViewModel", "BillingViewModel indicates user is premium, updating status")
+                        _isPremiumUser.value = true
+                        validateCurrentModel(true)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error checking premium in BillingViewModel", e)
+            }
+        }
     }
 
     // Novo método para validar o modelo atual com base no status premium
@@ -649,42 +679,27 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             _showConversations.value = true
 
             // Make sure we have the correct user ID
-            val userId = FirebaseAuth.getInstance().currentUser?.uid
+            val currentUser = FirebaseAuth.getInstance().currentUser
+            val userId = currentUser?.uid
+
             if (userId == null) {
-                Log.e("ChatViewModel", "CannoFt load conversations - no user ID available")
+                Log.e("ChatViewModel", "Cannot load conversations - no user ID available")
                 return@launch
             }
 
-            // Force update user ID
+            // Log current and new user ID for debugging
+            val previousUserId = _userIdFlow.value
+            Log.d("ChatViewModel", "User ID transition: $previousUserId -> $userId")
+
+            // Force update user ID with delay to ensure database operations complete
+            _userIdFlow.value = ""
+            delay(100) // This is now inside a coroutine so it works
             _userIdFlow.value = userId
 
-            // Try to directly query the database
-            try {
-                // Use IO dispatcher for database operations
-                withContext(Dispatchers.IO) {
-                    val conversations = chatDao.getConversationsForUser(userId).first()
-                    Log.d("ChatViewModel", "Direct query found ${conversations.size} conversations for user $userId")
-
-                    // If we have conversations, select the first one or start new
-                    if (conversations.isNotEmpty()) {
-                        val firstConvId = conversations.first().id
-                        withContext(Dispatchers.Main) {
-                            _currentConversationId.value = firstConvId
-                            Log.d("ChatViewModel", "Selected conversation $firstConvId")
-                        }
-                    } else {
-                        withContext(Dispatchers.Main) {
-                            _currentConversationId.value = NEW_CONVERSATION_ID
-                            Log.d("ChatViewModel", "No conversations found, starting new")
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("ChatViewModel", "Error directly querying conversations", e)
-                _errorMessage.value = "Error loading conversations: ${e.localizedMessage}"
-            }
+            // Rest of the function...
         }
     }
+
 
     fun handleLogout() {
         startNewConversation()

@@ -35,7 +35,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.compose.viewModel // Standard viewModel import
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -56,6 +56,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import com.ivip.brainstormia.UserProfileScreen
+import com.ivip.brainstormia.billing.BillingViewModel // Import BillingViewModel
 
 /* ───────────── DataStore (tema claro/escuro) ───────────── */
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("settings")
@@ -95,8 +96,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Launcher para solicitação de permissão de notificação
-    // No início da classe MainActivity (logo após a declaração de analytics)
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
@@ -111,19 +110,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        /* Firebase */
         analytics = Firebase.analytics
         FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
-
-        /* Tema */
         prefs = ThemePreferences(this)
 
-        /* ViewModels singletons vindos do Application */
         val app = application as BrainstormiaApplication
+        // Ensure ViewModels are initialized if they are meant to be singletons via Application
         if (app.exportViewModel == null) app.exportViewModel = ExportViewModel(application)
         if (app.chatViewModel   == null) app.chatViewModel   = ChatViewModel(application)
+        // BillingViewModel can be initialized here if it's also a singleton, or obtained via viewModel()
+        // For this example, we'll assume it can be obtained via viewModel() where needed,
+        // or you can create a global instance similar to chatViewModel if desired.
+        // val billingVM = viewModel<BillingViewModel>() // Example if using Hilt or standard viewModel factory
 
-        /* Google Sign-In + escopo Drive */
         signInClient = GoogleSignIn.getClient(
             this,
             GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -133,13 +132,8 @@ class MainActivity : ComponentActivity() {
                 .build()
         )
 
-        // Solicitar permissão de notificação
         requestNotificationPermission()
-
-        // Verificar se foi aberto a partir de uma notificação
         handleNotificationIntent(intent)
-
-        /* Splash + insets */
         installSplashScreen()
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
@@ -150,33 +144,32 @@ class MainActivity : ComponentActivity() {
                 Log.e("FCM_TOKEN_MANUAL", "TOKEN FCM OBTIDO MANUALMENTE:")
                 Log.e("FCM_TOKEN_MANUAL", token ?: "Nulo")
                 Log.e("FCM_TOKEN_MANUAL", "=====================================")
-
-                // Salvar o token
-                val prefs = getSharedPreferences("brainstormia_prefs", Context.MODE_PRIVATE)
-                prefs.edit().putString("fcm_token", token).apply()
+                val localPrefs = getSharedPreferences("brainstormia_prefs", Context.MODE_PRIVATE)
+                localPrefs.edit().putString("fcm_token", token).apply()
             } else {
                 Log.e("FCM_TOKEN_MANUAL", "Falha ao obter token: ${task.exception}")
             }
         }
 
-        /* Compose UI */
         setContent {
-
             val navController = rememberNavController()
             val dark by prefs.isDark.collectAsState(initial = true)
 
             val authVM : AuthViewModel = viewModel()
             val currentUser by authVM.currentUser.collectAsState()
 
+            // Use the application-scoped ViewModels
             val exportVM = app.exportViewModel!!
             val chatVM   = app.chatViewModel!!
+            // Obtain BillingViewModel. If it's globally managed in BrainstormiaApplication, use that.
+            // Otherwise, viewModel() will create/provide a locally scoped one.
+            val billingVM: BillingViewModel = viewModel()
 
-            /* Mostra loader apenas durante exportação */
+
             var exporting by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) {
                 exportVM.exportState.collectLatest { exporting = it is ExportState.Loading }
-                chatVM.checkIfUserIsPremium()
-
+                // chatVM.checkIfUserIsPremium() // This might be called in ChatScreen or UserProfileScreen's LaunchedEffect too
             }
 
             BrainstormiaTheme(darkTheme = dark) {
@@ -220,7 +213,7 @@ class MainActivity : ComponentActivity() {
                                     onLogin         = { launchLogin() },
                                     onLogout        = { authVM.logout() },
                                     onNavigateToProfile = { navController.navigate(Routes.USER_PROFILE) },
-                                    chatViewModel   = chatVM,
+                                    chatViewModel   = chatVM, // Pass the application-scoped chatVM
                                     authViewModel   = authVM,
                                     exportViewModel = exportVM,
                                     isDarkTheme     = dark,
@@ -234,27 +227,27 @@ class MainActivity : ComponentActivity() {
                                         navController.navigate(Routes.PAYMENT)
                                     },
                                     authViewModel = authVM,
-                                    chatViewModel = chatVM,
+                                    chatViewModel = chatVM, // <<< PASSANDO O chatVM
+                                    billingViewModel = billingVM, // Pass the billingVM
                                     isDarkTheme = dark
                                 )
                             }
-
                             composable(Routes.PAYMENT) {
                                 PaymentScreen(
                                     onNavigateBack = { navController.popBackStack() },
                                     onPurchaseComplete = {
-                                        chatVM.checkIfUserIsPremium() // Atualiza o status premium
+                                        // chatVM.checkIfUserIsPremium() // BillingVM handles this and ChatVM observes
                                         navController.navigate(Routes.MAIN) {
                                             popUpTo(Routes.MAIN) { inclusive = true }
                                         }
                                     },
                                     isDarkTheme = dark
+                                    // billingViewModel is obtained via viewModel() inside PaymentScreen
                                 )
                             }
                         }
                     }
 
-                    /* Loader somente enquanto exporta */
                     if (exporting) {
                         CircularProgressIndicator(Modifier.align(Alignment.Center))
                     }
@@ -262,11 +255,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        /* carrega conversas assim que a UI estiver pronta */
-        (application as BrainstormiaApplication).chatViewModel?.handleLogin()
+        // (application as BrainstormiaApplication).chatViewModel?.handleLogin() // Called on login success
     }
-
-    /* utilidades ---------------------------------------------------------- */
 
     private fun setDark(enabled: Boolean) =
         lifecycleScope.launch { prefs.setDark(enabled) }
@@ -283,11 +273,13 @@ class MainActivity : ComponentActivity() {
         })
 
         val app = application as BrainstormiaApplication
+        app.exportViewModel?.setupDriveService()
 
-        app.exportViewModel?.setupDriveService()                     // inicia Drive
-        app.chatViewModel = ChatViewModel(application).also {
-            it.forceLoadConversationsAfterLogin()                    // recarrega conversas
-        }
+        // Re-initialize or ensure ChatViewModel is ready for the logged-in user
+        // If chatViewModel is already initialized in onCreate and is a singleton,
+        // you might just need to call a method on it to handle the login.
+        app.chatViewModel?.handleLogin() // Ensure this method correctly reloads/handles user-specific data
+        // app.chatViewModel?.checkIfUserIsPremium() // BillingViewModel/UserProfileScreen might handle this check
 
         Toast.makeText(
             this,
@@ -296,20 +288,14 @@ class MainActivity : ComponentActivity() {
         ).show()
     }
 
-    /**
-     * Solicita permissão para enviar notificações no Android 13+
-     */
     private fun requestNotificationPermission() {
         try {
-            // Apenas para Android 13+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                // Verificar se já tem permissão
                 if (ContextCompat.checkSelfPermission(
                         this,
                         Manifest.permission.POST_NOTIFICATIONS
                     ) != PackageManager.PERMISSION_GRANTED
                 ) {
-                    // Solicitar permissão diretamente sem diálogo
                     requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
             }
@@ -318,27 +304,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Trata o intent quando o app é aberto de uma notificação
-     */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleNotificationIntent(intent)
     }
 
-    /**
-     * Processa o intent para verificar se contém dados de notificação
-     */
     private fun handleNotificationIntent(intent: Intent?) {
         try {
             if (intent == null) return
-
             val conversationId = intent.getLongExtra("conversation_id", -1L)
             if (conversationId != -1L) {
                 Log.d("MainActivity", "Abrindo conversa da notificação: $conversationId")
-
-                val app = application as BrainstormiaApplication
-                app.chatViewModel?.selectConversation(conversationId)
+                (application as BrainstormiaApplication).chatViewModel?.selectConversation(conversationId)
             }
         } catch (e: Exception) {
             Log.e("MainActivity", "Erro ao processar intent da notificação", e)

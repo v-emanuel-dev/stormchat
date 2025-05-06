@@ -8,6 +8,7 @@ val PrimaryVariantColor = Color(0xFF3700B3)
 val SecondaryColor = Color(0xFF2E7D9E) // Azul médio para elementos secundários no tema claro
 val SecondaryColorDark = Color(0xFF212121) // Cor secundária para tema escuro
 val SecondaryVariantColor = Color(0xFF018786)
+val BrainGold = Color(0xFFFFD700)
 
 // Background colors
 val BackgroundColor = Color(0xFFF0F4F7) // Fundo claro com tom azulado
