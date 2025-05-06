@@ -19,6 +19,12 @@ import kotlinx.coroutines.delay
 import android.os.Handler
 import android.os.Looper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.pow
 
 class BillingViewModel(application: Application) : AndroidViewModel(application), PurchasesUpdatedListener {
@@ -51,26 +57,38 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
     private val handler = Handler(Looper.getMainLooper())
     private var reconnectRunnable: Runnable? = null
 
+    // Controle de verificação ativa
+    private var activeCheckJob: Job? = null
+
     // --- IDs Atuais ---
     private val SUBSCRIPTION_IDS_ONLY = listOf("mensal", "anual")
     private val INAPP_IDS_ONLY = listOf("vital") // Usando o novo ID
     // --------------------
 
+    // Adicionando cache para melhorar performance
+    private var lastVerifiedTimestamp = 0L
+    private val CACHE_VALIDITY_PERIOD = 30000L // 30 segundos
+    private var isInitialCheckComplete = false
+
     init {
         Log.d(TAG, "Inicializando BillingViewModel")
-        checkFirebaseUserStatus()
-        startBillingConnection()
+        loadPremiumStatusLocally() // Primeiro carrega do cache local
+        startBillingConnection() // Depois conecta ao serviço de billing
     }
 
     private fun startBillingConnection() {
         if (billingClient.isReady) {
             Log.i(TAG, "BillingClient já está pronto. Consultando produtos e compras.")
             queryAvailableProducts()
-            checkUserSubscription() // Fonte da verdade
+            if (!isInitialCheckComplete) {
+                checkUserSubscription() // Fonte da verdade
+                isInitialCheckComplete = true
+            }
             return
         }
         if (_connectionAttempts.value >= MAX_CONNECTION_ATTEMPTS && !_purchaseInProgress.value) {
             Log.w(TAG, "Máximo de tentativas de conexão atingido (${MAX_CONNECTION_ATTEMPTS}).")
+            _isPremiumLoading.value = false // Importante: Encerrar o loading
             return
         }
         Log.i(TAG, "Iniciando conexão com BillingClient (tentativa: ${_connectionAttempts.value + 1})")
@@ -82,9 +100,13 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
                     Log.i(TAG, "Conectado com sucesso ao BillingClient.")
                     _connectionAttempts.value = 0
                     queryAvailableProducts()
-                    checkUserSubscription() // Fonte da verdade
+                    if (!isInitialCheckComplete) {
+                        checkUserSubscription() // Fonte da verdade
+                        isInitialCheckComplete = true
+                    }
                 } else {
                     Log.e(TAG, "Erro na conexão com BillingClient: ${billingResult.responseCode} - ${billingResult.debugMessage}")
+                    _isPremiumLoading.value = false // Importante: Encerrar o loading em caso de erro
                     if (_connectionAttempts.value < MAX_CONNECTION_ATTEMPTS) {
                         scheduleReconnection()
                     } else {
@@ -103,6 +125,7 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         reconnectRunnable?.let { handler.removeCallbacks(it) }
         if (_connectionAttempts.value >= MAX_CONNECTION_ATTEMPTS && !_purchaseInProgress.value) {
             Log.w(TAG, "Não agendando reconexão: máximo de tentativas.")
+            _isPremiumLoading.value = false // Importante: Encerrar o loading
             return
         }
         val delayMs = 1000L * (2.0.pow(_connectionAttempts.value.coerceAtMost(6) - 1)).toLong()
@@ -249,10 +272,15 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
                 Log.d(TAG, "Detalhes da compra: OrderId=${purchase.orderId}, Produtos=${purchase.products.joinToString()}, Estado=${purchase.purchaseState}, Token=${purchase.purchaseToken}, É Reconhecida=${purchase.isAcknowledged}")
                 handlePurchase(purchase)
             }
+
+            // Após processar uma compra bem-sucedida, força atualização imediata do cache
+            lastVerifiedTimestamp = 0
         } else if (billingResult.responseCode == BillingClient.BillingResponseCode.USER_CANCELED) {
             Log.i(TAG, "Compra cancelada pelo usuário.")
         } else if (billingResult.responseCode == BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED) {
             Log.i(TAG, "Usuário já possui este item/assinatura. Verificando status...")
+            // Força atualização imediata do cache
+            lastVerifiedTimestamp = 0
             checkUserSubscription()
         } else {
             Log.e(TAG, "Erro na atualização de compras: ${billingResult.responseCode} - ${billingResult.debugMessage}")
@@ -282,8 +310,9 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             if (!purchase.isAcknowledged) {
                 acknowledgePurchase(purchase)
             }
-            // Chama checkUserSubscription para garantir que o estado reflete a compra mais recente do Play
-            checkUserSubscription()
+
+            // Atualizar o timestamp de verificação
+            lastVerifiedTimestamp = System.currentTimeMillis()
         } else if (purchase.purchaseState == Purchase.PurchaseState.PENDING) {
             Log.i(TAG, "Compra PENDENTE: ${purchase.products.joinToString()}. Aguardando confirmação. OrderId: ${purchase.orderId}")
         } else if (purchase.purchaseState == Purchase.PurchaseState.UNSPECIFIED_STATE) {
@@ -333,20 +362,21 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
     private val GRACE_PERIOD_MS = 2 * 24 * 60 * 60 * 1000L // 2 dias
 
     fun checkUserSubscription() {
-        if (!billingClient.isReady) {
-            Log.w(TAG, "checkUserSubscription: BillingClient não pronto.")
-            _isPremiumLoading.value = false
+        // Cancela qualquer verificação em andamento para evitar conflitos
+        activeCheckJob?.cancel()
+
+        // Se já temos uma verificação recente, use o cache
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastVerifiedTimestamp < CACHE_VALIDITY_PERIOD && lastVerifiedTimestamp > 0) {
+            Log.d(TAG, "Usando cache de status premium (verificado há ${(currentTime - lastVerifiedTimestamp)/1000}s)")
             return
         }
 
+        // Inicia o loading apenas se não estamos usando o cache
         _isPremiumLoading.value = true
 
-        // Obter o usuário atual
+        // Verifica o status atual do usuário
         val currentUser = FirebaseAuth.getInstance().currentUser
-        val currentUserEmail = currentUser?.email ?: currentUser?.uid
-
-        Log.i(TAG, "--- Iniciando checkUserSubscription (Fonte da Verdade) para usuário: $currentUserEmail ---")
-
         if (currentUser == null) {
             // Se não há usuário logado, definir como não premium e terminar
             _isPremiumUser.value = false
@@ -355,324 +385,192 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
             return
         }
 
-        // Verificar primeiro o registro do usuário no Firebase
-        val db = Firebase.firestore
-        db.collection("premium_users").document(currentUserEmail!!)
-            .get()
-            .addOnSuccessListener { userDocument ->
-                // Informações da compra registrada para este usuário específico
-                val registeredIsPremium = userDocument.getBoolean("isPremium") ?: false
-                val registeredOrderId = userDocument.getString("orderId")
-                val registeredProductId = userDocument.getString("productId")
-                val registeredPlanType = userDocument.getString("planType")
+        // Inicia a verificação de forma assíncrona com timeout
+        activeCheckJob = viewModelScope.launch {
+            try {
+                // Obtém informações do usuário
+                val currentUserEmail = currentUser.email ?: currentUser.uid
+                Log.i(TAG, "--- Iniciando checkUserSubscription (Fonte da Verdade) para usuário: $currentUserEmail ---")
 
-                Log.d(TAG, "Registro Firebase para $currentUserEmail: isPremium=$registeredIsPremium, productId=$registeredProductId, orderId=$registeredOrderId")
-
-                // Verificar as compras no Play Billing apenas para o usuário atual
-                billingClient.queryPurchasesAsync(
-                    QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build()
-                ) { resultInApp, purchasesInApp ->
-                    Log.d(TAG, "checkUserSubscription/INAPP - Resposta: ${resultInApp.responseCode}, Compras: ${purchasesInApp?.size ?: "null"}")
-
-                    var foundMatchingPurchase = false
-                    var activePlanTypeResult: String? = null
-                    var isActivePremiumResult = false
-                    var foundPurchaseResult: Purchase? = null
-                    var sourceOfTruth = "Nenhuma Compra Ativa"
-
-                    // Verificar se alguma das compras corresponde ao registro deste usuário específico
-                    if (resultInApp.responseCode == BillingClient.BillingResponseCode.OK && !purchasesInApp.isNullOrEmpty()) {
-                        if (!registeredOrderId.isNullOrBlank()) {
-                            // Procurar uma compra que corresponda ao orderId registrado para ESTE usuário
-                            val registeredPurchase = purchasesInApp.find { it.orderId == registeredOrderId }
-
-                            if (registeredPurchase != null && registeredPurchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
-                                Log.i(TAG, ">>> Play encontrou INAPP que corresponde ao registro do usuário ${currentUserEmail} <<< ID: ${registeredPurchase.products.joinToString()}")
-
-                                isActivePremiumResult = true
-                                activePlanTypeResult = determinePlanType(registeredPurchase.products.firstOrNull())
-                                foundPurchaseResult = registeredPurchase
-                                sourceOfTruth = "INAPP (Verificado por registro do usuário)"
-                                foundMatchingPurchase = true
-
-                                if (!registeredPurchase.isAcknowledged) {
-                                    acknowledgePurchase(registeredPurchase)
-                                }
-                            }
-                        }
-
-                        // IMPORTANTE: Verificamos compras "vital" ou "vitalicio" APENAS se o Firebase confirmar
-                        // que este usuário específico é premium
-                        if (!foundMatchingPurchase && registeredIsPremium) {
-                            // Procurar compras do tipo "vital" ou "vitalicio" apenas para usuários marcados como premium no Firebase
-                            val vitalPurchase = purchasesInApp.find { p ->
-                                p.purchaseState == Purchase.PurchaseState.PURCHASED &&
-                                        p.products.any { it.equals("vital", ignoreCase = true) || it.equals("vitalicio", ignoreCase = true) }
-                            }
-
-                            if (vitalPurchase != null) {
-                                // VERIFICAÇÃO ADICIONAL: confirmar que esta compra está associada a este usuário no Firebase
-                                // usando o registeredProductId que já recuperamos no início da função
-                                verifyPurchaseBelongsToUser(vitalPurchase, currentUserEmail) { belongsToUser ->
-                                    if (belongsToUser) {
-                                        Log.i(TAG, ">>> Play encontrou INAPP válida do tipo ${vitalPurchase.products.joinToString()} que pertence ao usuário ${currentUserEmail} <<<")
-
-                                        isActivePremiumResult = true
-                                        activePlanTypeResult = determinePlanType(vitalPurchase.products.firstOrNull())
-                                        foundPurchaseResult = vitalPurchase
-                                        sourceOfTruth = "INAPP (Vitalício verificado com Firebase)"
-                                        foundMatchingPurchase = true
-
-                                        if (!vitalPurchase.isAcknowledged) {
-                                            acknowledgePurchase(vitalPurchase)
-                                        }
-                                    } else {
-                                        Log.w(TAG, "Encontrada compra vitalícia, mas não pertence ao usuário ${currentUserEmail}. Ignorando.")
-                                    }
-
-                                    // Verificar assinaturas (SUBS) apenas se não encontramos uma compra INAPP válida
-                                    if (!foundMatchingPurchase) {
-                                        checkSubscriptions(
-                                            registeredOrderId,
-                                            currentUserEmail,
-                                            registeredIsPremium,
-                                            isActivePremiumResult,
-                                            activePlanTypeResult,
-                                            foundPurchaseResult,
-                                            sourceOfTruth
-                                        )
-                                    } else {
-                                        // Resultado final da verificação
-                                        Log.i(TAG, "checkUserSubscription - Resultado Final para ${currentUserEmail}: isPremium=$isActivePremiumResult, planType=$activePlanTypeResult, fonte=$sourceOfTruth")
-                                        updatePremiumStatusFromCheck(isActivePremiumResult, activePlanTypeResult, foundPurchaseResult, sourceOfTruth)
-                                        _isPremiumLoading.value = false
-                                    }
-                                }
-                            } else {
-                                // Não encontramos compra vitalícia, verificar assinaturas
-                                checkSubscriptions(
-                                    registeredOrderId,
-                                    currentUserEmail,
-                                    registeredIsPremium,
-                                    isActivePremiumResult,
-                                    activePlanTypeResult,
-                                    foundPurchaseResult,
-                                    sourceOfTruth
-                                )
-                            }
-                        } else if (!foundMatchingPurchase) {
-                            // Não encontramos compra vitalícia ou o usuário não é premium, verificar assinaturas
-                            checkSubscriptions(
-                                registeredOrderId,
-                                currentUserEmail,
-                                registeredIsPremium,
-                                isActivePremiumResult,
-                                activePlanTypeResult,
-                                foundPurchaseResult,
-                                sourceOfTruth
-                            )
-                        } else {
-                            // Já encontramos uma compra válida
-                            Log.i(TAG, "checkUserSubscription - Resultado Final para ${currentUserEmail}: isPremium=$isActivePremiumResult, planType=$activePlanTypeResult, fonte=$sourceOfTruth")
-                            updatePremiumStatusFromCheck(isActivePremiumResult, activePlanTypeResult, foundPurchaseResult, sourceOfTruth)
-                            _isPremiumLoading.value = false
-                        }
-                    } else {
-                        // Não há compras INAPP, verificar assinaturas
-                        checkSubscriptions(
-                            registeredOrderId,
-                            currentUserEmail,
-                            registeredIsPremium,
-                            isActivePremiumResult,
-                            activePlanTypeResult,
-                            foundPurchaseResult,
-                            sourceOfTruth
-                        )
-                    }
-                }
-            }
-            .addOnFailureListener { e ->
-                Log.e(TAG, "Erro ao verificar registro do usuário no Firebase: ${e.message}")
-                _isPremiumUser.value = false
-                _userPlanType.value = null
-                _isPremiumLoading.value = false
-            }
-    }
-
-    private fun checkSubscriptions(
-        registeredOrderId: String?,
-        currentUserEmail: String,
-        registeredIsPremium: Boolean,
-        isActivePremiumResult: Boolean,
-        activePlanTypeResult: String?,
-        foundPurchaseResult: Purchase?,
-        sourceOfTruth: String
-    ) {
-        billingClient.queryPurchasesAsync(
-            QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.SUBS).build()
-        ) { resultSubs, purchasesSubs ->
-            Log.d(TAG, "checkUserSubscription/SUBS - Resposta: ${resultSubs.responseCode}, Compras: ${purchasesSubs?.size ?: "null"}")
-
-            var finalIsActivePremiumResult = isActivePremiumResult
-            var finalActivePlanTypeResult = activePlanTypeResult
-            var finalFoundPurchaseResult = foundPurchaseResult
-            var finalSourceOfTruth = sourceOfTruth
-            var foundMatchingSub = false
-
-            // Aplicar a mesma lógica de verificação para assinaturas
-            if (resultSubs.responseCode == BillingClient.BillingResponseCode.OK && !purchasesSubs.isNullOrEmpty()) {
-                if (!registeredOrderId.isNullOrBlank()) {
-                    val registeredSub = purchasesSubs.find { it.orderId == registeredOrderId }
-
-                    if (registeredSub != null && isSubscriptionActive(registeredSub)) {
-                        Log.i(TAG, ">>> Play encontrou SUBS que corresponde ao registro do usuário ${currentUserEmail} <<< ID: ${registeredSub.products.joinToString()}")
-
-                        finalIsActivePremiumResult = true
-                        finalActivePlanTypeResult = determinePlanType(registeredSub.products.firstOrNull())
-                        finalFoundPurchaseResult = registeredSub
-                        finalSourceOfTruth = "SUBS (Verificado por registro do usuário)"
-                        foundMatchingSub = true
-
-                        if (!registeredSub.isAcknowledged) {
-                            acknowledgePurchase(registeredSub)
-                        }
-                    }
+                // Executa a verificação com timeout
+                val verificationSuccess = withTimeoutOrNull(4000) { // 4 segundos máximo
+                    performUserStatusVerification(currentUserEmail)
+                    true
                 }
 
-                // Se não encontramos uma assinatura que corresponda exatamente ao orderId,
-                // mas o usuário está marcado como premium no Firebase, podemos procurar por assinaturas ativas
-                if (!foundMatchingSub && registeredIsPremium) {
-                    val activeSub = purchasesSubs.find { isSubscriptionActive(it) }
-                    if (activeSub != null) {
-                        // Verificar se esta assinatura pertence a este usuário
-                        verifyPurchaseBelongsToUser(activeSub, currentUserEmail) { belongsToUser ->
-                            if (belongsToUser) {
-                                Log.i(TAG, ">>> Play encontrou SUBS ativa que pertence ao usuário ${currentUserEmail} <<< ID: ${activeSub.products.joinToString()}")
-
-                                finalIsActivePremiumResult = true
-                                finalActivePlanTypeResult = determinePlanType(activeSub.products.firstOrNull())
-                                finalFoundPurchaseResult = activeSub
-                                finalSourceOfTruth = "SUBS (Verificado com Firebase)"
-
-                                if (!activeSub.isAcknowledged) {
-                                    acknowledgePurchase(activeSub)
-                                }
-                            }
-
-                            // Resultado final da verificação
-                            Log.i(TAG, "checkUserSubscription - Resultado Final para ${currentUserEmail}: isPremium=$finalIsActivePremiumResult, planType=$finalActivePlanTypeResult, fonte=$finalSourceOfTruth")
-                            updatePremiumStatusFromCheck(finalIsActivePremiumResult, finalActivePlanTypeResult, finalFoundPurchaseResult, finalSourceOfTruth)
-                            _isPremiumLoading.value = false
-                        }
-                    } else {
-                        // Resultado final da verificação sem verificação adicional
-                        Log.i(TAG, "checkUserSubscription - Resultado Final para ${currentUserEmail}: isPremium=$finalIsActivePremiumResult, planType=$finalActivePlanTypeResult, fonte=$finalSourceOfTruth")
-                        updatePremiumStatusFromCheck(finalIsActivePremiumResult, finalActivePlanTypeResult, finalFoundPurchaseResult, finalSourceOfTruth)
-                        _isPremiumLoading.value = false
-                    }
+                // Se chegou ao timeout, apenas use o que temos
+                if (verificationSuccess == null) {
+                    Log.w(TAG, "Verificação de assinatura atingiu timeout. Usando último estado conhecido.")
                 }
-            } else {
-                // Não há assinaturas ativas, usar o resultado das compras INAPP
-                Log.i(TAG, "checkUserSubscription - Resultado Final para ${currentUserEmail}: isPremium=$finalIsActivePremiumResult, planType=$finalActivePlanTypeResult, fonte=$finalSourceOfTruth")
-                updatePremiumStatusFromCheck(finalIsActivePremiumResult, finalActivePlanTypeResult, finalFoundPurchaseResult, finalSourceOfTruth)
+
+                // Atualiza o timestamp da última verificação
+                lastVerifiedTimestamp = System.currentTimeMillis()
+            } catch (e: Exception) {
+                Log.e(TAG, "Erro ao verificar assinatura: ${e.message}", e)
+            } finally {
+                // Garante que o estado de loading seja finalizado
                 _isPremiumLoading.value = false
             }
         }
     }
 
-    // Função para verificar se a compra pertence ao usuário
-    private fun verifyPurchaseBelongsToUser(purchase: Purchase, userEmail: String, callback: (Boolean) -> Unit) {
-        if (purchase.products.isEmpty() || userEmail.isBlank()) {
-            callback(false)
-            return
+    // Função que realiza a verificação propriamente dita (pode ser cancelada pelo timeout)
+    private suspend fun performUserStatusVerification(currentUserEmail: String) = coroutineScope {
+        // Primeiro carrega os dados locais para resposta rápida
+        val localData = async(Dispatchers.IO) {
+            val prefs = getApplication<Application>().getSharedPreferences("billing_prefs", Context.MODE_PRIVATE)
+            val isPremiumLocal = prefs.getBoolean("is_premium", false)
+            val planTypeLocal = prefs.getString("plan_type", null)
+            Pair(isPremiumLocal, planTypeLocal)
         }
 
-        val db = Firebase.firestore
-        db.collection("premium_users").document(userEmail)
-            .get()
-            .addOnSuccessListener { userDoc ->
-                val result = userDoc.exists() &&
-                        (userDoc.getString("orderId") == purchase.orderId ||
-                                userDoc.getString("productId") == purchase.products.firstOrNull())
+        // Em paralelo, inicia a verificação com Firebase
+        val firebaseData = async(Dispatchers.IO) {
+            try {
+                val db = Firebase.firestore
+                val document = db.collection("premium_users").document(currentUserEmail).get().await()
 
-                callback(result)
+                val registeredIsPremium = document.getBoolean("isPremium") ?: false
+                val registeredOrderId = document.getString("orderId")
+                val registeredProductId = document.getString("productId")
+                val registeredPlanType = document.getString("planType")
+
+                Triple(registeredIsPremium, registeredOrderId, registeredPlanType)
+            } catch (e: Exception) {
+                Log.e(TAG, "Erro ao verificar dados do Firebase: ${e.message}", e)
+                Triple(false, null, null)
             }
-            .addOnFailureListener { e ->
-                Log.e(TAG, "Erro ao verificar propriedade da compra: ${e.message}")
-                callback(false)
+        }
+
+        // Usa os dados locais para resposta imediata enquanto a verificação completa acontece
+        val (localIsPremium, localPlanType) = localData.await()
+        withContext(Dispatchers.Main) {
+            if (localIsPremium) {
+                _isPremiumUser.value = true
+                _userPlanType.value = localPlanType
             }
-    }
+        }
 
-    private fun updatePremiumStatusFromCheck(isPremiumFromPlay: Boolean, planTypeFromPlay: String?, purchaseFromPlay: Purchase?, source: String) {
-        // Obter o usuário atual
-        val currentUser = FirebaseAuth.getInstance().currentUser
-        val currentUserEmail = currentUser?.email ?: currentUser?.uid
+        // Continua com a verificação completa
+        val (firebaseIsPremium, firebaseOrderId, firebasePlanType) = firebaseData.await()
 
-        Log.i(TAG, ">>> updatePremiumStatusFromCheck <<< Usuário: $currentUserEmail, Fonte: $source, Premium(Play): $isPremiumFromPlay, Plano(Play): $planTypeFromPlay. Atual VM: Premium=${_isPremiumUser.value}, Plano=${_userPlanType.value}")
-
-        // Verificar se já existe um documento para este usuário no Firebase
-        if (currentUser != null) {
-            val db = Firebase.firestore
-            db.collection("premium_users").document(currentUserEmail!!)
-                .get()
-                .addOnSuccessListener { document ->
-                    if (document.exists()) {
-                        // Verificar consistência entre o Firebase e o Play Billing
-                        val storedIsPremium = document.getBoolean("isPremium") ?: false
-                        val storedOrderId = document.getString("orderId")
-                        val storedProductId = document.getString("productId")
-
-                        // VERIFICAÇÃO RIGOROSA: A compra atual deve corresponder ao que está armazenado
-                        // OU devemos ter um caso em que não há compra (isPremiumFromPlay = false)
-                        if (isPremiumFromPlay && purchaseFromPlay != null) {
-                            if (storedOrderId != purchaseFromPlay.orderId || storedProductId != purchaseFromPlay.products.firstOrNull()) {
-                                Log.w(TAG, "Inconsistência detectada para $currentUserEmail: compra atual não corresponde ao registro do usuário. Firebase: orderId=$storedOrderId, productId=$storedProductId vs Play: orderId=${purchaseFromPlay.orderId}, productId=${purchaseFromPlay.products.firstOrNull()}. Ignorando atualização.")
-                                // Se a compra não corresponde ao registro do usuário, não atualizar para premium
-                                if (_isPremiumUser.value) {
-                                    Log.w(TAG, ">>> REVOGANDO STATUS PREMIUM DEVIDO A INCONSISTÊNCIA <<<")
-                                    _isPremiumUser.value = false
-                                    _userPlanType.value = null
-                                    savePremiumStatusLocally(false, null)
-                                }
-                                return@addOnSuccessListener
-                            }
-                        }
-                    }
-
-                    // Se não houver inconsistência, continue com a atualização normal
-                    if (!isPremiumFromPlay) {
-                        if (_isPremiumUser.value) {
-                            Log.w(TAG, ">>> ATUALIZANDO ESTADO PREMIUM PARA FALSE <<<")
-                            _isPremiumUser.value = false
-                            _userPlanType.value = null
-                            savePremiumStatusLocally(false, null)
-                            saveUserStatusToFirebase(false, null, null, null, null)
-                        }
-                    } else if (_isPremiumUser.value != isPremiumFromPlay || _userPlanType.value != planTypeFromPlay) {
-                        Log.w(TAG, ">>> ATUALIZANDO ESTADO PREMIUM <<< Premium: $isPremiumFromPlay, Plano: $planTypeFromPlay.")
-                        _isPremiumUser.value = isPremiumFromPlay
-                        _userPlanType.value = planTypeFromPlay
-                        savePremiumStatusLocally(isPremiumFromPlay, planTypeFromPlay)
-                        saveUserStatusToFirebase(isPremiumFromPlay, planTypeFromPlay, purchaseFromPlay?.orderId, purchaseFromPlay?.purchaseTime, purchaseFromPlay?.products?.firstOrNull())
-                    } else {
-                        Log.d(TAG, "updatePremiumStatusFromCheck - Nenhuma mudança no estado premium necessária.")
-                    }
-                }
-                .addOnFailureListener { e ->
-                    Log.e(TAG, "Erro ao verificar registro de usuário: ${e.message}")
-                    // Por segurança, definimos o usuário como não premium em caso de erro de verificação
-                    if (_isPremiumUser.value) {
-                        _isPremiumUser.value = false
-                        _userPlanType.value = null
-                        savePremiumStatusLocally(false, null)
-                    }
-                }
+        // Verifica as compras no billing client para confirmar o status
+        if (billingClient.isReady) {
+            checkBillingPurchases(currentUserEmail, firebaseIsPremium, firebaseOrderId, firebasePlanType)
         } else {
-            // Se não houver usuário, definimos como não premium
-            if (_isPremiumUser.value) {
-                _isPremiumUser.value = false
-                _userPlanType.value = null
-                savePremiumStatusLocally(false, null)
+            withContext(Dispatchers.Main) {
+                _isPremiumUser.value = firebaseIsPremium
+                _userPlanType.value = firebasePlanType
+            }
+        }
+    }
+
+    // Verifica as compras no Play Store
+    private suspend fun checkBillingPurchases(
+        userEmail: String,
+        firebaseIsPremium: Boolean,
+        registeredOrderId: String?,
+        registeredPlanType: String?
+    ) {
+        try {
+            // Primeiro verificar compras únicas (INAPP)
+            val inAppResult = billingClient.queryPurchasesAsync(
+                QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.INAPP).build()
+            )
+
+            var foundMatchingPurchase = false
+            var isActivePremiumResult = false
+            var activePlanTypeResult: String? = null
+
+            // Verificar compras INAPP
+            if (inAppResult.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                val inAppPurchases = inAppResult.purchasesList
+
+                // Procura por correspondência exata com orderId registrado
+                if (!registeredOrderId.isNullOrBlank()) {
+                    val purchase = inAppPurchases.find { it.orderId == registeredOrderId }
+                    if (purchase != null && purchase.purchaseState == Purchase.PurchaseState.PURCHASED) {
+                        isActivePremiumResult = true
+                        activePlanTypeResult = determinePlanType(purchase.products.firstOrNull())
+                        foundMatchingPurchase = true
+                    }
+                }
+
+                // Ou qualquer compra vitalícia válida
+                if (!foundMatchingPurchase && firebaseIsPremium) {
+                    val vitalPurchase = inAppPurchases.find { p ->
+                        p.purchaseState == Purchase.PurchaseState.PURCHASED &&
+                                p.products.any { it.equals("vital", ignoreCase = true) }
+                    }
+
+                    if (vitalPurchase != null) {
+                        isActivePremiumResult = true
+                        activePlanTypeResult = determinePlanType(vitalPurchase.products.firstOrNull())
+                        foundMatchingPurchase = true
+                    }
+                }
+            }
+
+            // Se não encontrou compra única, verificar assinaturas
+            if (!foundMatchingPurchase) {
+                val subsResult = billingClient.queryPurchasesAsync(
+                    QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.SUBS).build()
+                )
+
+                if (subsResult.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                    val subPurchases = subsResult.purchasesList
+
+                    // Correspondência exata
+                    if (!registeredOrderId.isNullOrBlank()) {
+                        val purchase = subPurchases.find { it.orderId == registeredOrderId }
+                        if (purchase != null && isSubscriptionActive(purchase)) {
+                            isActivePremiumResult = true
+                            activePlanTypeResult = determinePlanType(purchase.products.firstOrNull())
+                            foundMatchingPurchase = true
+                        }
+                    }
+
+                    // Ou qualquer assinatura ativa
+                    if (!foundMatchingPurchase && firebaseIsPremium) {
+                        val activeSub = subPurchases.find { isSubscriptionActive(it) }
+                        if (activeSub != null) {
+                            isActivePremiumResult = true
+                            activePlanTypeResult = determinePlanType(activeSub.products.firstOrNull())
+                            foundMatchingPurchase = true
+                        }
+                    }
+                }
+            }
+
+            // Atualiza UI com resultado final
+            withContext(Dispatchers.Main) {
+                if (isActivePremiumResult) {
+                    _isPremiumUser.value = true
+                    _userPlanType.value = activePlanTypeResult
+                    // Salva status localmente
+                    savePremiumStatusLocally(true, activePlanTypeResult)
+                } else if (firebaseIsPremium) {
+                    // Confiar no Firebase se Play Store não retornar nada
+                    _isPremiumUser.value = true
+                    _userPlanType.value = registeredPlanType
+                    savePremiumStatusLocally(true, registeredPlanType)
+                } else {
+                    _isPremiumUser.value = false
+                    _userPlanType.value = null
+                    savePremiumStatusLocally(false, null)
+                }
+
+                // Atualizamos o estado de loading aqui para garantir
+                _isPremiumLoading.value = false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao verificar compras: ${e.message}", e)
+
+            withContext(Dispatchers.Main) {
+                // Em caso de erro, confiamos no Firebase
+                _isPremiumUser.value = firebaseIsPremium
+                _userPlanType.value = registeredPlanType
+                _isPremiumLoading.value = false
             }
         }
     }
@@ -707,64 +605,36 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    private fun checkFirebaseUserStatus() {
-        val currentUser = FirebaseAuth.getInstance().currentUser ?: return Unit.also {
-            Log.d(TAG, "checkFirebaseUserStatus: No user, loading local.")
-            loadPremiumStatusLocally()
-        }
-
-        _isPremiumLoading.value = true
-        val userEmail = currentUser.email ?: currentUser.uid
-        Log.i(TAG, "Verificando Firebase para $userEmail (inicial)")
-
-        viewModelScope.launch(Dispatchers.IO) {
+    private fun loadPremiumStatusLocally() {
+        viewModelScope.launch(Dispatchers.Main) {
             try {
-                val db = Firebase.firestore
-                val docRef = db.collection("premium_users").document(userEmail)
-                docRef.get()
-                    .addOnSuccessListener { document ->
-                        val isPremiumFb = if (document != null && document.exists()) document.getBoolean("isPremium") ?: false else false
-                        val planTypeFb = if (document != null && document.exists()) document.getString("planType") else null
-                        val productIdFb = if (document != null && document.exists()) document.getString("productId") else null
+                val prefs = getApplication<Application>().getSharedPreferences("billing_prefs", Context.MODE_PRIVATE)
+                val isPremiumLocal = prefs.getBoolean("is_premium", false)
+                val planTypeLocal = prefs.getString("plan_type", null)
+                val lastUpdated = prefs.getLong("last_updated_local", 0L)
 
-                        Log.i(TAG, "Lido do Firebase: Premium=$isPremiumFb, Plano=$planTypeFb, ProductId=$productIdFb")
+                Log.d(TAG, "Carregado localmente: Premium=$isPremiumLocal, Plano=$planTypeLocal, Última atualização=${lastUpdated}")
 
-                        // Define estado inicial APENAS se:
-                        // 1. Atual for 'false' E Firebase for 'true'
-                        // 2. ProductId for VÁLIDO (não é o antigo 'vitalicio')
-                        if (!_isPremiumUser.value && isPremiumFb) {
-                            val isOldVitalicioId = productIdFb?.equals("vitalicio", ignoreCase = true) == true
-                            if (planTypeFb == "Vitalício" && isOldVitalicioId) {
-                                Log.w(TAG, "Firebase indica Vitalício com productId ANTIGO ('$productIdFb'). Ignorando estado inicial.")
-                                // Sempre verificar com Play Billing após isso
-                                checkUserSubscription()
-                            } else if (productIdFb != null) {
-                                // Temos um ID de produto válido não-legado, mas ainda precisamos confirmar com Play Billing
-                                Log.i(TAG, "Firebase indica Premium com produto válido. Verificando com Play Billing.")
-                                // Definir o estado temporariamente, mas verificar com Play Billing
-                                _isPremiumUser.value = isPremiumFb
-                                _userPlanType.value = planTypeFb
-                                // Verificar com Play Billing para confirmação final
-                                checkUserSubscription()
-                            } else {
-                                // Sem ID de produto, ignorar dados do Firebase
-                                Log.w(TAG, "Firebase indica Premium mas sem productId. Ignorando estado inicial.")
-                                checkUserSubscription()
-                            }
-                        } else {
-                            Log.d(TAG, "Leitura do Firebase não alterou estado inicial (${_isPremiumUser.value}).")
-                            // Sempre verificar com Play Billing para confirmação
-                            checkUserSubscription()
-                        }
+                // Carregar imediatamente o estado dos dados locais para resposta rápida
+                if (isPremiumLocal) {
+                    _isPremiumUser.value = isPremiumLocal
+                    _userPlanType.value = planTypeLocal
+
+                    // Se os dados são muito antigos, marcar para revalidação mas manter estado atual
+                    if (System.currentTimeMillis() - lastUpdated > 24 * 60 * 60 * 1000L) { // 24 horas
+                        Log.d(TAG, "Dados locais antigos, revalidando...")
+                        lastVerifiedTimestamp = 0 // Força verificação
+                    } else {
+                        // Dados recentes, considerar verificado
+                        lastVerifiedTimestamp = lastUpdated
                     }
-                    .addOnFailureListener { e ->
-                        Log.e(TAG, "Erro Firebase read: ${e.message}", e)
-                        // Em caso de erro, verificar diretamente com Play Billing
-                        checkUserSubscription()
-                    }
+                }
+
+                // Não modificamos o estado isPremiumLoading aqui para não interferir
+                // com a verificação completa que acontecerá em seguida
             } catch (e: Exception) {
-                Log.e(TAG, "Exceção Firebase read: ${e.message}", e)
-                checkUserSubscription()
+                Log.e(TAG, "Erro ao carregar dados locais", e)
+                // A verificação completa ainda será executada
             }
         }
     }
@@ -779,31 +649,36 @@ class BillingViewModel(application: Application) : AndroidViewModel(application)
                 apply()
             }
             Log.i(TAG, "Salvo localmente: Premium=$isPremium, Plano=$planType")
-        } catch (e: Exception) { Log.e(TAG, "Erro save local", e) }
-    }
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro save local", e)
+        }
+    }s
 
-    private fun loadPremiumStatusLocally() {
-        viewModelScope.launch(Dispatchers.Main) {
+    fun forceRefreshPremiumStatus() {
+        viewModelScope.launch {
             try {
-                val prefs = getApplication<Application>().getSharedPreferences("billing_prefs", Context.MODE_PRIVATE)
-                val isPremiumLocal = prefs.getBoolean("is_premium", false)
-                val planTypeLocal = prefs.getString("plan_type", null)
-                Log.d(TAG, "Lido localmente: Premium=$isPremiumLocal, Plano=$planTypeLocal")
+                Log.d(TAG, "Forçando atualização de status premium...")
+                _isPremiumLoading.value = true
 
-                // Define estado inicial APENAS se atual for 'false' e local for 'true'
-                if (!_isPremiumUser.value && isPremiumLocal) {
-                    Log.i(TAG, ">>> Definindo estado INICIAL via Local <<< Premium: $isPremiumLocal, Plano: $planTypeLocal")
-                    _isPremiumUser.value = isPremiumLocal
-                    _userPlanType.value = planTypeLocal
-                } else {
-                    Log.d(TAG, "Leitura local não alterou estado inicial (${_isPremiumUser.value}).")
+                // Invalidar cache
+                lastVerifiedTimestamp = 0
+
+                // Garantir que qualquer verificação anterior seja cancelada
+                activeCheckJob?.cancel()
+
+                // Iniciar nova verificação com timeout garantido
+                withTimeoutOrNull(3000) {
+                    checkUserSubscription()
                 }
 
-                // Sempre verifique a verdade com o Play Billing
-                checkUserSubscription()
+                // Apesar do timeout, garantir tempo suficiente para mostrar indicador de progresso
+                delay(800)
+
             } catch (e: Exception) {
-                Log.e(TAG, "Erro load local", e)
-                checkUserSubscription()
+                Log.e(TAG, "Erro ao atualizar status premium: ${e.message}", e)
+            } finally {
+                // Sempre resetar o estado de loading após 3 segundos no máximo
+                _isPremiumLoading.value = false
             }
         }
     }

@@ -20,11 +20,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -33,13 +38,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ivip.brainstormia.billing.BillingViewModel
 import com.ivip.brainstormia.theme.BrainGold
 import com.ivip.brainstormia.theme.PrimaryColor
-
-// Seção da tela de perfil de usuário que precisa ser corrigida - substitua este trecho no UserProfileScreen.kt
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,17 +66,28 @@ fun UserProfileScreen(
     // Usar a instância singleton do BillingViewModel
     val isPremiumUser by billingViewModel.isPremiumUser.collectAsState(initial = false)
     val userPlanType by billingViewModel.userPlanType.collectAsState()
-    val isPremiumLoading by billingViewModel.isPremiumLoading.collectAsState(false)
+    val isPremiumLoading by billingViewModel.isPremiumLoading.collectAsState(initial = false)
+
+    // Estado para controlar loading extendido e animações
+    var isRefreshing by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     val email = currentUser?.email ?: "Usuário não logado"
     val scrollState = rememberScrollState()
 
+    // Efeito para verificar o status premium com timeout
     LaunchedEffect(Unit) {
-        // Força verificação do status premium ao entrar na tela
-        billingViewModel.checkUserSubscription()
+        // Iniciar visualização com carregamento enquanto dados são buscados
+        isRefreshing = true
+
+        // Forçar verificação do status premium
+        billingViewModel.forceRefreshPremiumStatus()
+
+        // Adicionar tempo mínimo de animação para evitar flashes
+        delay(800)
+        isRefreshing = false
     }
 
-    // O resto da função permanece igual
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = backgroundColor
@@ -84,6 +101,26 @@ fun UserProfileScreen(
                             Icon(
                                 Icons.Default.ArrowBack,
                                 contentDescription = "Voltar",
+                                tint = Color.White
+                            )
+                        }
+                    },
+                    actions = {
+                        // Botão de atualização para recarregar os dados
+                        IconButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    isRefreshing = true
+                                    billingViewModel.forceRefreshPremiumStatus()
+                                    delay(800) // Tempo mínimo para visualização do spinner
+                                    isRefreshing = false
+                                }
+                            },
+                            enabled = !isPremiumLoading && !isRefreshing
+                        ) {
+                            Icon(
+                                Icons.Default.Refresh,
+                                contentDescription = "Atualizar status",
                                 tint = Color.White
                             )
                         }
@@ -103,22 +140,21 @@ fun UserProfileScreen(
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Cabeçalho do perfil com informações do usuário
                 UserProfileHeader(
                     email = email,
                     isPremium = isPremiumUser,
                     planType = userPlanType,
                     isDarkTheme = isDarkTheme,
-                    isLoading = isPremiumLoading
+                    isLoading = isPremiumLoading || isRefreshing
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                // Conteúdo principal baseado no status premium
                 when {
-                    isPremiumLoading -> {
-                        CircularProgressIndicator(
-                            color = BrainGold,
-                            modifier = Modifier.padding(16.dp)
-                        )
+                    isPremiumLoading || isRefreshing -> {
+                        LoadingContent(isDarkTheme = isDarkTheme)
                     }
                     isPremiumUser -> {
                         PremiumUserContent(isDarkTheme = isDarkTheme, planType = userPlanType)
@@ -132,6 +168,33 @@ fun UserProfileScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun LoadingContent(isDarkTheme: Boolean) {
+    val goldColor = BrainGold
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        CircularProgressIndicator(
+            color = goldColor,
+            modifier = Modifier.size(48.dp)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Verificando seu status premium...",
+            color = if (isDarkTheme) Color.White else Color.Black,
+            style = MaterialTheme.typography.bodyLarge,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
