@@ -207,7 +207,7 @@ fun AuthScreen(
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.ic_bolt_foreground),
-                            contentDescription = "Brainstormia Logo",
+                            contentDescription = "StormChat Logo",
                             modifier = Modifier.size(80.dp),
                             colorFilter = ColorFilter.tint(if (isDarkTheme) Color(0xFFFFD700) else Color.Black) // Raio amarelo no tema escuro, preto no tema claro
                         )

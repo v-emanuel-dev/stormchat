@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Brainstormia</string>
+    <string name="app_name">StormChat</string>
     <string name="action_send">Enviar</string>
     <string name="open_drawer_description">Abrir menu de conversas</string>
     <string name="message_input_placeholder">Digite sua mensagem...</string>

@@ -20,6 +20,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Brainstormia"
+rootProject.name = "StormChat"
 include(":app")
  

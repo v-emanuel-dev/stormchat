@@ -581,7 +581,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
             .stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000L), initialValue = emptyList())
 
-    private val welcomeMessageText = "Olá! Eu sou o Brainstormia 👽, seu assistente virtual de criatividade e sabedoria. Estou aqui para inspirar suas ideias, compartilhar conhecimento prático e ajudar você a encontrar soluções inteligentes. Como posso impulsionar sua mente hoje?"
+    private val welcomeMessageText = "Olá! Eu sou o StormChat 👽, seu assistente virtual de criatividade e sabedoria. Estou aqui para inspirar suas ideias, compartilhar conhecimento prático e ajudar você a encontrar soluções inteligentes. Como posso impulsionar sua mente hoje?"
 
     private val brainstormiaSystemPrompt = """
     ## Persona e Propósito

@@ -477,13 +477,13 @@ fun ChatScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         painter = painterResource(id = R.drawable.ic_bolt_foreground),
-                                        contentDescription = "Ícone Brainstormia",
+                                        contentDescription = "Ícone StormChat",
                                         tint = Color(0xFFFFD700),
                                         modifier = Modifier.size(32.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "Brainstormia",
+                                        text = "StormChat",
                                         style = MaterialTheme.typography.titleMedium,
                                         color = Color.White
                                     )

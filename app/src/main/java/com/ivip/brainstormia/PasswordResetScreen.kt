@@ -126,7 +126,7 @@ fun PasswordResetScreen(
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.ic_bolt_foreground),
-                        contentDescription = "Brainstormia Logo",
+                        contentDescription = "StormChat Logo",
                         modifier = Modifier.size(70.dp),
                         colorFilter = ColorFilter.tint(if (isDarkTheme) TextColorLight else PrimaryColor)
                     )

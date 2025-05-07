@@ -64,8 +64,8 @@ class BrainstormiaApplication : Application() {
      */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "Notificações Brainstormia"
-            val descriptionText = "Notificações do aplicativo Brainstormia"
+            val name = "Notificações StormChat"
+            val descriptionText = "Notificações do aplicativo StormChat"
             val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
                 description = descriptionText
