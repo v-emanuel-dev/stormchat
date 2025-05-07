@@ -1,49 +1,39 @@
 package com.ivip.brainstormia
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ivip.brainstormia.billing.BillingViewModel
 import com.ivip.brainstormia.theme.BrainGold
-import com.ivip.brainstormia.theme.PrimaryColor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -55,81 +45,93 @@ fun UserProfileScreen(
     authViewModel: AuthViewModel = viewModel(),
     isDarkTheme: Boolean = true
 ) {
-    // Obter a instância singleton do BillingViewModel
+    // Get BillingViewModel instance
     val context = LocalContext.current
     val billingViewModel = (context.applicationContext as BrainstormiaApplication).billingViewModel
-        ?: throw IllegalStateException("BillingViewModel não inicializado na Application")
+        ?: throw IllegalStateException("BillingViewModel not initialized")
 
-    val backgroundColor = if (isDarkTheme) Color(0xFF121212) else Color(0xFFF5F5F5)
+    // Colors
+    val backgroundColor = if (isDarkTheme) Color(0xFF121212) else Color(0xFFF8F9FA)
+    val cardColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color.White
+    val textColor = if (isDarkTheme) Color.White else Color(0xFF202124)
+    val secondaryTextColor = if (isDarkTheme) Color.White.copy(alpha = 0.7f) else Color(0xFF5F6368)
+    val goldColor = BrainGold
+    val darkGoldColor = Color(0xFF8B6914)
+    val subtleAccentColor = if (isDarkTheme) Color(0xFF1E293B) else Color(0xFFF0F4F8)
+
+    // States
     val currentUser by authViewModel.currentUser.collectAsState()
-
-    // Usar a instância singleton do BillingViewModel
     val isPremiumUser by billingViewModel.isPremiumUser.collectAsState(initial = false)
     val userPlanType by billingViewModel.userPlanType.collectAsState()
     val isPremiumLoading by billingViewModel.isPremiumLoading.collectAsState(initial = false)
-
-    // Estado para controlar loading extendido e animações
     var isRefreshing by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
 
     val email = currentUser?.email ?: "Usuário não logado"
     val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
 
-    // Efeito para verificar o status premium com timeout
+    // Initial data loading
     LaunchedEffect(Unit) {
-        // Iniciar visualização com carregamento enquanto dados são buscados
         isRefreshing = true
-
-        // Forçar verificação do status premium
         billingViewModel.forceRefreshPremiumStatus()
-
-        // Adicionar tempo mínimo de animação para evitar flashes
         delay(800)
         isRefreshing = false
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = backgroundColor
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Background with subtle gradient
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = if (isDarkTheme) {
+                            listOf(Color(0xFF121212), Color(0xFF1A1A1A))
+                        } else {
+                            listOf(Color(0xFFF8F9FA), Color(0xFFECEFF1))
+                        }
+                    )
+                )
+        )
+
         Scaffold(
             topBar = {
-                CenterAlignedTopAppBar(
-                    title = { Text("Seu Perfil", color = Color.White) },
+                TopAppBar(
+                    title = { Text("Perfil", color = Color.White, fontWeight = FontWeight.SemiBold) },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
                             Icon(
-                                Icons.Default.ArrowBack,
+                                imageVector = Icons.Default.ArrowBack,
                                 contentDescription = "Voltar",
                                 tint = Color.White
                             )
                         }
                     },
                     actions = {
-                        // Botão de atualização para recarregar os dados
                         IconButton(
                             onClick = {
                                 coroutineScope.launch {
                                     isRefreshing = true
                                     billingViewModel.forceRefreshPremiumStatus()
-                                    delay(800) // Tempo mínimo para visualização do spinner
+                                    delay(800)
                                     isRefreshing = false
                                 }
                             },
                             enabled = !isPremiumLoading && !isRefreshing
                         ) {
                             Icon(
-                                Icons.Default.Refresh,
+                                imageVector = Icons.Default.Refresh,
                                 contentDescription = "Atualizar status",
                                 tint = Color.White
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else PrimaryColor
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color(0xFF1976D2)
                     )
                 )
-            }
+            },
+            containerColor = Color.Transparent
         ) { paddingValues ->
             Column(
                 modifier = Modifier
@@ -140,8 +142,8 @@ fun UserProfileScreen(
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Cabeçalho do perfil com informações do usuário
-                UserProfileHeader(
+                // Modern profile header with animation
+                ProfileHeader(
                     email = email,
                     isPremium = isPremiumUser,
                     planType = userPlanType,
@@ -151,18 +153,209 @@ fun UserProfileScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Conteúdo principal baseado no status premium
+                // Content based on premium status
                 when {
                     isPremiumLoading || isRefreshing -> {
                         LoadingContent(isDarkTheme = isDarkTheme)
                     }
                     isPremiumUser -> {
-                        PremiumUserContent(isDarkTheme = isDarkTheme, planType = userPlanType)
+                        PremiumContent(
+                            planType = userPlanType,
+                            isDarkTheme = isDarkTheme,
+                            cardColor = cardColor,
+                            textColor = textColor,
+                            secondaryTextColor = secondaryTextColor
+                        )
                     }
                     else -> {
-                        BasicUserContentWithButtonFirst(
+                        BasicContent(
                             onUpgradeToPremium = onNavigateToPayment,
-                            isDarkTheme = isDarkTheme
+                            isDarkTheme = isDarkTheme,
+                            cardColor = cardColor,
+                            textColor = textColor,
+                            secondaryTextColor = secondaryTextColor
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun ProfileHeader(
+    email: String,
+    isPremium: Boolean,
+    planType: String?,
+    isDarkTheme: Boolean,
+    isLoading: Boolean
+) {
+    val goldColor = BrainGold
+    val darkGoldColor = Color(0xFF8B6914)
+    val cardColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color.White
+    val textColor = if (isDarkTheme) Color.White else Color(0xFF202124)
+
+    val transition = rememberInfiniteTransition(label = "ProfileHeaderAnimation")
+    val scaleAnim by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "ScaleAnimation"
+    )
+
+    val glowAnim by transition.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "GlowAnimation"
+    )
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth(0.9f)
+            .shadow(
+                elevation = 8.dp,
+                shape = RoundedCornerShape(24.dp),
+                spotColor = if (isDarkTheme) darkGoldColor.copy(alpha = 0.5f) else Color.Gray.copy(alpha = 0.2f)
+            ),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = cardColor
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawBehind {
+                    if (isPremium) {
+                        // Draw subtle gold accent pattern on top
+                        drawLine(
+                            brush = Brush.horizontalGradient(
+                                colors = listOf(
+                                    goldColor.copy(alpha = 0.0f),
+                                    goldColor.copy(alpha = 0.3f * glowAnim),
+                                    goldColor.copy(alpha = 0.0f)
+                                )
+                            ),
+                            start = Offset(0f, 0f),
+                            end = Offset(size.width, 0f),
+                            strokeWidth = 8f
+                        )
+                    }
+                }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Plan info card for premium users (moved to top)
+                if (isPremium && !isLoading) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = goldColor.copy(alpha = 0.15f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = null,
+                                tint = goldColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Text(
+                                text = "Seu Plano: ${planType?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() } ?: "Premium"}",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = goldColor,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Avatar
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(CircleShape)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = if (isPremium) {
+                                    listOf(goldColor.copy(alpha = 0.3f), Color(0xFF333333))
+                                } else {
+                                    listOf(Color(0xFF444444), Color(0xFF222222))
+                                }
+                            )
+                        )
+                        .drawBehind {
+                            if (isPremium) {
+                                // Premium glow effect
+                                drawCircle(
+                                    color = goldColor.copy(alpha = 0.15f * glowAnim),
+                                    radius = size.width * 0.6f
+                                )
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Initial avatar based on email
+                    val initial = email.firstOrNull()?.toString()?.uppercase() ?: "?"
+
+                    Text(
+                        text = initial,
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isPremium) goldColor else Color.White,
+                        modifier = Modifier.scale(if (isPremium) scaleAnim else 1f)
+                    )
+                }
+
+                // Email
+                Text(
+                    text = email,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = textColor,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                // Status badge
+                if (isLoading) {
+                    LinearProgressIndicator(
+                        modifier = Modifier.width(120.dp),
+                        color = goldColor,
+                        trackColor = if (isDarkTheme) Color.DarkGray else Color.LightGray
+                    )
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isPremium) goldColor else Color.Gray.copy(alpha = 0.3f),
+                        modifier = Modifier.scale(if (isPremium) scaleAnim else 1f)
+                    ) {
+                        Text(
+                            text = if (isPremium) "Membro Premium" else "Membro Básico",
+                            color = Color.Black,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                         )
                     }
                 }
@@ -175,178 +368,119 @@ fun UserProfileScreen(
 fun LoadingContent(isDarkTheme: Boolean) {
     val goldColor = BrainGold
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        CircularProgressIndicator(
-            color = goldColor,
-            modifier = Modifier.size(48.dp)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Verificando seu status premium...",
-            color = if (isDarkTheme) Color.White else Color.Black,
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center
-        )
-    }
-}
-
-@Composable
-fun UserProfileHeader(
-    email: String,
-    isPremium: Boolean,
-    planType: String?,
-    isDarkTheme: Boolean,
-    isLoading: Boolean = false
-) {
-    val goldColor = BrainGold
-    val darkGoldColor = Color(0xFF8B6914)
-    val cardBackground = if (isDarkTheme) Color(0xFF1E1E1E) else Color(0xFFEEEEEE)
-    val textColorPrimary = if (isDarkTheme) Color.White else Color.Black
-
-    val gradientColors = listOf(goldColor, darkGoldColor)
-
-    val transition = rememberInfiniteTransition(label = "Selo Animation")
-    val scaleAnim by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ), label = "Scale Animation Premium"
-    )
-
     Card(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
+            .fillMaxWidth(0.9f)
+            .padding(16.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = cardBackground
+            containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color.White
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.Center
         ) {
-            AnimatedVisibility(
-                visible = true,
-                enter = fadeIn() + scaleIn()
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(CircleShape)
-                        .background(Brush.radialGradient(listOf(Color(0xFF333333), Color(0xFF222222))))
-                        .border(3.dp, Brush.linearGradient(gradientColors), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(50.dp),
-                        tint = goldColor
-                    )
-                }
-            }
+            CircularProgressIndicator(
+                color = goldColor,
+                modifier = Modifier.size(48.dp)
+            )
 
-            AnimatedVisibility(visible = true, enter = fadeIn()) {
-                Text(
-                    text = email,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = textColorPrimary,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+            Spacer(modifier = Modifier.height(16.dp))
 
-            if (isLoading) {
-                CircularProgressIndicator(
-                    color = goldColor,
-                    modifier = Modifier.size(24.dp)
-                )
-            } else {
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = goldColor,
-                    modifier = Modifier.scale(if (isPremium) scaleAnim else 1f)
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = if (isPremium) "Membro Premium" else "Membro Básico",
-                            color = Color.Black,
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        if (isPremium && !planType.isNullOrBlank()) {
-                            Text(
-                                text = planType.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
-                                color = Color.Black.copy(alpha = 0.85f),
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
-                    }
-                }
-            }
+            Text(
+                text = "Verificando seu status premium...",
+                color = if (isDarkTheme) Color.White else Color.Black,
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
 
 @Composable
-fun PremiumUserContent(isDarkTheme: Boolean, planType: String?) {
+fun PremiumContent(
+    planType: String?,
+    isDarkTheme: Boolean,
+    cardColor: Color,
+    textColor: Color,
+    secondaryTextColor: Color
+) {
     val goldColor = BrainGold
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Header
         Text(
-            text = "Obrigado por ser Premium!",
-            style = MaterialTheme.typography.headlineMedium,
+            text = "Benefícios Premium",
+            style = MaterialTheme.typography.headlineSmall,
             color = goldColor,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+
+        // Premium features
+        FeatureCard(
+            icon = Icons.Outlined.Psychology,
+            title = "Modelos Avançados",
+            description = "Acesso a todos os modelos de IA premium, incluindo Claude e GPT-4o.",
+            isDarkTheme = isDarkTheme,
+            cardColor = cardColor,
+            textColor = textColor,
+            secondaryTextColor = secondaryTextColor
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        FeatureCard(
+            icon = Icons.Outlined.CloudUpload,
+            title = "Exportação de Conversas",
+            description = "Exporte e compartilhe suas conversas em múltiplos formatos.",
+            isDarkTheme = isDarkTheme,
+            cardColor = cardColor,
+            textColor = textColor,
+            secondaryTextColor = secondaryTextColor
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        FeatureCard(
+            icon = Icons.Outlined.SupportAgent,
+            title = "Suporte Prioritário",
+            description = "Obtenha suporte técnico VIP e resolva problemas mais rapidamente.",
+            isDarkTheme = isDarkTheme,
+            cardColor = cardColor,
+            textColor = textColor,
+            secondaryTextColor = secondaryTextColor
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        AnimatedVisibility(
-            visible = true,
-            enter = fadeIn(),
-            exit = fadeOut()
+        // Thank you message
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = goldColor.copy(alpha = 0.15f)
+            )
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                PremiumFeatureCard(
-                    title = "Modelos Avançados",
-                    description = "Acesse os melhores modelos de IA.",
-                    isDarkTheme = isDarkTheme
-                )
-                PremiumFeatureCard(
-                    title = "Exportação Avançada",
-                    description = "Exporte suas ideias em vários formatos.",
-                    isDarkTheme = isDarkTheme
-                )
-                PremiumFeatureCard(
-                    title = "Suporte Prioritário",
-                    description = "Receba atendimento VIP.",
-                    isDarkTheme = isDarkTheme
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Obrigado por apoiar o Brainstormia!",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = textColor,
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -354,94 +488,23 @@ fun PremiumUserContent(isDarkTheme: Boolean, planType: String?) {
 }
 
 @Composable
-fun PremiumFeatureCard(title: String, description: String, isDarkTheme: Boolean) {
-    val goldColor = BrainGold
-    val textColor = if (isDarkTheme) Color.White else Color.Black
-    val cardBgColor = if (isDarkTheme) Color(0xFF1E1E1E) else Color(0xFFEEEEEE)
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = cardBgColor,
-            contentColor = textColor
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = goldColor,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = textColor,
-                fontWeight = FontWeight.Normal
-            )
-        }
-    }
-}
-
-@Composable
-fun PulseButton(
-    onClick: () -> Unit,
-    text: String,
-    isDarkTheme: Boolean
-) {
-    val buttonBackgroundColor = BrainGold
-    val buttonTextColor = Color.Black
-
-    val infiniteTransition = rememberInfiniteTransition(label = "Pulse Button")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ), label = "Scale Animation"
-    )
-
-    Button(
-        onClick = onClick,
-        modifier = Modifier
-            .scale(scale)
-            .height(50.dp)
-            .fillMaxWidth(0.8f),
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = buttonBackgroundColor,
-            contentColor = buttonTextColor
-        )
-    ) {
-        Text(
-            text = text,
-            fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.labelLarge
-        )
-    }
-}
-
-@Composable
-fun BasicUserContentWithButtonFirst(
+fun BasicContent(
     onUpgradeToPremium: () -> Unit,
-    isDarkTheme: Boolean
+    isDarkTheme: Boolean,
+    cardColor: Color,
+    textColor: Color,
+    secondaryTextColor: Color
 ) {
     val goldColor = BrainGold
-    val textColor = if (isDarkTheme) Color.White else Color.Black
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        PulseButton(
+        // Upgrade button with animation
+        PremiumButton(
             onClick = onUpgradeToPremium,
             text = "Atualizar para Premium",
             isDarkTheme = isDarkTheme
@@ -449,40 +512,231 @@ fun BasicUserContentWithButtonFirst(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Features section
         Text(
-            text = "Liberte seu potencial!",
-            style = MaterialTheme.typography.headlineMedium,
+            text = "Por que escolher o Premium?",
+            style = MaterialTheme.typography.headlineSmall,
             color = goldColor,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = "Desbloqueie recursos exclusivos com o plano Premium.",
-            style = MaterialTheme.typography.titleSmall,
-            color = textColor.copy(alpha = 0.8f),
-            fontWeight = FontWeight.Normal,
-            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        AnimatedVisibility(
-            visible = true,
-            enter = fadeIn(),
-            exit = fadeOut()
+        FeatureCard(
+            icon = Icons.Outlined.Psychology,
+            title = "Modelos de IA Avançados",
+            description = "Acesso a todos os modelos premium como Claude e GPT-4o para respostas mais precisas e criativas.",
+            isDarkTheme = isDarkTheme,
+            cardColor = cardColor,
+            textColor = textColor,
+            secondaryTextColor = secondaryTextColor,
+            isLocked = true
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        FeatureCard(
+            icon = Icons.Outlined.CloudUpload,
+            title = "Exportação de Conversas",
+            description = "Salve e compartilhe facilmente suas conversas e ideias em múltiplos formatos.",
+            isDarkTheme = isDarkTheme,
+            cardColor = cardColor,
+            textColor = textColor,
+            secondaryTextColor = secondaryTextColor,
+            isLocked = true
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        FeatureCard(
+            icon = Icons.Outlined.SupportAgent,
+            title = "Suporte Prioritário",
+            description = "Atendimento VIP para solucionar suas dúvidas e problemas de forma rápida e eficiente.",
+            isDarkTheme = isDarkTheme,
+            cardColor = cardColor,
+            textColor = textColor,
+            secondaryTextColor = secondaryTextColor,
+            isLocked = true
+        )
+    }
+}
+
+@Composable
+fun FeatureCard(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    isDarkTheme: Boolean,
+    cardColor: Color,
+    textColor: Color,
+    secondaryTextColor: Color,
+    isLocked: Boolean = false
+) {
+    val goldColor = BrainGold
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = cardColor
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                PremiumFeatureCard(
-                    title = "Modelos de IA Avançados",
-                    description = "Acesso ilimitado aos modelos de IA mais poderosos e atualizados.",
-                    isDarkTheme = isDarkTheme
+            // Feature icon
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(
+                        color = if (isDarkTheme) {
+                            Color(0xFF2C2C2C)
+                        } else {
+                            goldColor.copy(alpha = 0.15f)
+                        }
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = goldColor,
+                    modifier = Modifier.size(28.dp)
                 )
-                PremiumFeatureCard(
-                    title = "Exportação Completa de Conversas",
-                    description = "Salve e compartilhe suas conversas e ideias em diversos formatos.",
-                    isDarkTheme = isDarkTheme
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Content
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = textColor,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    if (isLocked) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.Filled.Lock,
+                            contentDescription = "Recurso bloqueado",
+                            tint = goldColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = secondaryTextColor
                 )
-                PremiumFeatureCard(
-                    title = "Suporte Prioritário",
-                    description = "Receba atendimento mais rápido e dedicado para suas dúvidas.",
-                    isDarkTheme = isDarkTheme
+            }
+        }
+    }
+}
+
+@Composable
+fun PremiumButton(
+    onClick: () -> Unit,
+    text: String,
+    isDarkTheme: Boolean
+) {
+    val goldColor = BrainGold
+    val darkGoldColor = Color(0xFF8B6914)
+
+    // Animation
+    val infiniteTransition = rememberInfiniteTransition(label = "ButtonAnimation")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "ScaleAnimation"
+    )
+
+    val shimmerOffset by infiniteTransition.animateFloat(
+        initialValue = -1000f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = LinearEasing)
+        ),
+        label = "ShimmerAnimation"
+    )
+
+    Box(
+        modifier = Modifier
+            .padding(vertical = 8.dp)
+            .scale(scale)
+    ) {
+        // Shadow/glow effect
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .offset(y = 4.dp)
+                .shadow(
+                    elevation = 8.dp,
+                    shape = RoundedCornerShape(28.dp),
+                    spotColor = darkGoldColor
+                )
+        )
+
+        // Button
+        Button(
+            onClick = onClick,
+            modifier = Modifier
+                .height(56.dp)
+                .fillMaxWidth(0.8f)
+                .drawBehind {
+                    // Shimmer effect
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.0f),
+                                Color.White.copy(alpha = 0.2f),
+                                Color.White.copy(alpha = 0.0f)
+                            ),
+                            start = Offset(shimmerOffset - size.width, 0f),
+                            end = Offset(shimmerOffset, size.height)
+                        )
+                    )
+                },
+            shape = RoundedCornerShape(28.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = goldColor
+            ),
+            elevation = ButtonDefaults.buttonElevation(
+                defaultElevation = 4.dp,
+                pressedElevation = 0.dp
+            )
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = Color.Black
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    text = text,
+                    color = Color.Black,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
                 )
             }
         }
