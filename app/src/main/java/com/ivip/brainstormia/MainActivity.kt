@@ -55,7 +55,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import com.ivip.brainstormia.UserProfileScreen
 
 /* ───────────── DataStore (tema claro/escuro) ───────────── */
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("settings")
