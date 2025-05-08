@@ -1,14 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- App Information -->
     <string name="app_name">StormChat</string>
-    <string name="action_send">보내기</string>
+    <string name="logo_description">StormChat 로고</string>
+    <string name="app_icon_description">StormChat 아이콘</string>
+    <string name="welcome_message">안녕하세요, 환영합니다! 저는 StormChat ⚡입니다. 어떻게 도와드릴까요?</string>
+
+    <!-- Auth and Login -->
+    <string name="login">로그인</string>
+    <string name="logout">로그아웃</string>
+    <string name="enter">로그인</string>
+    <string name="register">회원가입</string>
+    <string name="login_with_google">Google로 로그인</string>
+    <string name="sign_in_with_google">Google로 로그인</string>
+    <string name="create_account">계정 만들기</string>
+    <string name="password">비밀번호</string>
+    <string name="email">이메일</string>
+    <string name="no_account">계정이 없으신가요?</string>
+    <string name="already_have_account">이미 계정이 있으신가요? 로그인</string>
+    <string name="forgot_password">비밀번호를 잊으셨나요</string>
+    <string name="logging_in">로그인 중...</string>
+    <string name="login_processing">로그인 중…</string>
+    <string name="fill_all_fields">모든 필드를 작성해주세요</string>
+    <string name="default_web_client_id">1067359774815-lgm0ns1gglqsdoq2ebp1dh62rr6hiiuq.apps.googleusercontent.com</string>
+    <string name="google_logo_description">Google 로고</string>
+    <string name="hide_password">비밀번호 숨기기</string>
+    <string name="show_password">비밀번호 표시</string>
+
+    <!-- Password Reset -->
+    <string name="password_reset_title">비밀번호 재설정</string>
+    <string name="password_reset">비밀번호 재설정</string>
+    <string name="password_reset_instructions">비밀번호 재설정 안내를 받으려면 이메일을 입력하세요</string>
+    <string name="password_reset_success">비밀번호 재설정 이메일이 성공적으로 전송되었습니다!</string>
+    <string name="error_email_required">이메일을 입력해주세요</string>
+    <string name="send_email">이메일 보내기</string>
+    <string name="back_to_login">로그인으로 돌아가기</string>
+
+    <!-- Navigation and UI -->
+    <string name="go_back">뒤로 가기</string>
+    <string name="back">뒤로</string>
+    <string name="menu">메뉴</string>
+    <string name="menu_description">메뉴</string>
+    <string name="or">또는</string>
+    <string name="save">저장</string>
+    <string name="cancel">취소</string>
+    <string name="delete">삭제</string>
+    <string name="scroll_to_top">맨 위로</string>
+    <string name="loading">로딩 중...</string>
+    <string name="processing">처리 중...</string>
     <string name="open_drawer_description">대화 메뉴 열기</string>
-    <string name="message_input_placeholder">메시지를 입력하세요...</string>
+    <string name="switch_to_light">라이트 테마로 전환</string>
+    <string name="switch_to_dark">다크 테마로 전환</string>
+
+    <!-- Profile -->
+    <string name="profile">프로필</string>
+    <string name="profile_title">내 프로필</string>
+    <string name="my_profile">내 프로필</string>
+    <string name="profile_description">프로필</string>
+    <string name="refresh_status">상태 새로고침</string>
+    <string name="brainstormer">브레인스토머</string>
+    <string name="profile_photo">프로필 사진</string>
+    <string name="profile_photo_placeholder">프로필 사진 자리표시자</string>
+    <string name="photo_placeholder">프로필 사진 자리표시자</string>
+    <string name="edit_photo">사진 편집</string>
+    <string name="email_not_available">이메일 사용 불가</string>
+    <string name="logout_text">세션 종료</string>
+
+    <!-- Premium Features -->
+    <string name="premium_user">프리미엄 사용자</string>
+    <string name="premium_member">프리미엄 회원 ✨</string>
+    <string name="premium_user_description">프리미엄 사용자</string>
+    <string name="basic_member">기본 회원</string>
+    <string name="plan_prefix">플랜: %1$s</string>
+    <string name="plan_unknown">알 수 없음</string>
+    <string name="plan_monthly">월간</string>
+    <string name="plan_annual">연간</string>
+    <string name="plan_lifetime">평생</string>
+    <string name="plan_premium">프리미엄</string>
+    <string name="premium_feature">프리미엄 기능</string>
+    <string name="locked_feature">잠긴 기능</string>
+    <string name="premium_thanks">프리미엄 커뮤니티의 일원이 되어 주셔서 감사합니다!</string>
+    <string name="become_premium">지금 프리미엄 회원이 되세요</string>
+    <string name="upgrade_premium">지금 프리미엄 회원이 되세요</string>
+    <string name="unlock_potential">최대 잠재력 해제</string>
+    <string name="premium_plans">프리미엄 플랜</string>
+    <string name="reload_plans">플랜 다시 로드</string>
+    <string name="loading_plans">플랜 로딩 중...</string>
+    <string name="no_plans_available">현재 이용 가능한 플랜이 없습니다.</string>
+    <string name="check_internet">인터넷 연결을 확인하거나 다시 로드해보세요.</string>
+    <string name="try_again">다시 시도</string>
+    <string name="choose_plan">플랜 선택:</string>
+    <string name="subscribe_now">지금 구독</string>
+    <string name="monthly_plan">월간 플랜</string>
+    <string name="monthly_period">/월</string>
+    <string name="annual_plan">연간 플랜</string>
+    <string name="annual_period">/년</string>
+    <string name="lifetime_plan">평생 플랜</string>
+    <string name="lifetime_period">일회성 결제</string>
+
+    <!-- Premium Feature Descriptions -->
+    <string name="exclusive_benefits">독점 혜택</string>
+    <string name="advanced_ai_models_title">고급 AI 모델</string>
+    <string name="advanced_ai_models_desc">가장 강력하고 창의적인 AI 모델에 대한 무제한 액세스.</string>
+    <string name="advanced_ai_models_desc_premium">가장 강력하고 창의적인 AI 모델에 대한 무제한 액세스.</string>
+    <string name="advanced_ai_models_desc_basic">Claude 및 GPT-4o와 같은 모든 프리미엄 모델에 액세스하여 더 정확하고 창의적인 응답을 받을 수 있습니다.</string>
+    <string name="conversation_export_title">대화 내보내기</string>
+    <string name="conversation_export_desc">다양한 형식으로 대화와 아이디어를 저장하고 공유하세요.</string>
+    <string name="conversation_export_desc_premium">다양한 형식으로 대화와 아이디어를 저장하고 공유하세요.</string>
+    <string name="conversation_export_desc_basic">다양한 형식으로 대화와 아이디어를 쉽게 저장하고 공유하세요.</string>
+    <string name="priority_support_title">우선 지원</string>
+    <string name="priority_support_desc">질문과 문제를 빠르게 해결하기 위한 VIP 지원.</string>
+    <string name="priority_support_desc_premium">질문과 문제를 빠르게 해결하기 위한 VIP 지원.</string>
+    <string name="priority_support_desc_basic">질문과 문제를 빠르고 효율적으로 해결하기 위한 VIP 지원.</string>
+
+    <!-- Conversation Management -->
+    <string name="conversations">대화</string>
     <string name="conversation_list_title">내 대화</string>
     <string name="conversation_item_description">이전 대화</string>
+    <string name="new_conversation">새 대화</string>
+    <string name="new_conversation_button">새 대화</string>
+    <string name="new_conversation_title">새 대화</string>
+    <string name="conversation_generic_title">대화 %1$s</string>
+    <string name="rename_conversation">대화 이름 변경</string>
+    <string name="export_conversation">대화 내보내기</string>
+    <string name="export_conversation_description">대화 내보내기</string>
+    <string name="export_this_conversation">대화 내보내기</string>
+    <string name="delete_conversation">대화 삭제</string>
+    <string name="delete_conversation_title">대화 삭제</string>
+    <string name="delete_conversation_message">이 대화를 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.</string>
+    <string name="conversation_options_desc">대화 옵션</string>
+    <string name="no_conversations_placeholder">아직 대화가 없습니다.</string>
+
+    <!-- Conversation UI -->
+    <string name="message_input_hint">메시지...</string>
+    <string name="message_hint">메시지...</string>
+    <string name="message_input_placeholder">메시지를 입력하세요...</string>
+    <string name="action_send">보내기</string>
+    <string name="send_description">메시지 보내기</string>
+    <string name="voice_input">음성 입력</string>
+    <string name="voice_input_description">음성 입력</string>
     <string name="loading_title_placeholder">로딩 중...</string>
     <string name="error_loading_title">제목 로딩 오류</string>
-    <string name="no_conversations_placeholder">아직 대화가 없습니다.</string>
-    <string name="conversation_options_desc">대화 옵션</string>
+
+    <!-- Export Functionality -->
+    <string name="export_error_no_messages">내보낼 메시지가 없습니다</string>
+    <string name="export_error_no_content">내보낼 콘텐츠가 없습니다</string>
+    <string name="export_error_unknown">알 수 없는 오류</string>
+    <string name="export_error_prefix">내보내기 실패: %1$s</string>
+    <string name="export_error_local_file">로컬 파일을 생성할 수 없습니다</string>
+    <string name="export_file_prefix">StormChat_%1$s_%2$s.txt</string>
+    <string name="export_header">=== STORMCHAT에서 내보낸 대화 ===</string>
+    <string name="export_date">날짜: %1$s</string>
+    <string name="export_message_count">총 메시지: %1$d</string>
+    <string name="export_separator">=====================================</string>
+    <string name="export_user">당신</string>
+    <string name="export_bot">StormChat</string>
+    <string name="export_unknown">알 수 없음</string>
+    <string name="export_message_separator">---</string>
+    <string name="export_fallback_title">대화</string>
+
+    <!-- Dialogs -->
+    <string name="delete_confirmation_message">이 메시지를 삭제하시겠습니까?</string>
     <string name="rename_action">이름 변경</string>
     <string name="delete_action">삭제</string>
     <string name="delete_confirmation_title">삭제 확인</string>
@@ -17,116 +169,78 @@
     <string name="cancel_button">취소</string>
     <string name="rename_conversation_dialog_title">대화 이름 변경</string>
     <string name="new_conversation_name_label">새 대화 이름</string>
+    <string name="new_name">새 이름</string>
     <string name="save_button">저장</string>
-    <string name="sign_in_with_google">Google로 로그인</string>
-    <string name="default_web_client_id">1067359774815-lgm0ns1gglqsdoq2ebp1dh62rr6hiiuq.apps.googleusercontent.com</string>
-    <string name="login">로그인</string>
-    <string name="create_account">계정 만들기</string>
-    <string name="password">비밀번호</string>
-    <string name="enter">로그인</string>
-    <string name="register">가입하기</string>
-    <string name="no_account">계정이 없으신가요?</string>
-    <string name="forgot_password">비밀번호를 잊으셨나요</string>
-    <string name="login_with_google">Google로 로그인</string>
-    <string name="already_have_account">이미 계정이 있으신가요? 로그인</string>
-    <string name="logging_in">로그인 중...</string>
-    <string name="fill_all_fields">모든 필드를 입력해 주세요</string>
-    <string name="switch_to_light">라이트 테마로 전환</string>
-    <string name="switch_to_dark">다크 테마로 전환</string>
-    <string name="logo_description">StormChat 로고</string>
-    <string name="google_logo_description">Google 로고</string>
-    <string name="hide_password">비밀번호 숨기기</string>
-    <string name="show_password">비밀번호 표시</string>
-    <string name="conversations">대화</string>
-    <string name="new_conversation">새 대화</string>
-    <string name="new_conversation_button">새 대화</string>
-    <string name="rename_conversation">대화 이름 변경</string>
-    <string name="export_conversation">대화 내보내기</string>
-    <string name="delete_conversation">대화 삭제</string>
-    <string name="plan_unknown">알 수 없음</string>
-    <string name="plan_monthly">월간</string>
-    <string name="plan_annual">연간</string>
-    <string name="plan_lifetime">평생</string>
-    <string name="plan_premium">프리미엄</string>
-    <string name="loading">로딩 중...</string>
-    <string name="message_input_hint">메시지...</string>
+
+    <!-- AI Model Selection -->
+    <string name="ai_model">AI 모델</string>
+    <string name="ai_model_selector_title">AI 모델:</string>
+    <string name="select_ai_model">AI 모델 선택</string>
+    <string name="ai_model_selection">AI 모델 선택</string>
+    <string name="collapse">접기</string>
+    <string name="expand">펼치기</string>
+    <string name="reset_model">재설정 중...</string>
+    <string name="changing_model">변경 중...</string>
+    <string name="model_default">기본 모델</string>
+    <string name="model_selection_saved">AI 모델 선호도가 저장되었습니다</string>
+    <string name="model_feature_premium">이 모델은 프리미엄 사용자에게 제공됩니다</string>
+    <string name="premium_model_dialog_title">프리미엄 모델</string>
+    <string name="premium_model_dialog_message">이 모델은 프리미엄 구독이 필요합니다. 고급 AI 모델에 액세스하려면 지금 업그레이드하세요.</string>
+    <string name="model_change_failed">AI 모델 변경 실패</string>
+
+    <!-- Model Descriptions -->
+    <string name="model_description_gpt4">OpenAI의 가장 강력한 모델, 복잡한 추론에 최적화.</string>
+    <string name="model_description_gpt4o">향상된 기능을 갖춘 최신 GPT-4 변형.</string>
+    <string name="model_description_gpt35">일상적인 쿼리를 위한 빠르고 효율적인 모델.</string>
+    <string name="model_description_claude">높은 추론 능력을 갖춘 Anthropic의 고급 모델.</string>
+    <string name="model_description_claude_opus">가장 강력한 Claude 모델, 복잡한 작업에 탁월.</string>
+    <string name="model_description_claude_haiku">빠른 응답을 위한 빠르고 효율적인 Claude 모델.</string>
+
+    <!-- Error Messages -->
     <string name="error_prefix">오류: %1$s</string>
-    <string name="delete_conversation_title">대화 삭제</string>
-    <string name="delete_conversation_message">이 대화를 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.</string>
-    <string name="delete">삭제</string>
-    <string name="cancel">취소</string>
-    <string name="menu">메뉴</string>
-    <string name="back">뒤로</string>
-    <string name="export_this_conversation">대화 내보내기</string>
-    <string name="profile">프로필</string>
-    <string name="premium_user">프리미엄 사용자</string>
-    <string name="voice_input">음성 입력</string>
     <string name="error_login_required">모델을 변경하려면 로그인해야 합니다</string>
     <string name="error_premium_required">이 모델은 프리미엄 구독이 필요합니다. GPT-4o를 사용합니다.</string>
-    <string name="error_save_model">모델 환경설정 저장 오류: %1$s</string>
-    <string name="error_loading_conversations">대화 목록 로딩 오류.</string>
+    <string name="error_save_model">모델 선호도 저장 오류: %1$s</string>
+    <string name="error_loading_conversations">대화 목록 로딩 오류 (원본).</string>
     <string name="error_processing_conversations">표시할 대화 목록 처리 오류.</string>
     <string name="error_load_messages">대화 메시지 로딩 오류.</string>
     <string name="error_internal_conversation">내부 오류: 대화를 확인할 수 없습니다.</string>
-    <string name="error_process_history">기록 처리 또는 AI 호출 오류: %1$s</string>
+    <string name="error_process_history">히스토리 처리 또는 AI 호출 오류: %1$s</string>
     <string name="error_delete_conversation">대화 삭제 오류: %1$s</string>
-    <string name="error_cannot_rename_new">저장되지 않은 대화의 이름을 바꿀 수 없습니다.</string>
+    <string name="error_cannot_rename_new">저장되지 않은 대화의 이름을 변경할 수 없습니다.</string>
     <string name="error_title_empty">제목은 비워둘 수 없습니다.</string>
     <string name="error_rename_conversation">대화 이름 변경 오류: %1$s</string>
-    <string name="error_empty_response">AI에서 빈 응답이 왔습니다. 다시 시도해 주세요.</string>
-    <string name="error_timeout">AI 응답 시간이 너무 깁니다. 다시 시도해 주세요.</string>
+    <string name="error_empty_response">AI의 응답이 비어 있습니다. 다시 시도해주세요.</string>
+    <string name="error_timeout">AI가 응답하는 데 너무 오래 걸렸습니다. 다시 시도해주세요.</string>
     <string name="error_ai_communication">AI와의 통신 오류: %1$s</string>
-    <string name="error_wait_previous">이전 응답을 기다려 주세요.</string>
-    <string name="new_conversation_title">새 대화</string>
-    <string name="conversation_generic_title">대화 %1$s</string>
-    <string name="password_reset">비밀번호 재설정</string>
-    <string name="password_reset_instructions">비밀번호 재설정 안내를 받을 이메일을 입력하세요</string>
-    <string name="email">이메일</string>
-    <string name="send_email">이메일 보내기</string>
-    <string name="back_to_login">로그인으로 돌아가기</string>
-    <string name="error_email_required">이메일을 입력해 주세요</string>
-    <string name="password_reset_success">비밀번호 재설정 이메일을 성공적으로 보냈습니다!</string>
-    <string name="premium_plans">프리미엄 플랜</string>
-    <string name="reload_plans">플랜 다시 로드</string>
-    <string name="loading_plans">플랜 로딩 중...</string>
-    <string name="no_plans_available">현재 이용 가능한 플랜이 없습니다.</string>
-    <string name="check_internet">인터넷 연결을 확인하거나 다시 로드해 보세요.</string>
-    <string name="try_again">다시 시도</string>
-    <string name="choose_plan">플랜 선택:</string>
-    <string name="subscribe_now">지금 구독하기</string>
-    <string name="processing">처리 중...</string>
-    <string name="monthly_plan">월간 플랜</string>
-    <string name="monthly_period">/월</string>
-    <string name="annual_plan">연간 플랜</string>
-    <string name="annual_period">/년</string>
-    <string name="lifetime_plan">평생 플랜</string>
-    <string name="lifetime_period">일회성 결제</string>
-    <string name="new_name">새 이름</string>
-    <string name="save">저장</string>
-    <string name="my_profile">내 프로필</string>
-    <string name="refresh_status">상태 새로고침</string>
-    <string name="edit_photo">사진 편집</string>
-    <string name="profile_photo">프로필 사진</string>
-    <string name="photo_placeholder">프로필 사진 자리표시자</string>
-    <string name="email_not_available">이메일 사용 불가</string>
-    <string name="premium_member">프리미엄 회원 ✨</string>
-    <string name="basic_member">기본 회원</string>
-    <string name="plan_prefix">플랜: %1$s</string>
-    <string name="exclusive_benefits">독점 혜택</string>
-    <string name="advanced_ai_models_title">고급 AI 모델</string>
-    <string name="advanced_ai_models_desc">가장 강력하고 창의적인 AI 모델에 무제한 접근.</string>
-    <string name="conversation_export_title">대화 내보내기</string>
-    <string name="conversation_export_desc">다양한 형식으로 대화와 아이디어를 저장하고 공유하세요.</string>
-    <string name="priority_support_title">우선 지원</string>
-    <string name="priority_support_desc">질문과 문제를 빠르게 해결하는 VIP 지원.</string>
-    <string name="premium_thanks">프리미엄 커뮤니티의 일원이 되어주셔서 감사합니다!</string>
-    <string name="upgrade_premium">지금 프리미엄으로 업그레이드</string>
-    <string name="unlock_potential">최대 잠재력 해제</string>
-    <string name="advanced_ai_models_desc_basic">Claude와 GPT-4o와 같은 모든 프리미엄 모델에 접근하여 더 정확하고 창의적인 응답을 받으세요.</string>
-    <string name="conversation_export_desc_basic">다양한 형식으로 대화와 아이디어를 쉽게 저장하고 공유하세요.</string>
-    <string name="priority_support_desc_basic">질문과 문제를 빠르고 효율적으로 해결하는 VIP 지원.</string>
-    <string name="feature_locked">잠긴 기능</string>
-    <string name="logout">로그아웃</string>
-    <string name="login_processing">로그인 중...</string>
-    <string name="welcome_message">안녕하세요, 환영합니다! 저는 StormChat ⚡입니다. 어떻게 도와드릴까요?</string>
+    <string name="error_wait_previous">이전 응답을 기다려주세요.</string>
+
+    <!-- Export Dialog -->
+    <string name="export_dialog_title">대화 내보내기</string>
+    <string name="export_dialog_confirmation">이 대화를 Google Drive로 내보내시겠습니까?</string>
+    <string name="export_dialog_title_prefix">제목: %1$s</string>
+    <string name="export_dialog_exporting">내보내는 중...</string>
+    <string name="export_dialog_success">대화가 성공적으로 내보내졌습니다!</string>
+    <string name="export_dialog_filename">파일 이름: %1$s</string>
+    <string name="export_dialog_open_drive">Google Drive에서 열기</string>
+    <string name="export_dialog_error_prefix">내보내기 오류: %1$s</string>
+    <string name="export_dialog_action_export">내보내기</string>
+    <string name="export_dialog_action_ok">확인</string>
+    <string name="export_dialog_action_cancel">취소</string>
+
+    <!-- Error Handling (Drive) -->
+    <string name="export_error_drive_open">Drive 열기 오류: %1$s</string>
+    <string name="export_error_no_google_account">Google 계정을 찾을 수 없습니다</string>
+    <string name="export_error_drive_setup">Drive 서비스 설정 오류</string>
+    <string name="export_log_drive_setup_success">Drive 서비스가 성공적으로 설정되었습니다</string>
+    <string name="export_log_start">대화 내보내기 시작: %1$s, 제목: %2$s</string>
+    <string name="export_log_filename">준비된 파일 이름: %1$s</string>
+    <string name="export_log_drive_create">Google Drive에 파일 생성 중: %1$s</string>
+    <string name="export_log_drive_created">Drive에 ID가 %1$s인 파일이 생성되었습니다</string>
+    <string name="export_log_drive_permissions">파일에 대한 권한이 설정되었습니다: %1$s</string>
+    <string name="export_error_drive_permissions">파일 권한 설정 오류</string>
+    <string name="export_error_drive_create">Drive에 파일 생성 오류</string>
+    <string name="export_log_local_export">로컬 저장소로 내보내기: %1$s</string>
+    <string name="export_log_local_saved">로컬 저장소에 파일이 저장되었습니다: %1$s</string>
+    <string name="export_log_content_size">형식이 지정된 콘텐츠: %1$d 문자</string>
 </resources>

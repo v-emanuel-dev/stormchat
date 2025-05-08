@@ -49,7 +49,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 val googleAccount = GoogleSignIn.getLastSignedInAccount(getApplication())
                 if (googleAccount == null) {
-                    Log.w(tag, "Nenhuma conta Google encontrada")
+                    Log.w(tag, context.getString(R.string.export_error_no_google_account))
                     return@launch
                 }
 
@@ -67,9 +67,9 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
                     .setApplicationName("Brainstormia")
                     .build()
 
-                Log.d(tag, "Serviço do Drive configurado com sucesso")
+                Log.d(tag, context.getString(R.string.export_log_drive_setup_success))
             } catch (e: Exception) {
-                Log.e(tag, "Erro ao configurar o serviço do Drive", e)
+                Log.e(tag, context.getString(R.string.export_error_drive_setup), e)
             }
         }
     }
@@ -85,7 +85,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         _exportState.value = ExportState.Loading
-        Log.d(tag, "Iniciando exportação para conversa: $conversationId, título: $title")
+        Log.d(tag, context.getString(R.string.export_log_start, conversationId, title))
 
         viewModelScope.launch {
             try {
@@ -96,7 +96,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
                 // Criar um nome de arquivo baseado no título da conversa
                 val sanitizedTitle = sanitizeFileName(title)
                 val fileName = context.getString(R.string.export_file_prefix, sanitizedTitle, dateTime)
-                Log.d(tag, "Nome do arquivo preparado: $fileName")
+                Log.d(tag, context.getString(R.string.export_log_filename, fileName))
 
                 // Converter mensagens para texto formatado
                 val fileContent = formatConversationAsText(messages)
@@ -129,7 +129,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun exportToDrive(drive: Drive, fileName: String, content: String) {
         withContext(Dispatchers.IO) {
             try {
-                Log.d(tag, "Criando arquivo no Google Drive: $fileName")
+                Log.d(tag, context.getString(R.string.export_log_drive_create, fileName))
 
                 // Criar metadados do arquivo
                 val fileMetadata = DriveFile().apply {
@@ -145,7 +145,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
                     .setFields("id,webViewLink")
                     .execute()
 
-                Log.d(tag, "Arquivo criado no Drive com ID: ${file.id}")
+                Log.d(tag, context.getString(R.string.export_log_drive_created, file.id))
 
                 // Configurar permissões para que o arquivo seja acessível
                 try {
@@ -158,9 +158,9 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
                         .setFields("id")
                         .execute()
 
-                    Log.d(tag, "Permissões definidas para o arquivo: ${file.id}")
+                    Log.d(tag, context.getString(R.string.export_log_drive_permissions, file.id))
                 } catch (e: Exception) {
-                    Log.e(tag, "Erro ao configurar permissões do arquivo", e)
+                    Log.e(tag, context.getString(R.string.export_error_drive_permissions), e)
                     // Continuar mesmo se as permissões falharem
                 }
 
@@ -172,7 +172,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 }
             } catch (e: Exception) {
-                Log.e(tag, "Erro ao criar arquivo no Drive", e)
+                Log.e(tag, context.getString(R.string.export_error_drive_create), e)
                 throw e
             }
         }
@@ -181,7 +181,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun exportToLocalStorage(fileName: String, content: String) {
         withContext(Dispatchers.IO) {
             try {
-                Log.d(tag, "Exportando para armazenamento local: $fileName")
+                Log.d(tag, context.getString(R.string.export_log_local_export, fileName))
                 val context = getApplication<Application>()
 
                 val values = ContentValues().apply {
@@ -198,7 +198,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
                         output.write(content.toByteArray())
                     }
 
-                    Log.d(tag, "Arquivo salvo no armazenamento local: $uri")
+                    Log.d(tag, context.getString(R.string.export_log_local_saved, uri))
 
                     withContext(Dispatchers.Main) {
                         _exportState.value = ExportState.Success(fileName = fileName)
@@ -244,7 +244,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
 
             // Log do tamanho do conteúdo para depuração
             val content = toString()
-            Log.d(tag, "Conteúdo formatado: ${content.length} caracteres")
+            Log.d(tag, context.getString(R.string.export_log_content_size, content.length))
         }
     }
 

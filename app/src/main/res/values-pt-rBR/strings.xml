@@ -1,131 +1,246 @@
 <?xml version="1.0" encoding="utf-8"?>
-    <resources>
-        <string name="app_name">StormChat</string>
-        <string name="action_send">Enviar</string>
-        <string name="open_drawer_description">Abrir menu de conversas</string>
-        <string name="message_input_placeholder">Digite sua mensagem...</string>
-        <string name="new_conversation_title">Nova Conversa</string>
-        <string name="conversation_list_title">Minhas Conversas</string>
-        <string name="conversation_item_description">Conversa anterior</string>
-        <string name="loading_title_placeholder">Carregando...</string>
-        <string name="error_loading_title">Erro ao carregar título</string>
-        <string name="no_conversations_placeholder">Nenhuma conversa ainda.</string>
-        <string name="conversation_options_desc">Opções de conversa</string>
-        <string name="rename_action">Renomear</string>
-        <string name="delete_action">Excluir</string>
-        <string name="delete_confirmation_title">Confirmar Exclusão</string>
-        <string name="delete_confirmation_text">Tem certeza que deseja excluir esta conversa? Esta ação não pode ser desfeita.</string>
-        <string name="delete_confirm_button">Excluir</string>
-        <string name="cancel_button">Cancelar</string>
-        <string name="rename_conversation_dialog_title">Renomear Conversa</string>
-        <string name="new_conversation_name_label">Novo nome da conversa</string>
-        <string name="save_button">Salvar</string>
-        <string name="sign_in_with_google">Entrar com Google</string>
-        <string name="login">Login</string>
-        <string name="create_account">Criar uma conta</string>
-        <string name="email">Email</string>
-        <string name="password">Senha</string>
-        <string name="enter">Entrar</string>
-        <string name="register">Cadastrar</string>
-        <string name="no_account">Não tem uma conta?</string>
-        <string name="forgot_password">Esqueceu sua senha</string>
-        <string name="login_with_google">Entrar com Google</string>
-        <string name="already_have_account">Já tem uma conta? Faça Login</string>
-        <string name="logging_in">Fazendo login...</string>
-        <string name="fill_all_fields">Por favor, preencha todos os campos</string>
-        <string name="switch_to_light">Mudar para Tema Claro</string>
-        <string name="switch_to_dark">Mudar para Tema Escuro</string>
-        <string name="logo_description">Logo do StormChat</string>
-        <string name="google_logo_description">Logo do Google</string>
-        <string name="hide_password">Ocultar Senha</string>
-        <string name="show_password">Mostrar Senha</string>
-        <string name="conversations">Conversas</string>
-        <string name="new_conversation">Nova conversa</string>
-        <string name="new_conversation_button">Nova conversa</string>
-        <string name="rename_conversation">Renomear conversa</string>
-        <string name="export_conversation">Exportar conversa</string>
-        <string name="delete_conversation">Excluir conversa</string>
-        <string name="plan_unknown">Desconhecido</string>
-        <string name="plan_monthly">Mensal</string>
-        <string name="plan_annual">Anual</string>
-        <string name="plan_lifetime">Vitalício</string>
-        <string name="plan_premium">Premium</string>
-        <string name="loading">Carregando...</string>
-        <string name="message_input_hint">Mensagem...</string>
-        <string name="error_prefix">Erro: %1$s</string>
-        <string name="delete_conversation_title">Excluir conversa</string>
-        <string name="delete_conversation_message">Tem certeza que deseja excluir esta conversa? Esta ação não pode ser desfeita.</string>
-        <string name="delete">Excluir</string>
-        <string name="cancel">Cancelar</string>
-        <string name="menu">Menu</string>
-        <string name="back">Voltar</string>
-        <string name="export_this_conversation">Exportar conversa</string>
-        <string name="profile">Perfil</string>
-        <string name="premium_user">Usuário Premium</string>
-        <string name="logout">Sair</string>
-        <string name="voice_input">Entrada de voz</string>
-        <string name="error_login_required">Você precisa estar logado para alterar o modelo</string>
-        <string name="error_premium_required">Este modelo requer assinatura premium. Usando GPT-4o.</string>
-        <string name="error_save_model">Erro ao salvar preferência de modelo: %1$s</string>
-        <string name="error_loading_conversations">Erro ao carregar lista de conversas.</string>
-        <string name="error_processing_conversations">Erro ao processar lista de conversas para exibição.</string>
-        <string name="error_load_messages">Erro ao carregar mensagens da conversa.</string>
-        <string name="error_internal_conversation">Erro interno: Não foi possível determinar a conversa.</string>
-        <string name="error_process_history">Erro ao processar histórico ou chamar IA: %1$s</string>
-        <string name="error_delete_conversation">Erro ao excluir conversa: %1$s</string>
-        <string name="error_cannot_rename_new">Não é possível renomear uma conversa não salva.</string>
-        <string name="error_title_empty">O título não pode ficar em branco.</string>
-        <string name="error_rename_conversation">Erro ao renomear conversa: %1$s</string>
-        <string name="error_empty_response">Resposta vazia da IA. Por favor, tente novamente.</string>
-        <string name="error_timeout">A IA demorou muito para responder. Por favor, tente novamente.</string>
-        <string name="error_ai_communication">Erro ao comunicar com IA: %1$s</string>
-        <string name="error_wait_previous">Aguarde a resposta anterior.</string>
-        <string name="conversation_generic_title">Conversa %1$s</string>
-        <string name="password_reset">Redefinir Senha</string>
-        <string name="password_reset_instructions">Informe seu email para receber as instruções de redefinição de senha</string>
-        <string name="send_email">Enviar email</string>
-        <string name="back_to_login">Voltar para o login</string>
-        <string name="error_email_required">Por favor, informe seu email</string>
-        <string name="password_reset_success">Email de redefinição de senha enviado com sucesso!</string>
-        <string name="premium_plans">Planos Premium</string>
-        <string name="reload_plans">Recarregar Planos</string>
-        <string name="loading_plans">Carregando planos...</string>
-        <string name="no_plans_available">Nenhum plano disponível no momento.</string>
-        <string name="check_internet">Por favor, verifique sua conexão com a internet ou tente recarregar.</string>
-        <string name="try_again">Tentar Novamente</string>
-        <string name="choose_plan">Escolha seu plano:</string>
-        <string name="subscribe_now">Assinar Agora</string>
-        <string name="processing">Processando...</string>
-        <string name="monthly_plan">Plano Mensal</string>
-        <string name="monthly_period">/mês</string>
-        <string name="annual_plan">Plano Anual</string>
-        <string name="annual_period">/ano</string>
-        <string name="lifetime_plan">Plano Vitalício</string>
-        <string name="lifetime_period">pagamento único</string>
-        <string name="new_name">Novo nome</string>
-        <string name="save">Salvar</string>
-        <string name="my_profile">Meu Perfil</string>
-        <string name="refresh_status">Atualizar estado</string>
-        <string name="edit_photo">Editar foto</string>
-        <string name="profile_photo">Foto de Perfil</string>
-        <string name="photo_placeholder">Marcador de Foto de Perfil</string>
-        <string name="email_not_available">Email não disponível</string>
-        <string name="premium_member">Membro Premium ✨</string>
-        <string name="basic_member">Membro Básico</string>
-        <string name="plan_prefix">Plano: %1$s</string>
-        <string name="exclusive_benefits">Vantagens Exclusivas</string>
-        <string name="advanced_ai_models_title">Modelos de IA Avançados</string>
-        <string name="advanced_ai_models_desc">Acesso ilimitado aos modelos de IA mais poderosos e criativos.</string>
-        <string name="conversation_export_title">Exportação de Conversas</string>
-        <string name="conversation_export_desc">Salve e compartilhe suas conversas e ideias em múltiplos formatos.</string>
-        <string name="priority_support_title">Suporte Prioritário</string>
-        <string name="priority_support_desc">Atendimento VIP para resolver suas dúvidas e problemas rapidamente.</string>
-        <string name="premium_thanks">Obrigado por fazer parte da comunidade Premium!</string>
-        <string name="upgrade_premium">Torne-se Premium Agora</string>
-        <string name="unlock_potential">Desbloqueie o Potencial Máximo</string>
-        <string name="advanced_ai_models_desc_basic">Acesso a todos os modelos premium como Claude e GPT-4o para respostas mais precisas e criativas.</string>
-        <string name="conversation_export_desc_basic">Salve e compartilhe facilmente suas conversas e ideias em múltiplos formatos.</string>
-        <string name="priority_support_desc_basic">Atendimento VIP para solucionar suas dúvidas e problemas de forma rápida e eficiente.</string>
-        <string name="feature_locked">Recurso bloqueado</string>
-        <string name="welcome_message">Olá, bem-vindo! Eu sou o StormChat ⚡. Como posso ajudar você?</string>
-    </resources>
+<resources>
+    <!-- App Information -->
+    <string name="app_name">StormChat</string>
+    <string name="logo_description">Logo do StormChat</string>
+    <string name="app_icon_description">Ícone do StormChat</string>
+    <string name="welcome_message">Olá, bem-vindo! Eu sou o StormChat ⚡. Como posso ajudar você?</string>
+
+    <!-- Auth and Login -->
+    <string name="login">Entrar</string>
+    <string name="logout">Sair</string>
+    <string name="enter">Entrar</string>
+    <string name="register">Cadastrar</string>
+    <string name="login_with_google">Entrar com Google</string>
+    <string name="sign_in_with_google">Entrar com Google</string>
+    <string name="create_account">Criar uma conta</string>
+    <string name="password">Senha</string>
+    <string name="email">Email</string>
+    <string name="no_account">Não tem uma conta?</string>
+    <string name="already_have_account">Já tem uma conta? Entre</string>
+    <string name="forgot_password">Esqueceu sua senha</string>
+    <string name="logging_in">Entrando...</string>
+    <string name="login_processing">Entrando…</string>
+    <string name="fill_all_fields">Por favor, preencha todos os campos</string>
+    <string name="default_web_client_id">1067359774815-lgm0ns1gglqsdoq2ebp1dh62rr6hiiuq.apps.googleusercontent.com</string>
+    <string name="google_logo_description">Logo do Google</string>
+    <string name="hide_password">Ocultar Senha</string>
+    <string name="show_password">Mostrar Senha</string>
+
+    <!-- Password Reset -->
+    <string name="password_reset_title">Redefinir Senha</string>
+    <string name="password_reset">Redefinir Senha</string>
+    <string name="password_reset_instructions">Digite seu email para receber instruções de redefinição de senha</string>
+    <string name="password_reset_success">Email de redefinição de senha enviado com sucesso!</string>
+    <string name="error_email_required">Por favor, digite seu email</string>
+    <string name="send_email">Enviar email</string>
+    <string name="back_to_login">Voltar para login</string>
+
+    <!-- Navigation and UI -->
+    <string name="go_back">Voltar</string>
+    <string name="back">Voltar</string>
+    <string name="menu">Menu</string>
+    <string name="menu_description">Menu</string>
+    <string name="or">ou</string>
+    <string name="save">Salvar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="delete">Excluir</string>
+    <string name="scroll_to_top">Voltar ao topo</string>
+    <string name="loading">Carregando...</string>
+    <string name="processing">Processando...</string>
+    <string name="open_drawer_description">Abrir menu de conversas</string>
+    <string name="switch_to_light">Mudar para Tema Claro</string>
+    <string name="switch_to_dark">Mudar para Tema Escuro</string>
+
+    <!-- Profile -->
+    <string name="profile">Perfil</string>
+    <string name="profile_title">Meu Perfil</string>
+    <string name="my_profile">Meu Perfil</string>
+    <string name="profile_description">Perfil</string>
+    <string name="refresh_status">Atualizar status</string>
+    <string name="brainstormer">Brainstormer</string>
+    <string name="profile_photo">Foto de Perfil</string>
+    <string name="profile_photo_placeholder">Espaço para Foto de Perfil</string>
+    <string name="photo_placeholder">Espaço para Foto de Perfil</string>
+    <string name="edit_photo">Editar foto</string>
+    <string name="email_not_available">Email não disponível</string>
+    <string name="logout_text">Encerrar Sessão</string>
+
+    <!-- Premium Features -->
+    <string name="premium_user">Usuário Premium</string>
+    <string name="premium_member">Membro Premium ✨</string>
+    <string name="premium_user_description">Usuário Premium</string>
+    <string name="basic_member">Membro Básico</string>
+    <string name="plan_prefix">Plano: %1$s</string>
+    <string name="plan_unknown">Desconhecido</string>
+    <string name="plan_monthly">Mensal</string>
+    <string name="plan_annual">Anual</string>
+    <string name="plan_lifetime">Vitalício</string>
+    <string name="plan_premium">Premium</string>
+    <string name="premium_feature">Recurso Premium</string>
+    <string name="locked_feature">Recurso bloqueado</string>
+    <string name="premium_thanks">Obrigado por fazer parte da comunidade Premium!</string>
+    <string name="become_premium">Torne-se Premium Agora</string>
+    <string name="upgrade_premium">Torne-se Premium Agora</string>
+    <string name="unlock_potential">Desbloqueie o Máximo Potencial</string>
+    <string name="premium_plans">Planos Premium</string>
+    <string name="reload_plans">Recarregar Planos</string>
+    <string name="loading_plans">Carregando planos...</string>
+    <string name="no_plans_available">Nenhum plano disponível no momento.</string>
+    <string name="check_internet">Por favor, verifique sua conexão com a internet ou tente recarregar.</string>
+    <string name="try_again">Tentar Novamente</string>
+    <string name="choose_plan">Escolha seu plano:</string>
+    <string name="subscribe_now">Assinar Agora</string>
+    <string name="monthly_plan">Plano Mensal</string>
+    <string name="monthly_period">/mês</string>
+    <string name="annual_plan">Plano Anual</string>
+    <string name="annual_period">/ano</string>
+    <string name="lifetime_plan">Plano Vitalício</string>
+    <string name="lifetime_period">pagamento único</string>
+
+    <!-- Premium Feature Descriptions -->
+    <string name="exclusive_benefits">Benefícios Exclusivos</string>
+    <string name="advanced_ai_models_title">Modelos de IA Avançados</string>
+    <string name="advanced_ai_models_desc">Acesso ilimitado aos modelos de IA mais poderosos e criativos.</string>
+    <string name="advanced_ai_models_desc_premium">Acesso ilimitado aos modelos de IA mais poderosos e criativos.</string>
+    <string name="advanced_ai_models_desc_basic">Acesso a todos os modelos premium como Claude e GPT-4o para respostas mais precisas e criativas.</string>
+    <string name="conversation_export_title">Exportação de Conversas</string>
+    <string name="conversation_export_desc">Salve e compartilhe suas conversas e ideias em múltiplos formatos.</string>
+    <string name="conversation_export_desc_premium">Salve e compartilhe suas conversas e ideias em múltiplos formatos.</string>
+    <string name="conversation_export_desc_basic">Salve e compartilhe facilmente suas conversas e ideias em múltiplos formatos.</string>
+    <string name="priority_support_title">Suporte Prioritário</string>
+    <string name="priority_support_desc">Assistência VIP para resolver rapidamente suas dúvidas e problemas.</string>
+    <string name="priority_support_desc_premium">Assistência VIP para resolver rapidamente suas dúvidas e problemas.</string>
+    <string name="priority_support_desc_basic">Assistência VIP para resolver rápida e eficientemente suas dúvidas e problemas.</string>
+
+    <!-- Conversation Management -->
+    <string name="conversations">Conversas</string>
+    <string name="conversation_list_title">Minhas Conversas</string>
+    <string name="conversation_item_description">Conversa anterior</string>
+    <string name="new_conversation">Nova conversa</string>
+    <string name="new_conversation_button">Nova conversa</string>
+    <string name="new_conversation_title">Nova Conversa</string>
+    <string name="conversation_generic_title">Conversa %1$s</string>
+    <string name="rename_conversation">Renomear conversa</string>
+    <string name="export_conversation">Exportar conversa</string>
+    <string name="export_conversation_description">Exportar conversa</string>
+    <string name="export_this_conversation">Exportar conversa</string>
+    <string name="delete_conversation">Excluir conversa</string>
+    <string name="delete_conversation_title">Excluir conversa</string>
+    <string name="delete_conversation_message">Tem certeza que deseja excluir esta conversa? Esta ação não pode ser desfeita.</string>
+    <string name="conversation_options_desc">Opções de conversa</string>
+    <string name="no_conversations_placeholder">Nenhuma conversa ainda.</string>
+
+    <!-- Conversation UI -->
+    <string name="message_input_hint">Mensagem...</string>
+    <string name="message_hint">Mensagem...</string>
+    <string name="message_input_placeholder">Digite sua mensagem...</string>
+    <string name="action_send">Enviar</string>
+    <string name="send_description">Enviar mensagem</string>
+    <string name="voice_input">Entrada de voz</string>
+    <string name="voice_input_description">Entrada de voz</string>
+    <string name="loading_title_placeholder">Carregando...</string>
+    <string name="error_loading_title">Erro ao carregar título</string>
+
+    <!-- Export Functionality -->
+    <string name="export_error_no_messages">Nenhuma mensagem para exportar</string>
+    <string name="export_error_no_content">Nenhum conteúdo para exportar</string>
+    <string name="export_error_unknown">Erro desconhecido</string>
+    <string name="export_error_prefix">Exportação falhou: %1$s</string>
+    <string name="export_error_local_file">Não foi possível criar arquivo local</string>
+    <string name="export_file_prefix">StormChat_%1$s_%2$s.txt</string>
+    <string name="export_header">=== CONVERSA EXPORTADA DO STORMCHAT ===</string>
+    <string name="export_date">Data: %1$s</string>
+    <string name="export_message_count">Total de mensagens: %1$d</string>
+    <string name="export_separator">=====================================</string>
+    <string name="export_user">Você</string>
+    <string name="export_bot">StormChat</string>
+    <string name="export_unknown">Desconhecido</string>
+    <string name="export_message_separator">---</string>
+    <string name="export_fallback_title">Conversa</string>
+
+    <!-- Dialogs -->
+    <string name="delete_confirmation_message">Tem certeza que deseja excluir esta mensagem?</string>
+    <string name="rename_action">Renomear</string>
+    <string name="delete_action">Excluir</string>
+    <string name="delete_confirmation_title">Confirmar Exclusão</string>
+    <string name="delete_confirmation_text">Tem certeza que deseja excluir esta conversa? Esta ação não pode ser desfeita.</string>
+    <string name="delete_confirm_button">Excluir</string>
+    <string name="cancel_button">Cancelar</string>
+    <string name="rename_conversation_dialog_title">Renomear Conversa</string>
+    <string name="new_conversation_name_label">Novo nome da conversa</string>
+    <string name="new_name">Novo nome</string>
+    <string name="save_button">Salvar</string>
+
+    <!-- AI Model Selection -->
+    <string name="ai_model">Modelo de IA</string>
+    <string name="ai_model_selector_title">Modelo de IA:</string>
+    <string name="select_ai_model">Selecionar Modelo de IA</string>
+    <string name="ai_model_selection">Seleção de modelo de IA</string>
+    <string name="collapse">Recolher</string>
+    <string name="expand">Expandir</string>
+    <string name="reset_model">Redefinindo...</string>
+    <string name="changing_model">Alterando...</string>
+    <string name="model_default">Modelo Padrão</string>
+    <string name="model_selection_saved">Preferência de modelo de IA salva</string>
+    <string name="model_feature_premium">Este modelo está disponível para usuários Premium</string>
+    <string name="premium_model_dialog_title">Modelo Premium</string>
+    <string name="premium_model_dialog_message">Este modelo requer uma assinatura premium. Faça upgrade agora para acessar modelos de IA avançados.</string>
+    <string name="model_change_failed">Falha ao alterar o modelo de IA</string>
+
+    <!-- Model Descriptions -->
+    <string name="model_description_gpt4">O modelo mais poderoso da OpenAI, melhor para raciocínio complexo.</string>
+    <string name="model_description_gpt4o">A última variante do GPT-4 com capacidades aprimoradas.</string>
+    <string name="model_description_gpt35">Modelo rápido e eficiente para consultas diárias.</string>
+    <string name="model_description_claude">Modelo avançado da Anthropic com altas capacidades de raciocínio.</string>
+    <string name="model_description_claude_opus">O modelo Claude mais poderoso, excelente para tarefas complexas.</string>
+    <string name="model_description_claude_haiku">Modelo Claude rápido e eficiente para respostas rápidas.</string>
+
+    <!-- Error Messages -->
+    <string name="error_prefix">Erro: %1$s</string>
+    <string name="error_login_required">Você precisa estar logado para alterar o modelo</string>
+    <string name="error_premium_required">Este modelo requer uma assinatura premium. Usando GPT-4o.</string>
+    <string name="error_save_model">Erro ao salvar preferência de modelo: %1$s</string>
+    <string name="error_loading_conversations">Erro ao carregar lista de conversas (bruto).</string>
+    <string name="error_processing_conversations">Erro ao processar lista de conversas para exibição.</string>
+    <string name="error_load_messages">Erro ao carregar mensagens da conversa.</string>
+    <string name="error_internal_conversation">Erro interno: Não foi possível determinar a conversa.</string>
+    <string name="error_process_history">Erro ao processar histórico ou chamar IA: %1$s</string>
+    <string name="error_delete_conversation">Erro ao excluir conversa: %1$s</string>
+    <string name="error_cannot_rename_new">Não é possível renomear uma conversa não salva.</string>
+    <string name="error_title_empty">O título não pode estar em branco.</string>
+    <string name="error_rename_conversation">Erro ao renomear conversa: %1$s</string>
+    <string name="error_empty_response">Resposta vazia da IA. Por favor, tente novamente.</string>
+    <string name="error_timeout">A IA demorou muito para responder. Por favor, tente novamente.</string>
+    <string name="error_ai_communication">Erro ao comunicar com a IA: %1$s</string>
+    <string name="error_wait_previous">Por favor, aguarde a resposta anterior.</string>
+
+    <!-- Export Dialog -->
+    <string name="export_dialog_title">Exportar Conversa</string>
+    <string name="export_dialog_confirmation">Deseja exportar esta conversa para o Google Drive?</string>
+    <string name="export_dialog_title_prefix">Título: %1$s</string>
+    <string name="export_dialog_exporting">Exportando...</string>
+    <string name="export_dialog_success">Conversa exportada com sucesso!</string>
+    <string name="export_dialog_filename">Nome do arquivo: %1$s</string>
+    <string name="export_dialog_open_drive">Abrir no Google Drive</string>
+    <string name="export_dialog_error_prefix">Erro ao exportar: %1$s</string>
+    <string name="export_dialog_action_export">Exportar</string>
+    <string name="export_dialog_action_ok">OK</string>
+    <string name="export_dialog_action_cancel">Cancelar</string>
+
+    <!-- Error Handling (Drive) -->
+    <string name="export_error_drive_open">Erro ao abrir o Drive: %1$s</string>
+    <string name="export_error_no_google_account">Nenhuma conta Google encontrada</string>
+    <string name="export_error_drive_setup">Erro ao configurar o serviço do Drive</string>
+    <string name="export_log_drive_setup_success">Serviço do Drive configurado com sucesso</string>
+    <string name="export_log_start">Iniciando exportação para conversa: %1$s, título: %2$s</string>
+    <string name="export_log_filename">Nome do arquivo preparado: %1$s</string>
+    <string name="export_log_drive_create">Criando arquivo no Google Drive: %1$s</string>
+    <string name="export_log_drive_created">Arquivo criado no Drive com ID: %1$s</string>
+    <string name="export_log_drive_permissions">Permissões definidas para o arquivo: %1$s</string>
+    <string name="export_error_drive_permissions">Erro ao configurar permissões do arquivo</string>
+    <string name="export_error_drive_create">Erro ao criar arquivo no Drive</string>
+    <string name="export_log_local_export">Exportando para armazenamento local: %1$s</string>
+    <string name="export_log_local_saved">Arquivo salvo no armazenamento local: %1$s</string>
+    <string name="export_log_content_size">Conteúdo formatado: %1$d caracteres</string>
+</resources>

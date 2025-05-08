@@ -12,14 +12,17 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect as Effect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.ivip.brainstormia.ExportState
+import com.ivip.brainstormia.R
 import com.ivip.brainstormia.theme.SurfaceColor
 import com.ivip.brainstormia.theme.SurfaceColorDark
 import com.ivip.brainstormia.theme.TextColorDark
@@ -36,8 +39,11 @@ fun ExportDialog(
     val exportGreenColor = Color(0xFF4CAF50)
     val context = LocalContext.current
 
+    // Obtenha a mensagem de erro fora do LaunchedEffect
+    val errorDriveOpenMessage = stringResource(id = R.string.export_error_drive_open, "")
+
     // Abre o arquivo exportado diretamente no app Google Drive
-    Effect(exportState) {
+    LaunchedEffect(exportState) {
         if (exportState is ExportState.Success) {
             try {
                 // URI do arquivo no Drive
@@ -49,7 +55,8 @@ fun ExportDialog(
 
                 context.startActivity(intent)
             } catch (e: Exception) {
-                Log.e("ExportDialog", "Erro ao abrir o Drive: ${e.message}")
+                // Use uma string de log fixa em vez de stringResource aqui
+                Log.e("ExportDialog", "Erro ao abrir o Drive: ${e.message ?: "Erro desconhecido"}")
             }
         }
     }
@@ -62,7 +69,7 @@ fun ExportDialog(
         },
         title = {
             Text(
-                text = "Exportar Conversa",
+                text = stringResource(id = R.string.export_dialog_title),
                 fontWeight = FontWeight.Bold,
                 color = if (isDarkTheme) TextColorLight else TextColorDark
             )
@@ -76,13 +83,13 @@ fun ExportDialog(
                 when (exportState) {
                     is ExportState.Initial -> {
                         Text(
-                            text = "Deseja exportar esta conversa para o Google Drive?",
+                            text = stringResource(id = R.string.export_dialog_confirmation),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,
                             color = if (isDarkTheme) TextColorLight else TextColorDark
                         )
                         Text(
-                            text = "Título: $conversationTitle",
+                            text = stringResource(id = R.string.export_dialog_title_prefix, conversationTitle),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Normal,
                             color = if (isDarkTheme) TextColorLight.copy(alpha = 0.8f) else TextColorDark.copy(alpha = 0.8f)
@@ -94,7 +101,7 @@ fun ExportDialog(
                             modifier = Modifier.size(48.dp)
                         )
                         Text(
-                            text = "Exportando...",
+                            text = stringResource(id = R.string.export_dialog_exporting),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,
                             color = if (isDarkTheme) TextColorLight else TextColorDark
@@ -108,14 +115,14 @@ fun ExportDialog(
                             modifier = Modifier.size(48.dp)
                         )
                         Text(
-                            text = "Conversa exportada com sucesso!",
+                            text = stringResource(id = R.string.export_dialog_success),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,
                             color = if (isDarkTheme) TextColorLight else TextColorDark
                         )
 
                         Text(
-                            text = "Nome do arquivo: ${exportState.fileName}",
+                            text = stringResource(id = R.string.export_dialog_filename, exportState.fileName),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Normal,
                             color = if (isDarkTheme) TextColorLight.copy(alpha = 0.8f) else TextColorDark.copy(alpha = 0.8f)
@@ -131,7 +138,8 @@ fun ExportDialog(
                                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                                     context.startActivity(intent)
                                 } catch (e: Exception) {
-                                    Log.e("ExportDialog", "Erro ao abrir Drive: ${e.message}")
+                                    // Use uma string de log fixa em vez de stringResource aqui
+                                    Log.e("ExportDialog", "Erro ao abrir o Drive: ${e.message ?: "Erro desconhecido"}")
                                 }
                             },
                             colors = ButtonDefaults.outlinedButtonColors(
@@ -146,7 +154,7 @@ fun ExportDialog(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Abrir no Google Drive",
+                                text = stringResource(id = R.string.export_dialog_open_drive),
                                 color = exportGreenColor
                             )
                         }
@@ -159,7 +167,7 @@ fun ExportDialog(
                             modifier = Modifier.size(48.dp)
                         )
                         Text(
-                            text = "Erro ao exportar: ${exportState.message}",
+                            text = stringResource(id = R.string.export_dialog_error_prefix, exportState.message),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,
                             color = if (isDarkTheme) TextColorLight else TextColorDark
@@ -178,7 +186,7 @@ fun ExportDialog(
                         )
                     ) {
                         Text(
-                            text = "Exportar",
+                            text = stringResource(id = R.string.export_dialog_action_export),
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -191,7 +199,7 @@ fun ExportDialog(
                         )
                     ) {
                         Text(
-                            text = "OK",
+                            text = stringResource(id = R.string.export_dialog_action_ok),
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -203,7 +211,7 @@ fun ExportDialog(
             if (exportState is ExportState.Initial) {
                 TextButton(onClick = onDismiss) {
                     Text(
-                        text = "Cancelar",
+                        text = stringResource(id = R.string.export_dialog_action_cancel),
                         fontWeight = FontWeight.Medium,
                         color = if (isDarkTheme) TextColorLight.copy(alpha = 0.8f) else Color.DarkGray
                     )
