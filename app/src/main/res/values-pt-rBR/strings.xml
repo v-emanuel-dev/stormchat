@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="action_send">Enviar</string>
+    <string name="open_drawer_description">Abrir menu de conversas</string>
+    <string name="message_input_placeholder">Digite sua mensagem...</string>
+    <string name="new_conversation_title">Nova Conversa</string>
+    <string name="conversation_list_title">Minhas Conversas</string>
+    <string name="conversation_item_description">Conversação anterior</string> // Exemplo, pode não ser necessário
+    <string name="loading_title_placeholder">Carregando...</string>
+    <string name="error_loading_title">Erro ao carregar o título</string>
+    <string name="no_conversations_placeholder">Nenhuma conversa ainda.</string>
+    <string name="conversation_options_desc">Opções de conversa</string>
+    <string name="rename_action">Renomear</string>
+    <string name="delete_action">Excluir</string>
+    <string name="delete_confirmation_title">Confirmar Exclusão</string>
+    <string name="delete_confirmation_text">Tem certeza de que deseja excluir esta conversa? Esta ação não pode ser desfeita.</string>
+    <string name="delete_confirm_button">Excluir</string>
+    <string name="cancel_button">Cancelar</string>
+    <string name="rename_conversation_dialog_title">Renomear Conversa</string>
+    <string name="new_conversation_name_label">Nome da nova conversa</string>
+    <string name="save_button">Salvar</string>
+    <string name="sign_in_with_google">Fazer login com o Google</string>
+    <string name="welcome_message">Olá, seja bem-vindo(a)! Sou o StormChat ⚡. Como posso ajudar você?</string>
+</resources>
