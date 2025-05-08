@@ -1,6 +1,8 @@
 package com.ivip.brainstormia
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,23 +15,26 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.brainstormia.ConversationType
 import com.ivip.brainstormia.components.ThemeSwitch
 import com.ivip.brainstormia.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
-import androidx.compose.runtime.getValue
 
 @Composable
 fun AppDrawerContent(
@@ -43,11 +48,13 @@ fun AppDrawerContent(
     onNavigateToProfile: () -> Unit,
     isDarkTheme: Boolean,
     onThemeChanged: (Boolean) -> Unit = {},
-    chatViewModel: ChatViewModel = viewModel()
+    chatViewModel: ChatViewModel = viewModel(),
+    authViewModel: AuthViewModel = viewModel() // Adicionado para acessar o usuário atual
 ) {
     val backgroundColor = if (isDarkTheme) Color(0xFF121212) else BackgroundColor
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
     val selectedItemColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.2f) else PrimaryColor.copy(alpha = 0.1f)
+    val currentUser by authViewModel.currentUser.collectAsState() // Obtém o usuário atual
 
     Column(
         modifier = Modifier
@@ -99,8 +106,7 @@ fun AppDrawerContent(
             Text(
                 text = "Nova conversa",
                 fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-
+                color = Color.White
             )
         }
 
@@ -140,16 +146,7 @@ fun AppDrawerContent(
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Ícone com cor baseada no tipo de conversa
-                        val (iconVector, iconTint) = getConversationIcon(item.conversationType, isDarkTheme)
-                        Icon(
-                            imageVector = iconVector,
-                            contentDescription = null,
-                            tint = iconTint,
-                            modifier = Modifier.size(22.dp)
-                        )
-
-                        Spacer(modifier = Modifier.width(12.dp))
+                        // Removido o ícone baseado no tipo de conversa
 
                         Column(
                             modifier = Modifier.weight(1f)
@@ -173,6 +170,9 @@ fun AppDrawerContent(
                             )
                         }
 
+                        // Cor padronizada para todos os ícones de ação
+                        val actionIconTint = if (isDarkTheme) Color.LightGray else PrimaryColor.copy(alpha = 0.7f)
+
                         // Ações em um espaço mais compacto
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -186,7 +186,7 @@ fun AppDrawerContent(
                                 Icon(
                                     imageVector = Icons.Default.Edit,
                                     contentDescription = "Renomear conversa",
-                                    tint = iconTint,
+                                    tint = actionIconTint,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -201,12 +201,11 @@ fun AppDrawerContent(
                                     Icon(
                                         imageVector = Icons.Default.Upload,
                                         contentDescription = "Exportar conversa",
-                                        tint = iconTint,
+                                        tint = actionIconTint,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
-
 
                             IconButton(
                                 onClick = { onDeleteConversationRequest(item.id) },
@@ -215,7 +214,7 @@ fun AppDrawerContent(
                                 Icon(
                                     imageVector = Icons.Default.Delete,
                                     contentDescription = "Excluir conversa",
-                                    tint = iconTint,
+                                    tint = actionIconTint,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -224,33 +223,137 @@ fun AppDrawerContent(
                 }
             }
         }
-    }
-}
 
-// Função para determinar o ícone baseado no tipo de conversa
-@Composable
-private fun getConversationIcon(type: ConversationType, isDarkTheme: Boolean): Pair<ImageVector, Color> {
-    return when (type) {
-        ConversationType.GENERAL -> Pair(
-            Icons.Default.Chat,
-            if (isDarkTheme) Color(0xFF90CAF9) else Color(0xFF1976D2)
+        // Separador antes do botão de perfil
+        Divider(
+            color = if (isDarkTheme) Color.DarkGray.copy(alpha = 0.5f) else Color.LightGray.copy(alpha = 0.7f),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
         )
-        ConversationType.PERSONAL -> Pair(
-            Icons.Default.Person,
-            if (isDarkTheme) Color(0xFFFFCC80) else Color(0xFFEF6C00)
-        )
-        ConversationType.EMOTIONAL -> Pair(
-            Icons.Default.Favorite,
-            if (isDarkTheme) Color(0xFFEF9A9A) else Color(0xFFD32F2F)
-        )
-        ConversationType.THERAPEUTIC -> Pair(
-            Icons.Default.Healing,
-            if (isDarkTheme) Color(0xFFA5D6A7) else Color(0xFF388E3C)
-        )
-        ConversationType.HIGHLIGHTED -> Pair(
-            Icons.Default.StarRate,
-            if (isDarkTheme) Color(0xFFFFE082) else Color(0xFFFFC107)
-        )
+
+        // Botão de perfil do usuário (Tipo outlined, estilo ChatGPT)
+        if (currentUser != null) {
+            val context = LocalContext.current
+            OutlinedButton(
+                onClick = { onNavigateToProfile() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .height(48.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = if (isDarkTheme) TextColorLight else TextColorDark,
+                    containerColor = if (isDarkTheme) Color(0xFF1A1A1A) else Color.White
+                ),
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = if (isDarkTheme) Color.DarkGray.copy(alpha = 0.7f) else Color.LightGray
+                )
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    // Foto do usuário (ou ícone padrão se não houver foto)
+                    if (currentUser?.photoUrl != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(currentUser?.photoUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Foto do perfil",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isDarkTheme) Color.DarkGray else Color.LightGray,
+                                    shape = CircleShape
+                                )
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = "Perfil do usuário",
+                            tint = if (isDarkTheme) Color.LightGray else PrimaryColor.copy(alpha = 0.8f),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    // Email do usuário com ellipsis se for muito longo
+                    Text(
+                        text = currentUser?.email ?: "Usuário",
+                        color = if (isDarkTheme) TextColorLight else TextColorDark,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1,
+                        fontSize = 14.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    // Ícone para indicar que é clicável
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = if (isDarkTheme) Color.LightGray else PrimaryColor.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        } else {
+            // Versão simplificada para usuários não logados
+            OutlinedButton(
+                onClick = { onNavigateToProfile() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .height(48.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = if (isDarkTheme) TextColorLight else TextColorDark,
+                    containerColor = if (isDarkTheme) Color(0xFF1A1A1A) else Color.White
+                ),
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = if (isDarkTheme) Color.DarkGray.copy(alpha = 0.7f) else Color.LightGray
+                )
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccountCircle,
+                        contentDescription = "Perfil do usuário",
+                        tint = if (isDarkTheme) Color.LightGray else PrimaryColor.copy(alpha = 0.8f),
+                        modifier = Modifier.size(28.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Text(
+                        text = "Fazer login",
+                        color = if (isDarkTheme) TextColorLight else TextColorDark,
+                        fontSize = 14.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = if (isDarkTheme) Color.LightGray else PrimaryColor.copy(alpha = 0.7f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
     }
 }
 
