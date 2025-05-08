@@ -1,6 +1,5 @@
 package com.ivip.brainstormia
 
-import android.R.attr.translationZ
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.TextView
@@ -16,7 +15,10 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -48,6 +50,7 @@ import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardVoice
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Star
@@ -57,6 +60,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -74,6 +78,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -98,6 +103,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ivip.brainstormia.components.ExportDialog
 import com.ivip.brainstormia.components.ModelSelectionDropdown
@@ -113,16 +119,13 @@ import io.noties.markwon.html.HtmlPlugin
 import io.noties.markwon.linkify.LinkifyPlugin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.ui.zIndex
+import io.noties.markwon.AbstractMarkwonPlugin
+import io.noties.markwon.MarkwonSpansFactory
+import org.commonmark.node.ThematicBreak
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.text.style.LeadingMarginSpan
+import android.text.style.LineBackgroundSpan
 
 @Composable
 fun MessageBubble(
@@ -219,10 +222,49 @@ fun MessageBubble(
                                     setTextIsSelectable(true)
                                 }
 
-                                // Configurar Markwon para renderizar Markdown
+                                // Plugin personalizado para lidar com regras horizontais
+                                val customHrPlugin = object : AbstractMarkwonPlugin() {
+                                    override fun configureSpansFactory(builder: MarkwonSpansFactory.Builder) {
+                                        builder.setFactory(ThematicBreak::class.java) { _, _ ->
+                                            arrayOf(
+                                                // Criar um span personalizado em vez do HR padrão
+                                                object : LeadingMarginSpan.Standard(0), LineBackgroundSpan {
+                                                    override fun drawBackground(
+                                                        canvas: Canvas, paint: Paint,
+                                                        left: Int, right: Int,
+                                                        top: Int, baseline: Int, bottom: Int,
+                                                        text: CharSequence, start: Int, end: Int,
+                                                        lineNumber: Int
+                                                    ) {
+                                                        val originalColor = paint.color
+                                                        val originalWidth = paint.strokeWidth
+
+                                                        // Usar valores diretos em vez de métodos do theme
+                                                        paint.color = botTextColor.toArgb()
+                                                        paint.strokeWidth = 6f // ~2dp
+
+                                                        // Padding fixo em vez de recursos de dimensão
+                                                        val padding = 48 // ~16dp
+                                                        val lineLeft = left + padding
+                                                        val lineRight = right - padding
+                                                        val lineY = (top + bottom) / 2f
+
+                                                        canvas.drawLine(lineLeft.toFloat(), lineY, lineRight.toFloat(), lineY, paint)
+
+                                                        paint.color = originalColor
+                                                        paint.strokeWidth = originalWidth
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Configurar Markwon para renderizar Markdown com nosso plugin personalizado
                                 val markwon = Markwon.builder(context)
                                     .usePlugin(HtmlPlugin.create())
                                     .usePlugin(LinkifyPlugin.create())
+                                    .usePlugin(customHrPlugin) // Adicionar nosso plugin personalizado
                                     .build()
 
                                 // Renderizar o Markdown
@@ -231,12 +273,54 @@ fun MessageBubble(
                         },
                         update = { textView ->
                             // Atualizar quando a mensagem mudar
-                            val markwon = Markwon.create(textView.context)
+                            val context = textView.context
+
+                            // Plugin personalizado para lidar com regras horizontais (durante atualizações)
+                            val customHrPlugin = object : AbstractMarkwonPlugin() {
+                                override fun configureSpansFactory(builder: MarkwonSpansFactory.Builder) {
+                                    builder.setFactory(ThematicBreak::class.java) { _, _ ->
+                                        arrayOf(
+                                            object : LeadingMarginSpan.Standard(0), LineBackgroundSpan {
+                                                override fun drawBackground(
+                                                    canvas: Canvas, paint: Paint,
+                                                    left: Int, right: Int,
+                                                    top: Int, baseline: Int, bottom: Int,
+                                                    text: CharSequence, start: Int, end: Int,
+                                                    lineNumber: Int
+                                                ) {
+                                                    val originalColor = paint.color
+                                                    val originalWidth = paint.strokeWidth
+
+                                                    paint.color = botTextColor.toArgb()
+                                                    paint.strokeWidth = 6f
+
+                                                    val padding = 48
+                                                    val lineLeft = left + padding
+                                                    val lineRight = right - padding
+                                                    val lineY = (top + bottom) / 2f
+
+                                                    canvas.drawLine(lineLeft.toFloat(), lineY, lineRight.toFloat(), lineY, paint)
+
+                                                    paint.color = originalColor
+                                                    paint.strokeWidth = originalWidth
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Criar instância do Markwon com nosso plugin personalizado
+                            val markwon = Markwon.builder(context)
+                                .usePlugin(HtmlPlugin.create())
+                                .usePlugin(LinkifyPlugin.create())
+                                .usePlugin(customHrPlugin)
+                                .build()
 
                             // Resetar o estado de seleção para corrigir o bug
                             textView.setTextIsSelectable(false)
 
-                            // FIXED: Always update text color when isDarkTheme changes
+                            // FIXED: Sempre atualizar a cor do texto quando isDarkTheme muda
                             textView.setTextColor(botTextColor.toArgb())
 
                             // Renderizar Markdown e reativar seleção
@@ -718,24 +802,28 @@ fun ChatScreen(
                 enter = fadeIn(animationSpec = tween(300)),
                 exit = fadeOut(animationSpec = tween(300))
             ) {
-                FloatingActionButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            // Animação de rolagem mais suave
-                            listState.animateScrollToItem(index = 0, scrollOffset = 0)
-                        }
-                    },
+                Box(
                     modifier = Modifier
                         .padding(end = 16.dp, bottom = 96.dp)
-                        // Adicione este zIndex para garantir que o botão fique acima de outros elementos
-                        .zIndex(8f),
-                    containerColor = if (isDarkTheme) Color(0xFF333333) else PrimaryColor,
-                    contentColor = Color.White
+                        .zIndex(8f)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowUp,
-                        contentDescription = "Voltar ao topo"
-                    )
+                    FloatingActionButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                // Animação de rolagem mais suave
+                                listState.animateScrollToItem(index = 0, scrollOffset = 0)
+                            }
+                        },
+                        modifier = Modifier.size(44.dp),  // Tamanho reduzido do botão (normalmente é 56.dp)
+                        containerColor = if (isDarkTheme) Color(0xFF333333) else PrimaryColor,
+                        contentColor = Color.White
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowUp,
+                            contentDescription = "Voltar ao topo",
+                            modifier = Modifier.size(20.dp)  // Tamanho reduzido do ícone (normalmente é 24.dp)
+                        )
+                    }
                 }
             }
         }
