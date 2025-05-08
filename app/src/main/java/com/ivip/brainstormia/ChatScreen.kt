@@ -125,7 +125,10 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.text.style.LeadingMarginSpan
 import android.text.style.LineBackgroundSpan
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.ui.draw.shadow
 import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.MarkwonSpansFactory
 
@@ -813,18 +816,20 @@ fun ChatScreen(
                     FloatingActionButton(
                         onClick = {
                             coroutineScope.launch {
-                                // Animação de rolagem mais suave
-                                listState.animateScrollToItem(index = 0, scrollOffset = 0)
+                                // Versão simplificada sem animationSpec
+                                listState.animateScrollToItem(index = 0)
                             }
                         },
-                        modifier = Modifier.size(44.dp),  // Tamanho reduzido do botão (normalmente é 56.dp)
-                        containerColor = if (isDarkTheme) Color(0xFF333333) else PrimaryColor,
+                        modifier = Modifier.size(46.dp),
+                        containerColor = if (isDarkTheme)
+                            Color(0xFF3D3D3D) else
+                            PrimaryColor,
                         contentColor = Color.White
                     ) {
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowUp,
-                            contentDescription = stringResource(R.string.scroll_to_top), // Substitui "Voltar ao topo"
-                            modifier = Modifier.size(20.dp)  // Tamanho reduzido do ícone (normalmente é 24.dp)
+                            contentDescription = stringResource(R.string.scroll_to_top),
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
