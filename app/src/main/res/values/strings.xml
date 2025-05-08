@@ -216,31 +216,31 @@
     <string name="error_wait_previous">Please wait for the previous response.</string>
 
     <!-- Export Dialog -->
-    <string name="export_dialog_title">Exportar Conversa</string>
-    <string name="export_dialog_confirmation">Deseja exportar esta conversa para o Google Drive?</string>
-    <string name="export_dialog_title_prefix">Título: %1$s</string>
-    <string name="export_dialog_exporting">Exportando...</string>
-    <string name="export_dialog_success">Conversa exportada com sucesso!</string>
-    <string name="export_dialog_filename">Nome do arquivo: %1$s</string>
-    <string name="export_dialog_open_drive">Abrir no Google Drive</string>
-    <string name="export_dialog_error_prefix">Erro ao exportar: %1$s</string>
-    <string name="export_dialog_action_export">Exportar</string>
+    <string name="export_dialog_title">Export Conversation</string>
+    <string name="export_dialog_confirmation">Do you want to export this conversation to Google Drive?</string>
+    <string name="export_dialog_title_prefix">Title: %1$s</string>
+    <string name="export_dialog_exporting">Exporting...</string>
+    <string name="export_dialog_success">Conversation exported successfully!</string>
+    <string name="export_dialog_filename">Filename: %1$s</string>
+    <string name="export_dialog_open_drive">Open in Google Drive</string>
+    <string name="export_dialog_error_prefix">Export error: %1$s</string>
+    <string name="export_dialog_action_export">Export</string>
     <string name="export_dialog_action_ok">OK</string>
-    <string name="export_dialog_action_cancel">Cancelar</string>
+    <string name="export_dialog_action_cancel">Cancel</string>
 
     <!-- Error Handling (Drive) -->
-    <string name="export_error_drive_open">Erro ao abrir o Drive: %1$s</string>
-    <string name="export_error_no_google_account">Nenhuma conta Google encontrada</string>
-    <string name="export_error_drive_setup">Erro ao configurar o serviço do Drive</string>
-    <string name="export_log_drive_setup_success">Serviço do Drive configurado com sucesso</string>
-    <string name="export_log_start">Iniciando exportação para conversa: %1$s, título: %2$s</string>
-    <string name="export_log_filename">Nome do arquivo preparado: %1$s</string>
-    <string name="export_log_drive_create">Criando arquivo no Google Drive: %1$s</string>
-    <string name="export_log_drive_created">Arquivo criado no Drive com ID: %1$s</string>
-    <string name="export_log_drive_permissions">Permissões definidas para o arquivo: %1$s</string>
-    <string name="export_error_drive_permissions">Erro ao configurar permissões do arquivo</string>
-    <string name="export_error_drive_create">Erro ao criar arquivo no Drive</string>
-    <string name="export_log_local_export">Exportando para armazenamento local: %1$s</string>
-    <string name="export_log_local_saved">Arquivo salvo no armazenamento local: %1$s</string>
-    <string name="export_log_content_size">Conteúdo formatado: %1$d caracteres</string>
+    <string name="export_error_drive_open">Error opening Drive: %1$s</string>
+    <string name="export_error_no_google_account">No Google account found</string>
+    <string name="export_error_drive_setup">Error setting up Drive service</string>
+    <string name="export_log_drive_setup_success">Drive service set up successfully</string>
+    <string name="export_log_start">Starting export for conversation: %1$s, title: %2$s</string>
+    <string name="export_log_filename">Prepared filename: %1$s</string>
+    <string name="export_log_drive_create">Creating file in Google Drive: %1$s</string>
+    <string name="export_log_drive_created">File created in Drive with ID: %1$s</string>
+    <string name="export_log_drive_permissions">Permissions set for file: %1$s</string>
+    <string name="export_error_drive_permissions">Error setting file permissions</string>
+    <string name="export_error_drive_create">Error creating file in Drive</string>
+    <string name="export_log_local_export">Exporting to local storage: %1$s</string>
+    <string name="export_log_local_saved">File saved to local storage: %1$s</string>
+    <string name="export_log_content_size">Formatted content: %1$d characters</string>
 </resources>
