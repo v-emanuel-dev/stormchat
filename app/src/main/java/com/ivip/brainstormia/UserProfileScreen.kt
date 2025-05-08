@@ -187,7 +187,15 @@ fun UserProfileScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
-                    onClick = { authViewModel.logout(); onNavigateBack() },
+                    onClick = {
+                        // Uso do coroutineScope para garantir a ordem das operações
+                        coroutineScope.launch {
+                            // Primeiro faz logout
+                            authViewModel.logout()
+                            // Depois navega de volta
+                            onNavigateBack()
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(0.9f).height(52.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = if (isDarkTheme) ButtonDefaults.buttonColors(MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
@@ -551,11 +559,11 @@ fun PremiumButton(onClick: () -> Unit, text: String, isDarkTheme: Boolean) {
     Button(
         onClick = onClick,
         modifier = Modifier
-            .fillMaxWidth(0.85f)
-            .height(56.dp)
-            .scale(scale)
-            .shadow(shadowElevation, RoundedCornerShape(28.dp), spotColor = if (isDarkTheme) goldColor.copy(alpha = 0.5f) else Color(0xFFF57F17).copy(alpha = 0.4f)),
-        shape = RoundedCornerShape(28.dp),
+            .fillMaxWidth(0.9f)
+            .height(52.dp),
+            //.scale(scale)
+            //.shadow(shadowElevation, RoundedCornerShape(28.dp), spotColor = if (isDarkTheme) goldColor.copy(alpha = 0.5f) else Color(0xFFF57F17).copy(alpha = 0.4f)),
+        shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
         contentPadding = PaddingValues()
     ) {
