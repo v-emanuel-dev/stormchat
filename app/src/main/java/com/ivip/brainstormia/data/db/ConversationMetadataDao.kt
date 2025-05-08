@@ -25,4 +25,7 @@ interface ConversationMetadataDao {
 
     @Query("DELETE FROM conversation_metadata WHERE user_id = :userId")
     suspend fun clearAllMetadataForUser(userId: String)
+
+    @Query("SELECT * FROM conversation_metadata WHERE conversation_id = :conversationId LIMIT 1")
+    suspend fun getMetadataForConversationId(conversationId: Long): ConversationMetadataEntity?
 }
