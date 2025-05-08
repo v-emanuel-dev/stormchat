@@ -127,5 +127,6 @@
     <string name="priority_support_desc_basic">आपके प्रश्नों और समस्याओं को जल्दी और कुशलता से हल करने के लिए VIP सहायता।</string>
     <string name="feature_locked">लॉक्ड फीचर</string>
     <string name="logout">लॉगआउट</string>
+    <string name="login_processing">लॉग इन हो रहा है...</string>
     <string name="welcome_message">नमस्ते, स्वागत है! मैं StormChat ⚡ हूं। मैं आपकी कैसे मदद कर सकता हूं?</string>
 </resources>

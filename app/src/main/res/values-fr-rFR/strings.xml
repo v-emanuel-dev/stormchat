@@ -127,5 +127,6 @@
     <string name="priority_support_desc_basic">Assistance VIP pour résoudre rapidement et efficacement vos questions et problèmes.</string>
     <string name="feature_locked">Fonctionnalité verrouillée</string>
     <string name="logout">Déconnexion</string>
+    <string name="login_processing">Connexion en cours...</string>
     <string name="welcome_message">Bonjour, bienvenue ! Je suis StormChat ⚡. Comment puis-je vous aider ?</string>
 </resources>

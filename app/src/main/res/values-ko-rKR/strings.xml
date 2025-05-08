@@ -127,5 +127,6 @@
     <string name="priority_support_desc_basic">질문과 문제를 빠르고 효율적으로 해결하는 VIP 지원.</string>
     <string name="feature_locked">잠긴 기능</string>
     <string name="logout">로그아웃</string>
+    <string name="login_processing">로그인 중...</string>
     <string name="welcome_message">안녕하세요, 환영합니다! 저는 StormChat ⚡입니다. 어떻게 도와드릴까요?</string>
 </resources>

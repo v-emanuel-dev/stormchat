@@ -127,5 +127,6 @@
     <string name="priority_support_desc_basic">Asistencia VIP para resolver tus preguntas y problemas de forma rápida y eficiente.</string>
     <string name="feature_locked">Función bloqueada</string>
     <string name="logout">Cerrar Sesión</string>
+    <string name="login_processing">Iniciando sesión...</string>
     <string name="welcome_message">¡Hola, bienvenido! Soy StormChat ⚡. ¿En qué puedo ayudarte?</string>
 </resources>

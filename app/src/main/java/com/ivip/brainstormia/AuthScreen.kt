@@ -53,6 +53,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.res.stringResource
 
 @Composable
 fun AuthScreen(
@@ -531,7 +532,7 @@ fun AuthScreen(
                             Spacer(modifier = Modifier.height(16.dp))
 
                             Text(
-                                text = "Fazendo login...",
+                                text = stringResource(R.string.logging_in),
                                 color = textColor,
                                 fontWeight = FontWeight.Medium,
                                 fontSize = 16.sp

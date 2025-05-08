@@ -127,5 +127,6 @@
     <string name="priority_support_desc_basic">VIP支持服务，快速高效地解决您的问题和疑难。</string>
     <string name="feature_locked">功能已锁定</string>
     <string name="logout">退出登录</string>
+    <string name="login_processing">登录中...</string>
     <string name="welcome_message">您好，欢迎！我是StormChat ⚡。有什么可以帮您？</string>
 </resources>

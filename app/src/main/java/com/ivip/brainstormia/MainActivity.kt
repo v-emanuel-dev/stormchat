@@ -1,6 +1,5 @@
 package com.ivip.brainstormia
 
-/* ───────────── IMPORTS ───────────── */
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -34,8 +33,10 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.viewmodel.compose.viewModel // Standard viewModel import
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -51,6 +52,7 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.messaging.FirebaseMessaging
 import com.ivip.brainstormia.navigation.Routes
 import com.ivip.brainstormia.theme.BrainstormiaTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
@@ -77,6 +79,7 @@ class MainActivity : ComponentActivity() {
     /* Utilitários globais */
     private lateinit var prefs: ThemePreferences
     private lateinit var analytics: FirebaseAnalytics
+    private lateinit var backupManager: BackupManager
 
     /* Launcher do login Google */
     private val signInLauncher = registerForActivityResult(
@@ -94,7 +97,38 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private val requestPermissionLauncher = registerForActivityResult(
+    /* Launcher de permissões */
+    private val requestMultiplePermissions = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.entries.all { it.value }
+        if (allGranted) {
+            // Todas as permissões concedidas
+            lifecycleScope.launch {
+                val restored = backupManager.restoreLatestBackup()
+                if (restored) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Conversas restauradas do backup",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    // Forçar atualização da UI
+                    val app = application as BrainstormiaApplication
+                    app.chatViewModel?.refreshConversationList()
+                }
+            }
+        } else {
+            // Algumas ou todas as permissões negadas
+            Toast.makeText(
+                this,
+                "Permissões de armazenamento são necessárias para backup automático",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
@@ -111,6 +145,12 @@ class MainActivity : ComponentActivity() {
         analytics = Firebase.analytics
         FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
         prefs = ThemePreferences(this)
+
+        // Inicializar o BackupManager
+        backupManager = BackupManager(this)
+
+        // Verificar permissões necessárias para backup
+        checkAndRequestPermissions()
 
         val app = application as BrainstormiaApplication
         // Ensure ViewModels are initialized if they are meant to be singletons via Application
@@ -143,6 +183,9 @@ class MainActivity : ComponentActivity() {
                 Log.e("FCM_TOKEN_MANUAL", "Falha ao obter token: ${task.exception}")
             }
         }
+
+        // Configurar backups periódicos
+        setupPeriodicBackup()
 
         setContent {
             val navController = rememberNavController()
@@ -245,6 +288,66 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun checkAndRequestPermissions() {
+        val requiredPermissions = mutableListOf<String>()
+
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
+            // Para Android 10 ou inferior
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                PackageManager.PERMISSION_GRANTED) {
+                requiredPermissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) !=
+                PackageManager.PERMISSION_GRANTED) {
+                requiredPermissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+        } else {
+            // Para Android 11 ou superior
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // Android 13+
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) !=
+                    PackageManager.PERMISSION_GRANTED) {
+                    requiredPermissions.add(Manifest.permission.READ_MEDIA_IMAGES)
+                }
+            } else {
+                // Android 11-12
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) !=
+                    PackageManager.PERMISSION_GRANTED) {
+                    requiredPermissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                }
+            }
+        }
+
+        if (requiredPermissions.isNotEmpty()) {
+            requestMultiplePermissions.launch(requiredPermissions.toTypedArray())
+        }
+    }
+
+    private fun setupPeriodicBackup() {
+        // Fazer backup a cada 30 minutos quando o app estiver em uso
+        lifecycleScope.launch {
+            while (true) {
+                delay(30 * 60 * 1000) // 30 minutos
+                backupManager.backupConversations()
+            }
+        }
+
+        // Também fazer backup quando o app for para segundo plano
+        lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onPause(owner: LifecycleOwner) {
+                lifecycleScope.launch {
+                    backupManager.backupConversations()
+                }
+            }
+
+            override fun onStop(owner: LifecycleOwner) {
+                lifecycleScope.launch {
+                    backupManager.backupConversations()
+                }
+            }
+        })
+    }
+
     // Helper function to initialize ViewModels if they're null
     private fun initViewModels(app: BrainstormiaApplication) {
         if (app.chatViewModel == null) {
@@ -289,7 +392,7 @@ class MainActivity : ComponentActivity() {
                         Manifest.permission.POST_NOTIFICATIONS
                     ) != PackageManager.PERMISSION_GRANTED
                 ) {
-                    requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
             }
         } catch (e: Exception) {
@@ -321,5 +424,9 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             Log.e("MainActivity", "Erro ao processar intent da notificação", e)
         }
+    }
+
+    companion object {
+        private const val PERMISSION_REQUEST_CODE = 100
     }
 }

@@ -28,8 +28,8 @@ android {
         applicationId = "com.ivip.brainstormia"
         minSdk = 24
         targetSdk = 35
-        versionCode = 47
-        versionName = "4.7"
+        versionCode = 50
+        versionName = "5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiKeyOpenaiFromProperties = localProperties.getProperty("apiKeyOpenai") ?: ""
@@ -173,4 +173,5 @@ dependencies {
     implementation ("io.noties.markwon:linkify:4.6.2")
     implementation("io.coil-kt:coil-compose:2.2.2")
     implementation("com.google.firebase:firebase-storage-ktx")
+    implementation ("com.google.code.gson:gson:2.10.1")
 }

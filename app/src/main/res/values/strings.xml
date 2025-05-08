@@ -127,5 +127,6 @@
     <string name="priority_support_desc_basic">VIP assistance to quickly and efficiently solve your questions and problems.</string>
     <string name="feature_locked">Locked feature</string>
     <string name="logout">Sign Out</string>
+    <string name="login_processing">Logging in…</string>
     <string name="welcome_message">Hello, welcome! I\'m StormChat ⚡. How can I help you?</string>
 </resources>

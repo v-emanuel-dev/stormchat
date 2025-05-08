@@ -127,5 +127,6 @@
     <string name="priority_support_desc_basic">VIP-Unterstützung zur schnellen und effizienten Lösung deiner Fragen und Probleme.</string>
     <string name="feature_locked">Gesperrte Funktion</string>
     <string name="logout">Abmelden</string>
+    <string name="login_processing">Anmeldung läuft...</string>
     <string name="welcome_message">Hallo, willkommen! Ich bin StormChat ⚡. Wie kann ich dir helfen?</string>
 </resources>

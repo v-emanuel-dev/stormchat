@@ -127,5 +127,6 @@
     <string name="priority_support_desc_basic">مساعدة VIP لحل أسئلتك ومشكلاتك بسرعة وكفاءة.</string>
     <string name="feature_locked">ميزة مقفلة</string>
     <string name="logout">تسجيل الخروج</string>
+    <string name="login_processing">جاري تسجيل الدخول...</string>
     <string name="welcome_message">مرحباً، أهلاً بك! أنا StormChat ⚡. كيف يمكنني مساعدتك؟</string>
 </resources>

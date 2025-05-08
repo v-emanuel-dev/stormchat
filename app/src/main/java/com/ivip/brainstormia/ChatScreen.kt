@@ -1,6 +1,9 @@
 package com.ivip.brainstormia
 
+import android.R.attr.translationZ
 import android.util.Log
+import android.view.ViewGroup
+import android.widget.TextView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -45,11 +48,8 @@ import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardVoice
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -88,20 +88,19 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ivip.brainstormia.components.ExportDialog
 import com.ivip.brainstormia.components.ModelSelectionDropdown
-import com.ivip.brainstormia.components.SimpleVoiceInputButton
 import com.ivip.brainstormia.theme.BackgroundColor
 import com.ivip.brainstormia.theme.BotBubbleColor
 import com.ivip.brainstormia.theme.PrimaryColor
@@ -109,16 +108,21 @@ import com.ivip.brainstormia.theme.SurfaceColor
 import com.ivip.brainstormia.theme.SurfaceColorDark
 import com.ivip.brainstormia.theme.TextColorDark
 import com.ivip.brainstormia.theme.TextColorLight
-import dev.jeziellago.compose.markdowntext.MarkdownText
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import android.view.ViewGroup
-import android.widget.TextView
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.viewinterop.AndroidView
 import io.noties.markwon.Markwon
 import io.noties.markwon.html.HtmlPlugin
 import io.noties.markwon.linkify.LinkifyPlugin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.zIndex
 
 @Composable
 fun MessageBubble(
@@ -307,6 +311,12 @@ fun ChatScreen(
 
     var userMessage by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
+    val modelSelectorVisible = remember {
+        derivedStateOf {
+            // Mostra o seletor quando estamos no topo ou quando é uma nova conversa vazia
+            messages.isEmpty() || (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset < 50)
+        }
+    }
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
@@ -610,14 +620,20 @@ fun ChatScreen(
                     ) {
                         // Add AI model selector only if user is logged in
                         if (currentUser != null) {
-                            key(isPremiumUser) {
-                                ModelSelectionDropdown(
-                                    models = chatViewModel.modelOptions,
-                                    selectedModel = selectedModel,
-                                    onModelSelected = { chatViewModel.selectModel(it) },
-                                    isPremiumUser = isPremiumUser,
-                                    isDarkTheme = isDarkTheme
-                                )
+                            AnimatedVisibility(
+                                visible = modelSelectorVisible.value,
+                                enter = fadeIn(animationSpec = tween(300)) + expandVertically(animationSpec = tween(300)),
+                                exit = fadeOut(animationSpec = tween(300)) + shrinkVertically(animationSpec = tween(300))
+                            ) {
+                                key(isPremiumUser) {
+                                    ModelSelectionDropdown(
+                                        models = chatViewModel.modelOptions,
+                                        selectedModel = selectedModel,
+                                        onModelSelected = { chatViewModel.selectModel(it) },
+                                        isPremiumUser = isPremiumUser,
+                                        isDarkTheme = isDarkTheme
+                                    )
+                                }
                             }
                         }
 
@@ -684,6 +700,48 @@ fun ChatScreen(
                     }
                 }
             }
+        }
+
+        val showScrollToTopButton = remember {
+            derivedStateOf {
+                listState.firstVisibleItemIndex > 2 ||
+                        (listState.firstVisibleItemIndex > 0 && listState.firstVisibleItemScrollOffset > 100)
+            }
+        }
+
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomEnd
+        ) {
+            AnimatedVisibility(
+                visible = showScrollToTopButton.value && messages.size > 3,
+                enter = fadeIn(animationSpec = tween(300)),
+                exit = fadeOut(animationSpec = tween(300))
+            ) {
+                FloatingActionButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            // Animação de rolagem mais suave
+                            listState.animateScrollToItem(index = 0, scrollOffset = 0)
+                        }
+                    },
+                    modifier = Modifier
+                        .padding(end = 16.dp, bottom = 96.dp)
+                        // Adicione este zIndex para garantir que o botão fique acima de outros elementos
+                        .zIndex(8f),
+                    containerColor = if (isDarkTheme) Color(0xFF333333) else PrimaryColor,
+                    contentColor = Color.White
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowUp,
+                        contentDescription = "Voltar ao topo"
+                    )
+                }
+            }
+        }
+
+        LaunchedEffect(listState.firstVisibleItemIndex) {
+            Log.d("ChatScreen", "Posição de rolagem: ${listState.firstVisibleItemIndex}, offset: ${listState.firstVisibleItemScrollOffset}")
         }
 
         // O restante do código permanece inalterado

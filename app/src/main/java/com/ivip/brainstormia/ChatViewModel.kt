@@ -1041,7 +1041,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     val result = when (currentModel.provider) {
                         AIProvider.OPENAI -> {
                             Log.d("ChatViewModel", "Usando cliente OpenAI")
-                            withTimeoutOrNull(60000) {
+                            withTimeoutOrNull(100000) {
                                 openAIClient.generateChatCompletion(
                                     modelId = currentModel.apiEndpoint,
                                     systemPrompt = brainstormiaSystemPrompt,
@@ -1055,7 +1055,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                         AIProvider.GOOGLE -> {
                             Log.d("ChatViewModel", "Usando cliente Google")
-                            withTimeoutOrNull(60000) {
+                            withTimeoutOrNull(100000) {
                                 googleAIClient.generateChatCompletion(
                                     modelId = currentModel.apiEndpoint,
                                     systemPrompt = brainstormiaSystemPrompt,
