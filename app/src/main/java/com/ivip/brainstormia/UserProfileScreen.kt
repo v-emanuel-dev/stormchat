@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -81,7 +82,7 @@ fun UserProfileScreen(
 
     // --- Uso de currentUser ---
     val emailFromCurrentUser = currentUser?.email ?: ""
-    val displayName = currentUser?.displayName ?: "Brainstormer"
+    val displayName = currentUser?.displayName ?: stringResource(R.string.brainstormer)
     val persistedPhotoUrl = currentUser?.photoUrl
     // --------------------------
 
@@ -131,8 +132,13 @@ fun UserProfileScreen(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 TopAppBar(
-                    title = { Text("Meu Perfil", fontWeight = FontWeight.SemiBold) },
-                    navigationIcon = { IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") } },
+                    title = { Text(stringResource(R.string.my_profile), fontWeight = FontWeight.SemiBold) }, // Alterado aqui
+                    navigationIcon = { IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.go_back)
+                        )
+                    }
+                                     },
                     actions = {
                         IconButton(
                             onClick = {
@@ -142,7 +148,7 @@ fun UserProfileScreen(
                                 }
                             },
                             enabled = !isPremiumLoading && !isRefreshing && !isUpdatingProfilePic
-                        ) { Icon(Icons.Default.Refresh, "Atualizar estado") }
+                        ) { Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh_status)) }
                     },
                     // --- CORREÇÃO DA COR DA TOPAPPBAR PARA TEMA CLARO ---
                     // Usando PrimaryColor diretamente para garantir consistência com ChatScreen
@@ -202,8 +208,15 @@ fun UserProfileScreen(
                     else ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
                     border = if (isDarkTheme) null else BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ExitToApp, "Terminar Sessão"); Spacer(Modifier.width(8.dp)); Text("Terminar Sessão", fontWeight = FontWeight.Medium)
-                }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                        contentDescription = stringResource(R.string.logout)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.logout_text),
+                        fontWeight = FontWeight.Medium
+                    )                }
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
@@ -280,7 +293,7 @@ fun ProfileHeader(
                     )
                     Image(
                         painter = painter,
-                        contentDescription = "Foto de Perfil",
+                        contentDescription = stringResource(R.string.profile_photo),
                         modifier = imageModifierBase,
                         contentScale = ContentScale.Crop
                     )
@@ -292,7 +305,7 @@ fun ProfileHeader(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.AccountCircle,
-                            contentDescription = "Placeholder de Foto de Perfil",
+                            contentDescription = stringResource(R.string.profile_photo_placeholder),
                             modifier = Modifier.size(70.dp),
                             // Usar cor primária no tema claro para o placeholder
                             tint = if (isDarkTheme) Color.LightGray else PrimaryColor.copy(alpha = 0.6f) // Ajustado
@@ -323,7 +336,7 @@ fun ProfileHeader(
                                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), CircleShape)
                         ) {
                             // Usar PrimaryColor no tema claro
-                            Icon(Icons.Filled.Edit, "Editar foto", tint = PrimaryColor, modifier = Modifier.size(20.dp)) // Ajustado
+                            Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.edit_photo), tint = PrimaryColor, modifier = Modifier.size(20.dp)) // Ajustado
                         }
                     }
                 }
@@ -331,7 +344,7 @@ fun ProfileHeader(
 
             Spacer(modifier = Modifier.height(16.dp))
             Text(displayName, style = MaterialTheme.typography.headlineSmall, color = textColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            Text(if (email.isBlank()) "Email não disponível" else email, style = MaterialTheme.typography.bodyMedium, color = secondaryTextColor, textAlign = TextAlign.Center)
+            Text(if (email.isBlank()) stringResource(R.string.email_not_available) else email, style = MaterialTheme.typography.bodyMedium, color = secondaryTextColor, textAlign = TextAlign.Center)
             Spacer(modifier = Modifier.height(12.dp))
 
             if (!isLoading || LocalInspectionMode.current) {
@@ -362,7 +375,7 @@ fun ProfileHeader(
                     modifier = Modifier.drawBehind { if (isPremium) drawCircle(brush = Brush.radialGradient(listOf(goldColor.copy(alpha = 0.05f * glowAlpha), Color.Transparent), radius = size.width * 0.7f), blendMode = androidx.compose.ui.graphics.BlendMode.Plus) }
                 ) {
                     Text(
-                        text = if (isPremium) "Membro Premium ✨" else "Membro Básico",
+                        text = if (isPremium) stringResource(R.string.premium_member) else stringResource(R.string.basic_member),
                         color = statusTextColor,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Medium,
@@ -372,7 +385,7 @@ fun ProfileHeader(
                 if (isPremium && !planType.isNullOrBlank()) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Plano: ${planType.replaceFirstChar { it.titlecase() }}",
+                        text = stringResource(R.string.plan_prefix, planType.replaceFirstChar { it.titlecase() }),
                         style = MaterialTheme.typography.bodySmall,
                         color = if (isPremium && isDarkTheme) goldColor.copy(alpha = 0.85f) else statusTextColor.copy(alpha = 0.9f),
                         fontWeight = FontWeight.SemiBold
@@ -405,7 +418,7 @@ fun LoadingContent(isDarkTheme: Boolean) {
             )
             Spacer(modifier = Modifier.height(20.dp))
             Text(
-                "A processar...",
+                stringResource(R.string.processing),
                 color = if (isDarkTheme) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center
@@ -427,18 +440,45 @@ fun PremiumContent(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            "Vantagens Exclusivas",
+            stringResource(R.string.exclusive_benefits),
             style = MaterialTheme.typography.headlineSmall,
             color = highlightColor, // Usará PrimaryColor no tema claro
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 20.dp)
         )
         // Passar highlightColor para FeatureCard, que agora é dinâmico
-        FeatureCard("Modelos de IA Avançados", "Acesso ilimitado aos modelos de IA mais poderosos e criativos.", Icons.Outlined.AutoAwesome, isDarkTheme, cardBackgroundColor, textColor, secondaryTextColor, highlightColor)
+        FeatureCard(
+            title = stringResource(R.string.advanced_ai_models_title),
+            description = stringResource(R.string.advanced_ai_models_desc_premium),
+            icon = Icons.Outlined.AutoAwesome,
+            isDarkTheme = isDarkTheme,
+            cardBackgroundColor = cardBackgroundColor,
+            textColor = textColor,
+            secondaryTextColor = secondaryTextColor,
+            highlightColor = highlightColor
+        )
         Spacer(modifier = Modifier.height(12.dp))
-        FeatureCard("Exportação de Conversas", "Guarde e partilhe as suas conversas e ideias em múltiplos formatos.", Icons.Outlined.CloudDownload, isDarkTheme, cardBackgroundColor, textColor, secondaryTextColor, highlightColor)
+        FeatureCard(
+            title = stringResource(R.string.conversation_export_title),
+            description = stringResource(R.string.conversation_export_desc_premium),
+            icon = Icons.Outlined.CloudDownload,
+            isDarkTheme = isDarkTheme,
+            cardBackgroundColor = cardBackgroundColor,
+            textColor = textColor,
+            secondaryTextColor = secondaryTextColor,
+            highlightColor = highlightColor
+        )
         Spacer(modifier = Modifier.height(12.dp))
-        FeatureCard("Suporte Prioritário", "Atendimento VIP para resolver as suas dúvidas e problemas rapidamente.", Icons.Outlined.SupportAgent, isDarkTheme, cardBackgroundColor, textColor, secondaryTextColor, highlightColor)
+        FeatureCard(
+            title = stringResource(R.string.priority_support_title),
+            description = stringResource(R.string.priority_support_desc_premium),
+            icon = Icons.Outlined.SupportAgent,
+            isDarkTheme = isDarkTheme,
+            cardBackgroundColor = cardBackgroundColor,
+            textColor = textColor,
+            secondaryTextColor = secondaryTextColor,
+            highlightColor = highlightColor
+        )
         Spacer(modifier = Modifier.height(24.dp))
 
         Card(
@@ -448,7 +488,7 @@ fun PremiumContent(
             border = BorderStroke(1.dp, highlightColor.copy(alpha = 0.25f))
         ) {
             Text(
-                "Obrigado por fazer parte da comunidade Premium!",
+                stringResource(R.string.premium_thanks),
                 style = MaterialTheme.typography.bodyMedium, color = textColor,
                 textAlign = TextAlign.Center, fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(16.dp)
@@ -470,17 +510,31 @@ fun BasicContent(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        PremiumButton(onClick = onUpgradeToPremium, text = "Tornar-se Premium Agora", isDarkTheme = isDarkTheme)
+        PremiumButton(
+            onClick = onUpgradeToPremium,
+            text = stringResource(R.string.become_premium),
+            isDarkTheme = isDarkTheme
+        )
         Spacer(modifier = Modifier.height(28.dp))
         Text(
-            "Desbloqueie o Potencial Máximo",
+            stringResource(R.string.unlock_potential),
             style = MaterialTheme.typography.headlineSmall,
             color = highlightColor, // Usará PrimaryColor no tema claro
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 20.dp)
         )
         // Passar highlightColor para FeatureCard
-        FeatureCard("Modelos de IA Avançados", "Acesso a todos os modelos premium como Claude e GPT-4o para respostas mais precisas e criativas.", Icons.Outlined.AutoAwesome, isDarkTheme, cardBackgroundColor, textColor, secondaryTextColor, highlightColor, isLocked = true)
+        FeatureCard(
+            title = stringResource(R.string.advanced_ai_models_title),
+            description = stringResource(R.string.advanced_ai_models_desc_basic),
+            icon = Icons.Outlined.AutoAwesome,
+            isDarkTheme = isDarkTheme,
+            cardBackgroundColor = cardBackgroundColor,
+            textColor = textColor,
+            secondaryTextColor = secondaryTextColor,
+            highlightColor = highlightColor,
+            isLocked = true
+        )
         Spacer(modifier = Modifier.height(12.dp))
         FeatureCard("Exportação de Conversas", "Guarde e partilhe facilmente as suas conversas e ideias em múltiplos formatos.", Icons.Outlined.CloudDownload, isDarkTheme, cardBackgroundColor, textColor, secondaryTextColor, highlightColor, isLocked = true)
         Spacer(modifier = Modifier.height(12.dp))
@@ -525,7 +579,12 @@ fun FeatureCard(
                     Text(title, style = MaterialTheme.typography.titleMedium, color = textColor, fontWeight = FontWeight.Bold)
                     if (isLocked) {
                         Spacer(modifier = Modifier.width(8.dp))
-                        Icon(Icons.Filled.Lock, "Recurso bloqueado", tint = lockTint, modifier = Modifier.size(18.dp))
+                        Icon(
+                            Icons.Filled.Lock,
+                            contentDescription = stringResource(R.string.locked_feature),
+                            tint = lockTint,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))

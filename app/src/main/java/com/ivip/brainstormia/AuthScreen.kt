@@ -76,6 +76,10 @@ fun AuthScreen(
     // Estado para controlar a visibilidade do spinner de carregamento
     var isLoading by remember { mutableStateOf(false) }
 
+    // Strings que precisam ser obtidas com context.getString para uso em lambdas
+    val fillAllFieldsError = context.getString(R.string.fill_all_fields)
+    val googleAuthFailedPrefix = "Falha na autenticação com Google: "
+
     // Theme-specific colors
     val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
     val cardColor = if (isDarkTheme) Color(0xFF121212) else Color.White // Mudando para mais escuro
@@ -110,7 +114,7 @@ fun AuthScreen(
                 }
             } catch (e: ApiException) {
                 Log.e("GoogleSignIn", "Google sign in failed", e)
-                errorMessage = "Falha na autenticação com Google: ${e.localizedMessage}"
+                errorMessage = googleAuthFailedPrefix + e.localizedMessage
                 isLoading = false // Desativando o spinner em caso de erro
             }
         } else {
@@ -170,7 +174,10 @@ fun AuthScreen(
                 ) {
                     Icon(
                         imageVector = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
-                        contentDescription = if (isDarkTheme) "Mudar para tema claro" else "Mudar para tema escuro",
+                        contentDescription = if (isDarkTheme)
+                            stringResource(R.string.switch_to_light)
+                        else
+                            stringResource(R.string.switch_to_dark),
                         tint = if (isDarkTheme) Color.Black else Color.White
                     )
                 }
@@ -208,7 +215,7 @@ fun AuthScreen(
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.ic_bolt_foreground),
-                            contentDescription = "StormChat Logo",
+                            contentDescription = stringResource(R.string.logo_description),
                             modifier = Modifier.size(80.dp),
                             colorFilter = ColorFilter.tint(if (isDarkTheme) Color(0xFFFFD700) else Color.Black) // Raio amarelo no tema escuro, preto no tema claro
                         )
@@ -217,7 +224,10 @@ fun AuthScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = if (isLogin) "Login" else "Criar uma conta",
+                        text = if (isLogin)
+                            stringResource(R.string.login)
+                        else
+                            stringResource(R.string.create_account),
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
@@ -230,7 +240,7 @@ fun AuthScreen(
                         onValueChange = { email = it },
                         label = {
                             Text(
-                                "Email",
+                                stringResource(R.string.email),
                                 fontWeight = FontWeight.Medium,
                                 color = if (isDarkTheme) Color.LightGray else Color.DarkGray
                             )
@@ -265,7 +275,7 @@ fun AuthScreen(
                         onValueChange = { password = it },
                         label = {
                             Text(
-                                "Senha",
+                                stringResource(R.string.password),
                                 fontWeight = FontWeight.Medium,
                                 color = if (isDarkTheme) Color.LightGray else Color.DarkGray
                             )
@@ -296,7 +306,10 @@ fun AuthScreen(
                             val image = if (passwordVisible)
                                 Icons.Filled.Visibility
                             else Icons.Filled.VisibilityOff
-                            val description = if (passwordVisible) "Esconder senha" else "Mostrar senha"
+                            val description = if (passwordVisible)
+                                stringResource(R.string.hide_password)
+                            else
+                                stringResource(R.string.show_password)
                             IconButton(onClick = {passwordVisible = !passwordVisible}){
                                 Icon(
                                     imageVector = image,
@@ -324,7 +337,7 @@ fun AuthScreen(
                                 contentPadding = PaddingValues(4.dp)
                             ) {
                                 Text(
-                                    text = "Não tem uma conta?",
+                                    text = stringResource(R.string.no_account),
                                     color = if (isDarkTheme) TextColorLight else PrimaryColor,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp
@@ -336,7 +349,7 @@ fun AuthScreen(
                                 contentPadding = PaddingValues(4.dp)
                             ) {
                                 Text(
-                                    text = "Esqueci minha senha",
+                                    text = stringResource(R.string.forgot_password),
                                     color = if (isDarkTheme) TextColorLight else PrimaryColor,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 14.sp
@@ -377,7 +390,7 @@ fun AuthScreen(
                         onClick = {
                             errorMessage = null
                             if (email.isBlank() || password.isBlank()) {
-                                errorMessage = "Por favor, preencha todos os campos"
+                                errorMessage = fillAllFieldsError
                                 return@Button
                             }
 
@@ -402,7 +415,7 @@ fun AuthScreen(
                         )
                     ) {
                         Text(
-                            if (isLogin) "Entrar" else "Cadastrar",
+                            if (isLogin) stringResource(R.string.enter) else stringResource(R.string.register),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -456,7 +469,7 @@ fun AuthScreen(
                         ) {
                             Icon(
                                 imageVector = googleIcon(),
-                                contentDescription = "Logo do Google",
+                                contentDescription = stringResource(R.string.google_logo_description),
                                 modifier = Modifier.size(24.dp),
                                 tint = Color.Unspecified
                             )
@@ -464,7 +477,7 @@ fun AuthScreen(
                             Spacer(modifier = Modifier.width(12.dp))
 
                             Text(
-                                text = "Login com Google",
+                                text = stringResource(R.string.login_with_google),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = textColor,
@@ -482,7 +495,7 @@ fun AuthScreen(
                             modifier = Modifier.padding(top = 16.dp)
                         ) {
                             Text(
-                                "Já tem uma conta? Faça login",
+                                stringResource(R.string.already_have_account),
                                 color = if (isDarkTheme) TextColorLight else PrimaryColor,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 15.sp

@@ -222,17 +222,6 @@ class MainActivity : ComponentActivity() {
                                     isDarkTheme = dark
                                 )
                             }
-                            composable(Routes.PAYMENT) {
-                                PaymentScreen(
-                                    onNavigateBack = { navController.popBackStack() },
-                                    onPurchaseComplete = {
-                                        navController.navigate(Routes.MAIN) {
-                                            popUpTo(Routes.MAIN) { inclusive = true }
-                                        }
-                                    },
-                                    isDarkTheme = dark
-                                )
-                            }
                         }
                     }
 

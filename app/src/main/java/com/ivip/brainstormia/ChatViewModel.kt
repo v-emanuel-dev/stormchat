@@ -48,7 +48,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val chatDao: ChatDao = appDb.chatDao()
     private val metadataDao: ConversationMetadataDao = appDb.conversationMetadataDao()
     private val modelPreferenceDao: ModelPreferenceDao = appDb.modelPreferenceDao()
-
+    private val context = application.applicationContext
 
     // Lista de modelos disponíveis (OpenAI)
 
@@ -164,13 +164,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val currentUserId = _userIdFlow.value
         if (currentUserId.isBlank() || currentUserId == "local_user") {
             Log.w("ChatViewModel", "Tentativa de selecionar modelo sem usuário logado")
-            _errorMessage.value = "Você precisa estar logado para alterar o modelo"
+            _errorMessage.value = context.getString(R.string.error_login_required)
             return
         }
 
         // Verificar se o usuário tem permissão para usar o modelo premium
         if (model.isPremium && !_isPremiumUser.value) {
-            _errorMessage.value = "Este modelo requer assinatura premium. Usando GPT-4o."
+            _errorMessage.value = context.getString(R.string.error_premium_required)
 
             // Encontrar o modelo padrão não-premium (GPT-4o)
             val defaultModel = availableModels.find { it.id == "gpt-4o" } ?: defaultModel
@@ -182,7 +182,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     withContext(Dispatchers.Main) {
                         (_selectedModel as MutableStateFlow).value = AIModel(
                             id = "resetting",
-                            displayName = "Resetando...",
+                            displayName = context.getString(R.string.reset_model),
                             apiEndpoint = "",
                             provider = AIProvider.OPENAI,
                             isPremium = false
@@ -222,7 +222,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         // 1. Resetar
                         (_selectedModel as MutableStateFlow).value = AIModel(
                             id = "changing",
-                            displayName = "Alterando...",
+                            displayName = context.getString(R.string.changing_model),
                             apiEndpoint = "",
                             provider = AIProvider.OPENAI,
                             isPremium = false
@@ -246,7 +246,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     Log.i("ChatViewModel", "Preferência de modelo salva: ${model.displayName}")
                 } catch (e: Exception) {
                     Log.e("ChatViewModel", "Erro ao salvar preferência de modelo", e)
-                    _errorMessage.value = "Erro ao salvar preferência de modelo: ${e.localizedMessage}"
+                    _errorMessage.value = context.getString(R.string.error_save_model, e.localizedMessage)
                 }
             }
         }
@@ -899,7 +899,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
         if (_loadingState.value == LoadingState.LOADING) {
             Log.w("ChatViewModel", "sendMessage cancelled: Already loading.")
-            _errorMessage.value = "Aguarde a resposta anterior."
+            _errorMessage.value = context.getString(R.string.error_wait_previous)
             return
         }
         _loadingState.value = LoadingState.LOADING
@@ -930,7 +930,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         if (targetConversationId == null || targetConversationId == NEW_CONVERSATION_ID) {
             Log.e("ChatViewModel", "sendMessage Error: Invalid targetConversationId ($targetConversationId) after checking for new conversation.")
-            _errorMessage.value = "Erro interno: Não foi possível determinar a conversa."
+            _errorMessage.value = context.getString(R.string.error_internal_conversation)
             _loadingState.value = LoadingState.IDLE
             return
         }
@@ -949,7 +949,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "Error preparing history or calling API for conv $targetConversationId", e)
                 withContext(Dispatchers.Main) {
-                    _errorMessage.value = "Erro ao processar histórico ou chamar IA: ${e.message}"
+                    _errorMessage.value = context.getString(R.string.error_process_history, e.message)
                     _loadingState.value = LoadingState.ERROR
                 }
             }
@@ -1150,16 +1150,16 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 Log.w("ChatViewModel", "Resposta vazia da API para conv $conversationId")
                 withContext(Dispatchers.Main) {
-                    _errorMessage.value = "Resposta vazia da IA. Por favor, tente novamente."
+                    _errorMessage.value = context.getString(R.string.error_empty_response)
                 }
             }
         } catch (e: Exception) {
             Log.e("ChatViewModel", "Erro na chamada à API para conv $conversationId", e)
             withContext(Dispatchers.Main) {
                 if (e.message?.contains("Timeout") == true) {
-                    _errorMessage.value = "A IA demorou muito para responder. Por favor, tente novamente."
+                    _errorMessage.value = context.getString(R.string.error_timeout)
                 } else {
-                    _errorMessage.value = "Erro ao comunicar com IA: ${e.localizedMessage}"
+                    _errorMessage.value = context.getString(R.string.error_ai_communication, e.localizedMessage)
                 }
             }
         } finally {

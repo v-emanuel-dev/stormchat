@@ -42,6 +42,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
 
     private var driveService: Drive? = null
     private val tag = "ExportViewModel"
+    private val context = application.applicationContext
 
     fun setupDriveService() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -79,7 +80,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
 
     fun exportConversation(conversationId: Long, title: String, messages: List<ChatMessage>) {
         if (messages.isEmpty()) {
-            _exportState.value = ExportState.Error("Não há mensagens para exportar")
+            _exportState.value = ExportState.Error(context.getString(R.string.export_error_no_messages))
             return
         }
 
@@ -94,7 +95,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
 
                 // Criar um nome de arquivo baseado no título da conversa
                 val sanitizedTitle = sanitizeFileName(title)
-                val fileName = "Brainstormia_${sanitizedTitle}_$dateTime.txt"
+                val fileName = context.getString(R.string.export_file_prefix, sanitizedTitle, dateTime)
                 Log.d(tag, "Nome do arquivo preparado: $fileName")
 
                 // Converter mensagens para texto formatado
@@ -102,7 +103,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
 
                 // Verificar se há conteúdo para exportar
                 if (fileContent.isBlank()) {
-                    _exportState.value = ExportState.Error("Não há conteúdo para exportar")
+                    _exportState.value = ExportState.Error(context.getString(R.string.export_error_no_content))
                     return@launch
                 }
 
@@ -117,7 +118,10 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
                 }
             } catch (e: Exception) {
                 Log.e(tag, "Erro ao exportar conversa", e)
-                _exportState.value = ExportState.Error("Falha na exportação: ${e.localizedMessage ?: "Erro desconhecido"}")
+                val errorMessage = e.localizedMessage ?: context.getString(R.string.export_error_unknown)
+                _exportState.value = ExportState.Error(
+                    context.getString(R.string.export_error_prefix, errorMessage)
+                )
             }
         }
     }
@@ -200,7 +204,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
                         _exportState.value = ExportState.Success(fileName = fileName)
                     }
                 } else {
-                    throw Exception("Não foi possível criar o arquivo local")
+                    throw Exception(context.getString(R.string.export_error_local_file))
                 }
             } catch (e: Exception) {
                 Log.e(tag, "Erro ao exportar para armazenamento local", e)
@@ -214,17 +218,17 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
         val currentDate = dateFormat.format(Date())
 
         return buildString {
-            appendLine("=== CONVERSA EXPORTADA DO BRAINSTORMIA ===")
-            appendLine("Data: $currentDate")
-            appendLine("Total de mensagens: ${messages.size}")
-            appendLine("=====================================")
+            appendLine(context.getString(R.string.export_header))
+            appendLine(context.getString(R.string.export_date, currentDate))
+            appendLine(context.getString(R.string.export_message_count, messages.size))
+            appendLine(context.getString(R.string.export_separator))
             appendLine()
 
             messages.forEachIndexed { index, message ->
                 val sender = when (message.sender) {
-                    Sender.USER -> "Você"
-                    Sender.BOT -> "Brainstormia"
-                    else -> "Desconhecido"
+                    Sender.USER -> context.getString(R.string.export_user)
+                    Sender.BOT -> context.getString(R.string.export_bot)
+                    else -> context.getString(R.string.export_unknown)
                 }
 
                 appendLine("[$sender]:")
@@ -233,7 +237,7 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
                 // Adicionar separador entre mensagens (exceto para a última)
                 if (index < messages.size - 1) {
                     appendLine()
-                    appendLine("---")
+                    appendLine(context.getString(R.string.export_message_separator))
                     appendLine()
                 }
             }
@@ -251,6 +255,6 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
             .replace("\\s+".toRegex(), "_")
             .take(30)
             .trim()
-            .takeIf { it.isNotEmpty() } ?: "Conversa"
+            .takeIf { it.isNotEmpty() } ?: context.getString(R.string.export_fallback_title)
     }
 }

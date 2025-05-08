@@ -74,7 +74,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -97,6 +96,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -109,6 +109,7 @@ import com.ivip.brainstormia.components.ExportDialog
 import com.ivip.brainstormia.components.ModelSelectionDropdown
 import com.ivip.brainstormia.theme.BackgroundColor
 import com.ivip.brainstormia.theme.BotBubbleColor
+import com.ivip.brainstormia.theme.BrainGold
 import com.ivip.brainstormia.theme.PrimaryColor
 import com.ivip.brainstormia.theme.SurfaceColor
 import com.ivip.brainstormia.theme.SurfaceColorDark
@@ -119,13 +120,14 @@ import io.noties.markwon.html.HtmlPlugin
 import io.noties.markwon.linkify.LinkifyPlugin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import io.noties.markwon.AbstractMarkwonPlugin
-import io.noties.markwon.MarkwonSpansFactory
 import org.commonmark.node.ThematicBreak
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.text.style.LeadingMarginSpan
 import android.text.style.LineBackgroundSpan
+import androidx.compose.material3.rememberDrawerState
+import io.noties.markwon.AbstractMarkwonPlugin
+import io.noties.markwon.MarkwonSpansFactory
 
 @Composable
 fun MessageBubble(
@@ -143,10 +145,10 @@ fun MessageBubble(
 
     // Colors - FIXED: Made bot text color more contrast-aware
     val userBubbleColor = BotBubbleColor
-    val userTextColor   = Color.White
+    val userTextColor = Color.White
     // Change the bot text color logic to ensure proper contrast in both themes
-    val botTextColor    = if (isDarkTheme) TextColorLight else Color.Black // Changed to black in light theme
-    val linkColor       = if (isDarkTheme) Color(0xFFCCE9FF) else Color(0xFF0066CC) // Darker blue links in light theme
+    val botTextColor = if (isDarkTheme) TextColorLight else Color.Black // Changed to black in light theme
+    val linkColor = if (isDarkTheme) Color(0xFFCCE9FF) else Color(0xFF0066CC) // Darker blue links in light theme
 
     val visibleState = remember { MutableTransitionState(initialState = isUserMessage) }
 
@@ -165,7 +167,7 @@ fun MessageBubble(
             Card(
                 modifier = Modifier
                     .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.88f),
-                shape  = userShape,
+                shape = userShape,
                 colors = CardDefaults.cardColors(containerColor = userBubbleColor),
                 elevation = CardDefaults.cardElevation(
                     defaultElevation = if (isDarkTheme) 4.dp else 2.dp
@@ -178,7 +180,7 @@ fun MessageBubble(
                 ) {
                     SelectionContainer {
                         Text(
-                            text  = message.text,
+                            text = message.text,
                             color = userTextColor,
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 fontWeight = FontWeight.Medium
@@ -571,13 +573,13 @@ fun ChatScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         painter = painterResource(id = R.drawable.ic_bolt_foreground),
-                                        contentDescription = "Ícone StormChat",
+                                        contentDescription = stringResource(R.string.app_icon_description), // Substitui "Ícone StormChat"
                                         tint = Color(0xFFFFD700),
                                         modifier = Modifier.size(32.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
-                                        text = "StormChat",
+                                        text = stringResource(R.string.app_name),
                                         style = MaterialTheme.typography.titleMedium,
                                         color = Color.White
                                     )
@@ -590,7 +592,7 @@ fun ChatScreen(
                                     }) {
                                         Icon(
                                             imageVector = Icons.Default.Menu,
-                                            contentDescription = "Menu",
+                                            contentDescription = stringResource(R.string.menu_description), // Substitui "Menu"
                                             tint = Color.White
                                         )
                                     }
@@ -606,7 +608,7 @@ fun ChatScreen(
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.CloudUpload,
-                                                contentDescription = "Exportar conversa",
+                                                contentDescription = stringResource(R.string.export_conversation_description), // Substitui "Exportar conversa"
                                                 tint = Color.White
                                             )
                                         }
@@ -635,7 +637,7 @@ fun ChatScreen(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Star,
-                                            contentDescription = "Usuário Premium",
+                                            contentDescription = stringResource(R.string.premium_user_description), // Substitui "Usuário Premium"
                                             tint = Color(0xFFFFD700) // Usar cor dourada consistente
                                         )
                                     }
@@ -665,7 +667,7 @@ fun ChatScreen(
                                 ) {
                                     Icon(
                                         imageVector = if (currentUser != null) Icons.AutoMirrored.Filled.Logout else Icons.AutoMirrored.Filled.Login,
-                                        contentDescription = if (currentUser != null) "Sair" else "Entrar",
+                                        contentDescription = if (currentUser != null) stringResource(R.string.logout) else stringResource(R.string.login), // Substitui "Sair"/"Entrar"
                                         tint = Color.White
                                     )
                                 }
@@ -702,6 +704,7 @@ fun ChatScreen(
                             .padding(paddingValues)
                             .background(backgroundColor)
                     ) {
+
                         // Add AI model selector only if user is logged in
                         if (currentUser != null) {
                             AnimatedVisibility(
@@ -744,7 +747,7 @@ fun ChatScreen(
                                     itemsIndexed(
                                         items = messages,
                                         key = { index, _ -> index }
-                                    ) { _, message ->
+                                    ) { _, message->
                                         MessageBubble(
                                             message = message,
                                             isDarkTheme = isDarkTheme
@@ -765,7 +768,7 @@ fun ChatScreen(
 
                             errorMessage?.let { errorMsg ->
                                 Text(
-                                    text = "Erro: $errorMsg",
+                                    text = stringResource(R.string.error_prefix, errorMsg), // Substitui "Erro: $errorMsg"
                                     color = Color.White,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
@@ -820,7 +823,7 @@ fun ChatScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowUp,
-                            contentDescription = "Voltar ao topo",
+                            contentDescription = stringResource(R.string.scroll_to_top), // Substitui "Voltar ao topo"
                             modifier = Modifier.size(20.dp)  // Tamanho reduzido do ícone (normalmente é 24.dp)
                         )
                     }
@@ -839,14 +842,14 @@ fun ChatScreen(
                 onDismissRequest = { showDeleteConfirmationDialog = null },
                 title = {
                     Text(
-                        text = "Excluir conversa",
+                        text = stringResource(R.string.delete_confirmation_title), // Substitui "Excluir conversa"
                         fontWeight = FontWeight.Bold,
                         color = if (isDarkTheme) TextColorLight else TextColorDark
                     )
                 },
                 text = {
                     Text(
-                        text = "Tem certeza que deseja excluir esta conversa? Esta ação não pode ser desfeita.",
+                        text = stringResource(R.string.delete_confirmation_message), // Substitui "Tem certeza que deseja excluir esta conversa? Esta ação não pode ser desfeita."
                         fontWeight = FontWeight.Medium,
                         color = if (isDarkTheme) TextColorLight else TextColorDark
                     )
@@ -859,7 +862,7 @@ fun ChatScreen(
                         }
                     ) {
                         Text(
-                            text = "Excluir",
+                            text = stringResource(R.string.delete), // Substitui "Excluir"
                             color = MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -868,7 +871,7 @@ fun ChatScreen(
                 dismissButton = {
                     TextButton(onClick = { showDeleteConfirmationDialog = null }) {
                         Text(
-                            text = "Cancelar",
+                            text = stringResource(R.string.cancel), // Substitui "Cancelar"
                             fontWeight = FontWeight.Medium,
                             color = if (isDarkTheme) TextColorLight.copy(alpha = 0.8f) else Color.DarkGray
                         )
@@ -1008,7 +1011,7 @@ fun MessageInput(
                 onValueChange = onMessageChange,
                 placeholder = {
                     Text(
-                        text = "Mensagem...",
+                        text = stringResource(R.string.message_hint), // Substitui "Mensagem..."
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontWeight = FontWeight.Medium,
                             fontSize = 16.sp,
@@ -1083,7 +1086,7 @@ fun MessageInput(
 
                     Icon(
                         Icons.AutoMirrored.Filled.Send,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.send_description), // Adiciona descrição para acessibilidade
                         modifier = Modifier.size(26.dp), // Ícone aumentado
                         tint = iconColor // Cor ajustada para garantir visibilidade
                     )
@@ -1129,7 +1132,7 @@ fun SimpleVoiceInputButton(
         // Use Icons.Default.KeyboardVoice em vez de Icons.Default.Mic
         Icon(
             imageVector = Icons.Default.KeyboardVoice, // Alternativa para Icons.Default.Mic
-            contentDescription = null,
+            contentDescription = stringResource(R.string.voice_input_description), // Substitui a descrição nula ou vazia
             modifier = Modifier.size(iconSize), // Tamanho do ícone personalizável
             tint = if (isDarkTheme) Color.White else Color.Black
         )
@@ -1290,7 +1293,7 @@ fun LightningLoadingAnimation(
             // Add an extra drop shadow effect for light theme
             Icon(
                 painter = painterResource(id = R.drawable.ic_bolt_foreground),
-                contentDescription = "Carregando...",
+                contentDescription = stringResource(R.string.loading), // Substitui "Carregando..."
                 modifier = Modifier
                     .size(50.dp)
                     .graphicsLayer {

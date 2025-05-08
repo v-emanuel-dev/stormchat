@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -55,6 +56,8 @@ fun AppDrawerContent(
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
     val selectedItemColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.2f) else PrimaryColor.copy(alpha = 0.1f)
     val currentUser by authViewModel.currentUser.collectAsState() // Obtém o usuário atual
+    val selectedModel by chatViewModel.selectedModel.collectAsState()
+    val isPremiumUser by chatViewModel.isPremiumUser.collectAsState()
 
     Column(
         modifier = Modifier
@@ -72,7 +75,7 @@ fun AppDrawerContent(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "Conversas",
+                text = stringResource(R.string.conversations),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = textColor
@@ -99,12 +102,12 @@ fun AppDrawerContent(
         ) {
             Icon(
                 imageVector = Icons.Default.Add,
-                contentDescription = "Nova conversa",
+                contentDescription = stringResource(R.string.new_conversation),
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Nova conversa",
+                text = stringResource(R.string.new_conversation_button),
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White
             )
@@ -185,7 +188,7 @@ fun AppDrawerContent(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Edit,
-                                    contentDescription = "Renomear conversa",
+                                    contentDescription = stringResource(R.string.rename_conversation),
                                     tint = actionIconTint,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -200,7 +203,7 @@ fun AppDrawerContent(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Upload,
-                                        contentDescription = "Exportar conversa",
+                                        contentDescription = stringResource(R.string.export_conversation),
                                         tint = actionIconTint,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -213,7 +216,7 @@ fun AppDrawerContent(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
-                                    contentDescription = "Excluir conversa",
+                                    contentDescription = stringResource(R.string.delete_conversation),
                                     tint = actionIconTint,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -261,7 +264,7 @@ fun AppDrawerContent(
                                 .data(currentUser?.photoUrl)
                                 .crossfade(true)
                                 .build(),
-                            contentDescription = "Foto do perfil",
+                            contentDescription = stringResource(R.string.profile_photo),
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .size(28.dp)
@@ -275,7 +278,7 @@ fun AppDrawerContent(
                     } else {
                         Icon(
                             imageVector = Icons.Default.AccountCircle,
-                            contentDescription = "Perfil do usuário",
+                            contentDescription = stringResource(R.string.profile),
                             tint = if (isDarkTheme) Color.LightGray else PrimaryColor.copy(alpha = 0.8f),
                             modifier = Modifier.size(28.dp)
                         )
@@ -285,7 +288,7 @@ fun AppDrawerContent(
 
                     // Email do usuário com ellipsis se for muito longo
                     Text(
-                        text = currentUser?.email ?: "Usuário",
+                        text = currentUser?.email ?: stringResource(R.string.email_not_available),
                         color = if (isDarkTheme) TextColorLight else TextColorDark,
                         overflow = TextOverflow.Ellipsis,
                         maxLines = 1,

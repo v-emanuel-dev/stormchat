@@ -16,9 +16,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.ivip.brainstormia.R
 import com.ivip.brainstormia.data.models.AIModel
 import com.ivip.brainstormia.theme.BrainGold
 
@@ -63,7 +65,7 @@ fun ModelSelectionDropdown(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Modelo AI:",
+                        text = stringResource(R.string.ai_model_selector_title),
                         fontWeight = FontWeight.Medium,
                         color = textColor,
                         modifier = Modifier.padding(end = 8.dp)
@@ -87,7 +89,7 @@ fun ModelSelectionDropdown(
 
                         Icon(
                             imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            contentDescription = if (expanded) "Collapse" else "Expand",
+                            contentDescription = if (expanded) stringResource(R.string.collapse) else stringResource(R.string.expand),
                             tint = Color.Black // Always BLACK icon on gold background regardless of theme
                         )
                     }
@@ -138,7 +140,7 @@ fun ModelSelectionDropdown(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Icon(
                                     imageVector = Icons.Default.Lock,
-                                    contentDescription = "Premium feature",
+                                    contentDescription = stringResource(R.string.premium_feature),
                                     tint = if (model.id == selectedModel.id) Color.Black else goldColor,
                                     modifier = Modifier.size(16.dp)
                                 )
