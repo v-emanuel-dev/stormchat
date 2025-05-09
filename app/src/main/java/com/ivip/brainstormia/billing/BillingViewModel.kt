@@ -455,13 +455,13 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
         Log.d(TAG, "Determining plan type for productId: $productId")
         return when {
             productId == null -> "Desconhecido"
-            productId.equals("mensal", ignoreCase = true) -> "Mensal"
-            productId.equals("anual", ignoreCase = true) -> "Anual"
-            productId.equals("vital", ignoreCase = true) -> "Vitalício"
+            productId.equals("mensal", ignoreCase = true) -> "Monthly plan"
+            productId.equals("anual", ignoreCase = true) -> "Annual Plan"
+            productId.equals("vital", ignoreCase = true) -> "Lifetime"
             // Suporte para o ID legado "vitalicio" que ainda aparece em compras antigas
             productId.equals("vitalicio", ignoreCase = true) -> {
-                Log.i(TAG, "ID de produto legado detectado (vitalicio). Convertendo para tipo de plano 'Vitalício'")
-                "Vitalício"
+                Log.i(TAG, "ID de produto legado detectado (vitalicio). Convertendo para tipo de plano 'Lifetime'")
+                "Lifetime"
             }
             else -> {
                 Log.w(TAG, "Tipo de plano não reconhecido para productId: $productId. Usando 'Premium'.")

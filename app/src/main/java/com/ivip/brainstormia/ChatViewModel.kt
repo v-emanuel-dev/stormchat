@@ -630,7 +630,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * (mensagem do usuário + resposta do bot).
      */
     private fun autoGenerateConversationTitle(conversationId: Long, userMessage: String, botResponse: String) {
-        // Não gerar título para conversa nova ou inválida
+        // Don't generate title for new or invalid conversation
         if (conversationId == NEW_CONVERSATION_ID) {
             return
         }
@@ -640,20 +640,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val existingTitle = metadataDao.getCustomTitle(conversationId)
 
                 if (!existingTitle.isNullOrBlank()) {
-                    // Já tem título personalizado, não precisa gerar
-                    Log.d("ChatViewModel", "Conversa $conversationId já tem título personalizado: '$existingTitle'")
+                    // Already has a custom title, no need to generate
+                    Log.d("ChatViewModel", "Conversation $conversationId already has a custom title: '$existingTitle'")
                     return@launch
                 }
 
-                Log.d("ChatViewModel", "Gerando título automático após primeira interação para conversa $conversationId")
+                Log.d("ChatViewModel", "Generating automatic title after first interaction for conversation $conversationId")
 
-                // Construir prompt específico para criar título baseado apenas na primeira interação
-                val promptText = "Baseado nesta primeira interação, crie um título curto (3-4 palavras) e descritivo para esta conversa.\n\n" +
-                        "Usuário: $userMessage\n\n" +
-                        "Assistente: ${botResponse.take(200)}\n\n" +
-                        "Título (apenas o título, sem aspas ou outros textos):"
+                // Build specific prompt to create title based only on the first interaction
+                val promptText = "Based on this first interaction, create a short descriptive title (3-4 words) for this conversation in English.\n\n" +
+                        "User: $userMessage\n\n" +
+                        "Assistant: ${botResponse.take(200)}\n\n" +
+                        "Title (only the title, no quotes or other text):"
 
-                // Usar um modelo leve por padrão para economizar tokens
+                // Use a lightweight model by default to save tokens
                 val titleModelId = when (_selectedModel.value.provider) {
                     AIProvider.OPENAI -> "gpt-4o-mini"
                     AIProvider.GOOGLE -> "gemini-2.0-flash"
@@ -662,20 +662,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                 var titleResponse = ""
 
-                // Usar o cliente mais adequado baseado no provider do modelo selecionado
+                // Use the most appropriate client based on the selected model's provider
                 when (_selectedModel.value.provider) {
                     AIProvider.OPENAI -> {
                         openAIClient.generateChatCompletion(
                             modelId = titleModelId,
-                            systemPrompt = "Você gera títulos curtos e descritivos para conversas. Responda APENAS com o título, sem explicações ou prefixos como 'Título:' ou aspas.",
+                            systemPrompt = "You generate short descriptive titles for conversations. Respond ONLY with the title in English, without explanations or prefixes like 'Title:' or quotes.",
                             userMessage = promptText,
-                            historyMessages = emptyList() // Não precisamos de histórico já que temos o contexto no prompt
+                            historyMessages = emptyList() // We don't need history since we have the context in the prompt
                         ).collect { chunk -> titleResponse += chunk }
                     }
                     AIProvider.GOOGLE -> {
                         googleAIClient.generateChatCompletion(
                             modelId = titleModelId,
-                            systemPrompt = "Você gera títulos curtos e descritivos para conversas. Responda APENAS com o título, sem explicações ou prefixos como 'Título:' ou aspas.",
+                            systemPrompt = "You generate short descriptive titles for conversations. Respond ONLY with the title in English, without explanations or prefixes like 'Title:' or quotes.",
                             userMessage = promptText,
                             historyMessages = emptyList()
                         ).collect { chunk -> titleResponse += chunk }
@@ -683,26 +683,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     AIProvider.ANTHROPIC -> {
                         anthropicClient.generateChatCompletion(
                             modelId = titleModelId,
-                            systemPrompt = "Você gera títulos curtos e descritivos para conversas. Responda APENAS com o título, sem explicações ou prefixos como 'Título:' ou aspas.",
+                            systemPrompt = "You generate short descriptive titles for conversations. Respond ONLY with the title in English, without explanations or prefixes like 'Title:' or quotes.",
                             userMessage = promptText,
                             historyMessages = emptyList()
                         ).collect { chunk -> titleResponse += chunk }
                     }
                 }
 
-                // Limpar e validar o título gerado
+                // Clean and validate the generated title
                 val cleanedTitle = titleResponse.trim()
-                    .replace(Regex("^['\"](.*)['\"]$"), "$1") // Remove aspas
-                    .replace(Regex("^Título: ?"), "") // Remove prefixo "Título: " se existir
-                    .replace(Regex("^Tema: ?"), "") // Remove prefixo "Tema: " se existir
-                    .replace("\n", " ") // Remove quebras de linha
-                    .take(50) // Limite máximo de caracteres
+                    .replace(Regex("^['\"](.*)['\"]$"), "$1") // Remove quotes
+                    .replace(Regex("^Title: ?"), "") // Remove "Title: " prefix if it exists
+                    .replace(Regex("^Theme: ?"), "") // Remove "Theme: " prefix if it exists
+                    .replace("\n", " ") // Remove line breaks
+                    .take(50) // Maximum character limit
 
                 if (cleanedTitle.isNotBlank()) {
-                    Log.i("ChatViewModel", "Título automático gerado após primeira interação: '$cleanedTitle' para conversa $conversationId")
+                    Log.i("ChatViewModel", "Automatic title generated after first interaction: '$cleanedTitle' for conversation $conversationId")
 
-                    // Salvar o título personalizado no banco de dados
-                    // Usamos insertOrUpdateMetadata que já está implementado e funciona
+                    // Save the custom title to the database
+                    // We use insertOrUpdateMetadata which is already implemented and working
                     metadataDao.insertOrUpdateMetadata(
                         ConversationMetadataEntity(
                             conversationId = conversationId,
@@ -713,8 +713,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
             } catch (e: Exception) {
-                // Em caso de erro, apenas registra no log e continua
-                Log.e("ChatViewModel", "Erro ao gerar título automático: ${e.message}", e)
+                // In case of error, just log and continue
+                Log.e("ChatViewModel", "Error generating automatic title: ${e.message}", e)
             }
         }
     }
