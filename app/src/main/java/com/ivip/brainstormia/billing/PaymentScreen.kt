@@ -1,4 +1,4 @@
-package com.ivip.brainstormia
+package com.ivip.brainstormia.billing
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.ivip.brainstormia.components.ThemeSwitch
+import com.ivip.brainstormia.R
 import com.ivip.brainstormia.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow

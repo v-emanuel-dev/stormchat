@@ -28,7 +28,10 @@ fun RenameConversationDialog(
     onDismiss: () -> Unit,
     isDarkTheme: Boolean = true
 ) {
-    var newTitle by remember { mutableStateOf(currentTitle ?: "") }
+    // Fix: Ensure currentTitle is properly initialized and remembered across recompositions
+    var newTitle by remember(conversationId, currentTitle) {
+        mutableStateOf(currentTitle ?: "")
+    }
 
     val dialogBgColor = if (isDarkTheme) Color(0xFF121212) else Color.White // Usando #121212 para dialogs
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
