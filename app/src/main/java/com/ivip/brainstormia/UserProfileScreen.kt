@@ -20,14 +20,12 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.* // Import para collectAsState, getValue, remember, etc.
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -44,7 +42,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.ivip.brainstormia.theme.BrainGold
-import com.ivip.brainstormia.theme.PrimaryColor // <<< IMPORT NECESSÁRIO
+import com.ivip.brainstormia.theme.PrimaryColor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -53,7 +51,8 @@ import kotlinx.coroutines.launch
 fun UserProfileScreen(
     onNavigateBack: () -> Unit,
     onNavigateToPayment: () -> Unit,
-    authViewModel: AuthViewModel = viewModel(), // Obtém o ViewModel
+    authViewModel: AuthViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel = viewModel(),
     isDarkTheme: Boolean = true
 ) {
     val context = LocalContext.current
@@ -61,16 +60,12 @@ fun UserProfileScreen(
         ?: throw IllegalStateException("BillingViewModel não inicializado na BrainstormiaApplication.")
 
     val goldColor = BrainGold
-    // Usar PrimaryColor diretamente para consistência com ChatScreen, se necessário
     val primaryColorForTheme = if (isDarkTheme) goldColor else PrimaryColor
 
     val currentTextColor = if (isDarkTheme) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface
     val currentSecondaryTextColor = if (isDarkTheme) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurfaceVariant
 
-    // --- Definição de currentUser ---
     val currentUser by authViewModel.currentUser.collectAsState()
-    // ---------------------------------
-
     val isPremiumUser by billingViewModel.isPremiumUser.collectAsState(initial = false)
     val userPlanType by billingViewModel.userPlanType.collectAsState()
     val isPremiumLoading by billingViewModel.isPremiumLoading.collectAsState(initial = false)
@@ -80,15 +75,15 @@ fun UserProfileScreen(
     val userMessage by authViewModel.userMessage.collectAsState()
     val isUpdatingProfilePic by authViewModel.isUpdatingProfilePicture.collectAsState()
 
-    // --- Uso de currentUser ---
     val emailFromCurrentUser = currentUser?.email ?: ""
     val displayName = currentUser?.displayName ?: stringResource(R.string.brainstormer)
-    val persistedPhotoUrl = currentUser?.photoUrl
-    // --------------------------
+    val persistedPhotoUrlString = currentUser?.photoUrl?.toString()
 
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val autoBackupEnabled by settingsViewModel.isAutoBackupEnabled.collectAsState()
 
     LaunchedEffect(userMessage) {
         userMessage?.let { message ->
@@ -132,13 +127,13 @@ fun UserProfileScreen(
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 TopAppBar(
-                    title = { Text(stringResource(R.string.my_profile), fontWeight = FontWeight.SemiBold) }, // Alterado aqui
+                    title = { Text(stringResource(R.string.my_profile), fontWeight = FontWeight.SemiBold) },
                     navigationIcon = { IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.go_back)
                         )
                     }
-                                     },
+                    },
                     actions = {
                         IconButton(
                             onClick = {
@@ -150,15 +145,12 @@ fun UserProfileScreen(
                             enabled = !isPremiumLoading && !isRefreshing && !isUpdatingProfilePic
                         ) { Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh_status)) }
                     },
-                    // --- CORREÇÃO DA COR DA TOPAPPBAR PARA TEMA CLARO ---
-                    // Usando PrimaryColor diretamente para garantir consistência com ChatScreen
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp) else PrimaryColor, // Usa PrimaryColor diretamente
-                        titleContentColor = if (isDarkTheme) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary, // Cor de contraste (geralmente branco para PrimaryColor)
+                        containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp) else PrimaryColor,
+                        titleContentColor = if (isDarkTheme) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary,
                         navigationIconContentColor = if (isDarkTheme) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary,
                         actionIconContentColor = if (isDarkTheme) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onPrimary
                     )
-                    // ----------------------------------------------------
                 )
             },
             containerColor = Color.Transparent
@@ -172,21 +164,151 @@ fun UserProfileScreen(
                 ProfileHeader(
                     displayName = displayName,
                     email = emailFromCurrentUser,
-                    displayImageUri = selectedImagePreviewUri ?: persistedPhotoUrl,
+                    displayImageUri = selectedImagePreviewUri ?: persistedPhotoUrlString?.let { Uri.parse(it) },
                     onPhotoChangeRequested = { imagePickerLauncher.launch("image/*") },
                     isPremium = isPremiumUser,
                     planType = userPlanType,
                     isDarkTheme = isDarkTheme,
-                    isLoading = isPremiumLoading || isRefreshing || isUpdatingProfilePic,
+                    isLoading = isPremiumLoading || isUpdatingProfilePic, // Removido isRefreshing daqui pois o ProfileHeader já tem seu próprio isLoading
                     textColor = currentTextColor,
                     secondaryTextColor = currentSecondaryTextColor
                 )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .padding(vertical = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp) else MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = if (isDarkTheme) 2.dp else 3.dp),
+                    border = if(!isDarkTheme) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)) else null
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = stringResource(R.string.settings_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = currentTextColor,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+
+                        if (isPremiumUser) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        settingsViewModel.setAutoBackupEnabled(!autoBackupEnabled)
+                                    }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.auto_backup_title),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = currentTextColor
+                                    )
+                                    Text(
+                                        text = if (autoBackupEnabled) stringResource(R.string.enabled) else stringResource(R.string.disabled),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = currentSecondaryTextColor
+                                    )
+                                }
+                                Switch(
+                                    checked = autoBackupEnabled,
+                                    onCheckedChange = { enabled ->
+                                        settingsViewModel.setAutoBackupEnabled(enabled)
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = if (isDarkTheme) goldColor else PrimaryColor,
+                                        checkedTrackColor = (if (isDarkTheme) goldColor else PrimaryColor).copy(alpha = 0.5f),
+                                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                                    )
+                                )
+                            }
+                            Text(
+                                text = stringResource(R.string.auto_backup_description_premium),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = currentSecondaryTextColor,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                            )
+
+                            OutlinedButton(
+                                onClick = { settingsViewModel.scheduleOneTimeBackupForTest() },
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = if (isDarkTheme) goldColor else PrimaryColor
+                                ),
+                                border = BorderStroke(1.dp, if (isDarkTheme) goldColor.copy(alpha = 0.7f) else PrimaryColor.copy(alpha = 0.7f))
+                            ) {
+                                Icon(
+                                    Icons.Default.PlayCircleOutline,
+                                    contentDescription = stringResource(R.string.test_one_time_backup_button),
+                                    modifier = Modifier.size(ButtonDefaults.IconSize)
+                                )
+                                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                                Text(stringResource(R.string.test_one_time_backup_button))
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                message = context.getString(R.string.auto_backup_requires_premium),
+                                                duration = SnackbarDuration.Short
+                                            )
+                                        }
+                                    }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.auto_backup_title),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = currentTextColor.copy(alpha = 0.6f)
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.disabled),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = currentSecondaryTextColor.copy(alpha = 0.6f)
+                                    )
+                                }
+                                Switch(
+                                    checked = false,
+                                    onCheckedChange = null,
+                                    enabled = false,
+                                    colors = SwitchDefaults.colors(
+                                        disabledUncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        disabledUncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                )
+                            }
+                            Text(
+                                text = stringResource(R.string.auto_backup_description_non_premium),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = currentSecondaryTextColor,
+                                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 when {
                     isPremiumLoading || isRefreshing || isUpdatingProfilePic -> LoadingContent(isDarkTheme = isDarkTheme)
-                    isPremiumUser -> PremiumContent(isDarkTheme, currentTextColor, currentSecondaryTextColor, primaryColorForTheme)
+                    // Passar onNavigateToPayment para PremiumContent
+                    isPremiumUser -> PremiumContent(isDarkTheme, currentTextColor, currentSecondaryTextColor, primaryColorForTheme, onNavigateToPayment)
                     else -> BasicContent(onNavigateToPayment, isDarkTheme, currentTextColor, currentSecondaryTextColor, primaryColorForTheme)
                 }
 
@@ -194,11 +316,8 @@ fun UserProfileScreen(
 
                 Button(
                     onClick = {
-                        // Uso do coroutineScope para garantir a ordem das operações
                         coroutineScope.launch {
-                            // Primeiro faz logout
                             authViewModel.logout()
-                            // Depois navega de volta
                             onNavigateBack()
                         }
                     },
@@ -216,7 +335,8 @@ fun UserProfileScreen(
                     Text(
                         text = stringResource(R.string.logout_text),
                         fontWeight = FontWeight.Medium
-                    )                }
+                    )
+                }
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
@@ -227,7 +347,7 @@ fun UserProfileScreen(
 fun ProfileHeader(
     displayName: String,
     email: String,
-    displayImageUri: Uri?, // Pode ser local (preview) ou remota (persistida)
+    displayImageUri: Uri?,
     onPhotoChangeRequested: () -> Unit,
     isPremium: Boolean,
     planType: String?,
@@ -240,8 +360,7 @@ fun ProfileHeader(
     val goldColor = BrainGold
     val cardBackgroundColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp) else MaterialTheme.colorScheme.surface
     val premiumBorderBrush = Brush.linearGradient(colors = listOf(goldColor, goldColor.copy(alpha = 0.6f)))
-    // Usar PrimaryColor diretamente para a borda padrão no tema claro
-    val defaultBorderBrush = Brush.linearGradient(colors = listOf(PrimaryColor, MaterialTheme.colorScheme.tertiary)) // Ajustado
+    val defaultBorderBrush = Brush.linearGradient(colors = listOf(PrimaryColor, MaterialTheme.colorScheme.tertiary))
 
     val infiniteTransition = rememberInfiniteTransition(label = "ProfileHeaderGlow")
     val glowAlpha by infiniteTransition.animateFloat(
@@ -257,8 +376,7 @@ fun ProfileHeader(
             .shadow(
                 elevation = if (isDarkTheme) 8.dp else 5.dp,
                 shape = RoundedCornerShape(20.dp),
-                // Usar PrimaryColor para a sombra no tema claro
-                spotColor = if (isDarkTheme) goldColor.copy(alpha = 0.25f) else PrimaryColor.copy(alpha = 0.2f) // Ajustado
+                spotColor = if (isDarkTheme) goldColor.copy(alpha = 0.25f) else PrimaryColor.copy(alpha = 0.2f)
             ),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = cardBackgroundColor),
@@ -269,26 +387,22 @@ fun ProfileHeader(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(contentAlignment = Alignment.Center) {
-                // Define o modificador base para a imagem/ícone
                 val imageModifierBase = Modifier
                     .size(100.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
-                    // Usa os Brushes definidos acima
                     .border(3.dp, if (isPremium) premiumBorderBrush else defaultBorderBrush, CircleShape)
                     .clickable(enabled = !isLoading) { onPhotoChangeRequested() }
 
-                // Verifica se há uma imagem real para carregar
-                val imageToLoad = displayImageUri?.toString()?.takeIf { it.isNotBlank() }
+                val imageToLoad = displayImageUri
 
                 if (imageToLoad != null) {
-                    // Carrega a imagem com Coil se houver URI/URL
                     val painter = rememberAsyncImagePainter(
                         model = ImageRequest.Builder(context)
                             .data(imageToLoad)
                             .crossfade(true)
-                            // .error(R.drawable.ic_profile_placeholder)
-                            // .placeholder(R.drawable.ic_profile_placeholder)
+                            // Removido .error(R.drawable.ic_profile_placeholder)
+                            // Removido .placeholder(R.drawable.ic_profile_placeholder)
                             .build()
                     )
                     Image(
@@ -298,7 +412,6 @@ fun ProfileHeader(
                         contentScale = ContentScale.Crop
                     )
                 } else {
-                    // Mostra o ícone de placeholder se não houver imagem
                     Box(
                         modifier = imageModifierBase,
                         contentAlignment = Alignment.Center
@@ -307,18 +420,15 @@ fun ProfileHeader(
                             imageVector = Icons.Filled.AccountCircle,
                             contentDescription = stringResource(R.string.profile_photo_placeholder),
                             modifier = Modifier.size(70.dp),
-                            // Usar cor primária no tema claro para o placeholder
-                            tint = if (isDarkTheme) Color.LightGray else PrimaryColor.copy(alpha = 0.6f) // Ajustado
+                            tint = if (isDarkTheme) Color.LightGray else PrimaryColor.copy(alpha = 0.6f)
                         )
                     }
                 }
 
-                // Indicador de progresso ou botão de editar
                 if (isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(36.dp),
-                        // Usar PrimaryColor no tema claro
-                        color = if (isDarkTheme && isPremium) goldColor else PrimaryColor, // Ajustado
+                        color = if (isDarkTheme && isPremium) goldColor else PrimaryColor,
                         strokeWidth = 2.5.dp
                     )
                 } else {
@@ -335,8 +445,7 @@ fun ProfileHeader(
                                 .background(MaterialTheme.colorScheme.surfaceColorAtElevation(10.dp))
                                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), CircleShape)
                         ) {
-                            // Usar PrimaryColor no tema claro
-                            Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.edit_photo), tint = PrimaryColor, modifier = Modifier.size(20.dp)) // Ajustado
+                            Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.edit_photo), tint = PrimaryColor, modifier = Modifier.size(20.dp))
                         }
                     }
                 }
@@ -348,23 +457,21 @@ fun ProfileHeader(
             Spacer(modifier = Modifier.height(12.dp))
 
             if (!isLoading || LocalInspectionMode.current) {
-                // Usar PrimaryContainer/onPrimaryContainer no tema claro para status premium
                 val statusBackgroundColor = when {
                     isPremium && isDarkTheme -> goldColor.copy(alpha = 0.25f)
-                    isPremium && !isDarkTheme -> MaterialTheme.colorScheme.primaryContainer // Ajustado
+                    isPremium && !isDarkTheme -> MaterialTheme.colorScheme.primaryContainer
                     !isPremium && isDarkTheme -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                     else -> MaterialTheme.colorScheme.secondaryContainer
                 }
                 val statusTextColor = when {
                     isPremium && isDarkTheme -> goldColor
-                    isPremium && !isDarkTheme -> MaterialTheme.colorScheme.onPrimaryContainer // Ajustado
+                    isPremium && !isDarkTheme -> MaterialTheme.colorScheme.onPrimaryContainer
                     !isPremium && isDarkTheme -> Color.LightGray
                     else -> MaterialTheme.colorScheme.onSecondaryContainer
                 }
-                // Usar PrimaryColor para a borda no tema claro
                 val statusBorderColor = when {
                     isPremium && isDarkTheme -> goldColor.copy(alpha = 0.6f)
-                    isPremium && !isDarkTheme -> PrimaryColor // Ajustado
+                    isPremium && !isDarkTheme -> PrimaryColor
                     else -> MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
                 }
 
@@ -411,8 +518,7 @@ fun LoadingContent(isDarkTheme: Boolean) {
             verticalArrangement = Arrangement.Center
         ) {
             CircularProgressIndicator(
-                // Usar PrimaryColor no tema claro
-                color = if (isDarkTheme) BrainGold else PrimaryColor, // Ajustado
+                color = if (isDarkTheme) BrainGold else PrimaryColor,
                 modifier = Modifier.size(48.dp),
                 strokeWidth = 3.dp
             )
@@ -432,7 +538,8 @@ fun PremiumContent(
     isDarkTheme: Boolean,
     textColor: Color,
     secondaryTextColor: Color,
-    highlightColor: Color // PrimaryColor no tema claro, BrainGold no escuro
+    highlightColor: Color,
+    onNavigateToPayment: () -> Unit
 ) {
     val cardBackgroundColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp) else MaterialTheme.colorScheme.surface
     Column(
@@ -442,11 +549,10 @@ fun PremiumContent(
         Text(
             stringResource(R.string.exclusive_benefits),
             style = MaterialTheme.typography.headlineSmall,
-            color = highlightColor, // Usará PrimaryColor no tema claro
+            color = highlightColor,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 20.dp)
         )
-        // Passar highlightColor para FeatureCard, que agora é dinâmico
         FeatureCard(
             title = stringResource(R.string.advanced_ai_models_title),
             description = stringResource(R.string.advanced_ai_models_desc_premium),
@@ -494,6 +600,19 @@ fun PremiumContent(
                 modifier = Modifier.padding(16.dp)
             )
         }
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = { onNavigateToPayment() },
+            modifier = Modifier.fillMaxWidth(0.9f).height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isDarkTheme) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer,
+                contentColor = if (isDarkTheme) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
+            )
+        ) {
+            // TODO: Adicionar esta string ao seu strings.xml
+            Text("Gerenciar Assinatura", fontWeight = FontWeight.Medium)
+        }
     }
 }
 
@@ -503,7 +622,7 @@ fun BasicContent(
     isDarkTheme: Boolean,
     textColor: Color,
     secondaryTextColor: Color,
-    highlightColor: Color // PrimaryColor no tema claro, BrainGold no escuro
+    highlightColor: Color
 ) {
     val cardBackgroundColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp) else MaterialTheme.colorScheme.surface
     Column(
@@ -519,11 +638,10 @@ fun BasicContent(
         Text(
             stringResource(R.string.unlock_potential),
             style = MaterialTheme.typography.headlineSmall,
-            color = highlightColor, // Usará PrimaryColor no tema claro
+            color = highlightColor,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 20.dp)
         )
-        // Passar highlightColor para FeatureCard
         FeatureCard(
             title = stringResource(R.string.advanced_ai_models_title),
             description = stringResource(R.string.advanced_ai_models_desc_basic),
@@ -536,9 +654,29 @@ fun BasicContent(
             isLocked = true
         )
         Spacer(modifier = Modifier.height(12.dp))
-        FeatureCard("Exportação de Conversas", "Guarde e partilhe facilmente as suas conversas e ideias em múltiplos formatos.", Icons.Outlined.CloudDownload, isDarkTheme, cardBackgroundColor, textColor, secondaryTextColor, highlightColor, isLocked = true)
+        FeatureCard(
+            title = stringResource(R.string.conversation_export_title),
+            description = stringResource(R.string.conversation_export_desc_basic_auto_backup),
+            icon = Icons.Outlined.CloudDownload,
+            isDarkTheme = isDarkTheme,
+            cardBackgroundColor = cardBackgroundColor,
+            textColor = textColor,
+            secondaryTextColor = secondaryTextColor,
+            highlightColor = highlightColor,
+            isLocked = true
+        )
         Spacer(modifier = Modifier.height(12.dp))
-        FeatureCard("Suporte Prioritário", "Atendimento VIP para solucionar as suas dúvidas e problemas de forma rápida e eficiente.", Icons.Outlined.SupportAgent, isDarkTheme, cardBackgroundColor, textColor, secondaryTextColor, highlightColor, isLocked = true)
+        FeatureCard(
+            title = stringResource(R.string.priority_support_title),
+            description = stringResource(R.string.priority_support_desc_basic),
+            icon = Icons.Outlined.SupportAgent,
+            isDarkTheme = isDarkTheme,
+            cardBackgroundColor = cardBackgroundColor,
+            textColor = textColor,
+            secondaryTextColor = secondaryTextColor,
+            highlightColor = highlightColor,
+            isLocked = true
+        )
     }
 }
 
@@ -551,10 +689,9 @@ fun FeatureCard(
     cardBackgroundColor: Color,
     textColor: Color,
     secondaryTextColor: Color,
-    highlightColor: Color, // PrimaryColor no tema claro, BrainGold no escuro
+    highlightColor: Color,
     isLocked: Boolean = false
 ) {
-    // Usar cores do tema claro de forma mais consistente
     val iconBg = if (isDarkTheme) highlightColor.copy(alpha = 0.1f) else MaterialTheme.colorScheme.primaryContainer
     val iconTint = if (isDarkTheme) highlightColor else MaterialTheme.colorScheme.primary
     val lockTint = if (isDarkTheme) highlightColor.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
@@ -600,34 +737,19 @@ fun PremiumButton(onClick: () -> Unit, text: String, isDarkTheme: Boolean) {
     val lightThemeGradient = Brush.linearGradient(colors = listOf(Color(0xFFFBC02D), Color(0xFFF9A825)))
     val darkThemeGradient = Brush.linearGradient(colors = listOf(goldColor, goldColor.copy(alpha = 0.8f)))
 
-    val infiniteTransition = rememberInfiniteTransition(label = "PremiumButtonPulse")
-    val scale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.03f,
-        animationSpec = infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "ButtonScale"
-    )
-    val shadowElevation by infiniteTransition.animateValue(
-        initialValue = 6.dp,
-        targetValue = 10.dp,
-        typeConverter = Dp.VectorConverter,
-        animationSpec = infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "ButtonShadow"
-    )
-
     Button(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth(0.9f)
             .height(52.dp),
-            //.scale(scale)
-            //.shadow(shadowElevation, RoundedCornerShape(28.dp), spotColor = if (isDarkTheme) goldColor.copy(alpha = 0.5f) else Color(0xFFF57F17).copy(alpha = 0.4f)),
         shape = RoundedCornerShape(16.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
         contentPadding = PaddingValues()
     ) {
         Box(
-            Modifier.fillMaxSize().background(if (isDarkTheme) darkThemeGradient else lightThemeGradient),
+            modifier = Modifier
+                .fillMaxSize()
+                .background(if (isDarkTheme) darkThemeGradient else lightThemeGradient, shape = RoundedCornerShape(16.dp)),
             contentAlignment = Alignment.Center
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {

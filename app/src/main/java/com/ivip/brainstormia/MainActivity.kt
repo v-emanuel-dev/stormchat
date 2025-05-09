@@ -11,6 +11,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background // Import for Modifier.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -25,6 +26,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
@@ -42,6 +45,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.Scope
+import com.google.android.gms.common.api.ApiException // Corrected import for ApiException
 import com.google.api.services.drive.DriveScopes
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.ktx.analytics
@@ -50,46 +54,54 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.messaging.FirebaseMessaging
 import com.ivip.brainstormia.navigation.Routes
 import com.ivip.brainstormia.theme.BrainstormiaTheme
+import com.ivip.brainstormia.theme.PrimaryColor
+import com.ivip.brainstormia.billing.PaymentScreen // Import for PaymentScreen
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-/* ───────────── DataStore (tema claro/escuro) ───────────── */
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore("settings")
+// DataStore for theme preferences
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 class ThemePreferences(private val context: Context) {
-    companion object { val DARK = booleanPreferencesKey("dark_mode") }
+    companion object { val DARK_THEME_ENABLED = booleanPreferencesKey("dark_mode_enabled") }
 
-    val isDark: Flow<Boolean> = context.dataStore.data.map { it[DARK] ?: true }
+    val isDarkThemeEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[DARK_THEME_ENABLED] ?: true // Default to dark theme
+    }
 
-    suspend fun setDark(enabled: Boolean) =
-        context.dataStore.edit { it[DARK] = enabled }
+    suspend fun setDarkThemeEnabled(enabled: Boolean) {
+        context.dataStore.edit { settings ->
+            settings[DARK_THEME_ENABLED] = enabled
+        }
+    }
 }
 
-/* ───────────── MainActivity ───────────── */
 class MainActivity : ComponentActivity() {
 
-    /* Google Sign-In */
-    private lateinit var signInClient: GoogleSignInClient
+    private lateinit var googleSignInClient: GoogleSignInClient
+    private lateinit var themePreferences: ThemePreferences
+    private lateinit var firebaseAnalytics: FirebaseAnalytics
 
-    /* Utilitários globais */
-    private lateinit var prefs: ThemePreferences
-    private lateinit var analytics: FirebaseAnalytics
-
-    /* Launcher do login Google */
     private val signInLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        analytics.logEvent("google_signin_result", Bundle().apply {
+        firebaseAnalytics.logEvent("google_signin_result", Bundle().apply {
             putInt("result_code", result.resultCode)
         })
 
         if (result.resultCode == RESULT_OK) {
-            val account = GoogleSignIn.getSignedInAccountFromIntent(result.data).result
-            handleLoginSuccess(account?.email)
+            val accountTask = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                val account = accountTask.getResult(ApiException::class.java) // Use the corrected ApiException import
+                handleLoginSuccess(account?.email, account?.idToken)
+            } catch (e: ApiException) { // Use the corrected ApiException import
+                Log.e("MainActivity", "Google sign in failed", e)
+                Toast.makeText(this, "Google Sign-in failed: ${e.statusCode}", Toast.LENGTH_SHORT).show()
+            }
         } else {
-            Toast.makeText(this, "Login cancelado ou falhou", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Login canceled or failed", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -97,25 +109,23 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            Log.d("MainActivity", "Permissão de notificação concedida")
+            Log.d("MainActivity", "Notification permission granted")
         } else {
-            Log.w("MainActivity", "Permissão de notificação negada")
+            Log.w("MainActivity", "Notification permission denied")
         }
     }
 
-    /* onCreate */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        analytics = Firebase.analytics
+        installSplashScreen()
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
+        firebaseAnalytics = Firebase.analytics
         FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
-        prefs = ThemePreferences(this)
+        themePreferences = ThemePreferences(this)
 
-        val app = application as BrainstormiaApplication
-        // Ensure ViewModels are initialized if they are meant to be singletons via Application
-        initViewModels(app)
-
-        signInClient = GoogleSignIn.getClient(
+        googleSignInClient = GoogleSignIn.getClient(
             this,
             GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestEmail()
@@ -126,41 +136,48 @@ class MainActivity : ComponentActivity() {
 
         requestNotificationPermission()
         handleNotificationIntent(intent)
-        installSplashScreen()
-        WindowCompat.setDecorFitsSystemWindows(window, false)
 
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 val token = task.result
                 Log.e("FCM_TOKEN_MANUAL", "=====================================")
-                Log.e("FCM_TOKEN_MANUAL", "TOKEN FCM OBTIDO MANUALMENTE:")
-                Log.e("FCM_TOKEN_MANUAL", token ?: "Nulo")
+                Log.e("FCM_TOKEN_MANUAL", "FCM TOKEN OBTAINED MANUALLY:")
+                Log.e("FCM_TOKEN_MANUAL", token ?: "Null")
                 Log.e("FCM_TOKEN_MANUAL", "=====================================")
                 val localPrefs = getSharedPreferences("brainstormia_prefs", Context.MODE_PRIVATE)
                 localPrefs.edit().putString("fcm_token", token).apply()
             } else {
-                Log.e("FCM_TOKEN_MANUAL", "Falha ao obter token: ${task.exception}")
+                Log.e("FCM_TOKEN_MANUAL", "Failed to get token: ${task.exception}")
             }
         }
 
         setContent {
             val navController = rememberNavController()
-            val dark by prefs.isDark.collectAsState(initial = true)
+            val isDarkThemeEnabled by themePreferences.isDarkThemeEnabled.collectAsState(initial = true)
 
-            val authVM : AuthViewModel = viewModel()
-            val currentUser by authVM.currentUser.collectAsState()
+            val authViewModel: AuthViewModel = viewModel()
+            val currentUser by authViewModel.currentUser.collectAsState()
 
-            val app = application as BrainstormiaApplication
-            val exportVM = app.exportViewModel
-            val chatVM = app.chatViewModel
-            val billingVM = app.billingViewModel
+            val app = applicationContext as BrainstormiaApplication
+            val chatViewModelInstance = app.chatViewModel
+            val exportViewModelInstance = app.exportViewModel
 
-            var exporting by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) {
-                exportVM?.exportState?.collectLatest { exporting = it is ExportState.Loading }
+            var showLoadingOverlay by remember { mutableStateOf(false) }
+            // Ensure ExportState is imported if not already
+            // import com.ivip.brainstormia.ExportState
+            val exportState by exportViewModelInstance.exportState.collectAsState()
+
+            LaunchedEffect(exportState) {
+                showLoadingOverlay = exportState is ExportState.Loading
             }
 
-            BrainstormiaTheme(darkTheme = dark) {
+            val authState by authViewModel.authState.collectAsState()
+            LaunchedEffect(authState) {
+                showLoadingOverlay = authState is AuthState.Loading
+            }
+
+
+            BrainstormiaTheme(darkTheme = isDarkThemeEnabled) {
                 Box(
                     Modifier
                         .fillMaxSize()
@@ -183,34 +200,30 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToPasswordReset = {
                                         navController.navigate(Routes.RESET_PASSWORD)
                                     },
-                                    authViewModel  = authVM,
-                                    isDarkTheme    = dark,
-                                    onThemeChanged = { setDark(it) }
+                                    authViewModel  = authViewModel,
+                                    isDarkTheme    = isDarkThemeEnabled,
+                                    onThemeChanged = { enabled -> lifecycleScope.launch { themePreferences.setDarkThemeEnabled(enabled) } }
                                 )
                             }
                             composable(Routes.RESET_PASSWORD) {
                                 PasswordResetScreen(
                                     onBackToLogin = { navController.popBackStack() },
-                                    authViewModel  = authVM,
-                                    isDarkTheme    = dark,
-                                    onThemeChanged = { setDark(it) }
+                                    authViewModel  = authViewModel,
+                                    isDarkTheme    = isDarkThemeEnabled,
+                                    onThemeChanged = { enabled -> lifecycleScope.launch { themePreferences.setDarkThemeEnabled(enabled) } }
                                 )
                             }
                             composable(Routes.MAIN) {
-                                chatVM?.let { chatViewModel ->
-                                    exportVM?.let { exportViewModel ->
-                                        ChatScreen(
-                                            onLogin         = { launchLogin() },
-                                            onLogout        = { authVM.logout() },
-                                            onNavigateToProfile = { navController.navigate(Routes.USER_PROFILE) },
-                                            chatViewModel   = chatViewModel,
-                                            authViewModel   = authVM,
-                                            exportViewModel = exportViewModel,
-                                            isDarkTheme     = dark,
-                                            onThemeChanged  = { setDark(it) }
-                                        )
-                                    }
-                                }
+                                ChatScreen(
+                                    onLogin         = { launchLogin() },
+                                    onLogout        = { authViewModel.logout() },
+                                    onNavigateToProfile = { navController.navigate(Routes.USER_PROFILE) },
+                                    chatViewModel   = chatViewModelInstance,
+                                    authViewModel   = authViewModel,
+                                    exportViewModel = exportViewModelInstance,
+                                    isDarkTheme     = isDarkThemeEnabled,
+                                    onThemeChanged  = { enabled -> lifecycleScope.launch { themePreferences.setDarkThemeEnabled(enabled) } }
+                                )
                             }
                             composable(Routes.USER_PROFILE) {
                                 UserProfileScreen(
@@ -218,53 +231,60 @@ class MainActivity : ComponentActivity() {
                                     onNavigateToPayment = {
                                         navController.navigate(Routes.PAYMENT)
                                     },
-                                    authViewModel = authVM,
-                                    isDarkTheme = dark
+                                    authViewModel = authViewModel,
+                                    isDarkTheme = isDarkThemeEnabled
+                                )
+                            }
+                            composable(Routes.PAYMENT) {
+                                PaymentScreen( // Line 246: PaymentScreen is now resolved
+                                    onNavigateBack = { navController.popBackStack() },
+                                    onPurchaseComplete = {
+                                        navController.popBackStack(Routes.USER_PROFILE, inclusive = false)
+                                    },
+                                    isDarkTheme = isDarkThemeEnabled
                                 )
                             }
                         }
                     }
 
-                    if (exporting) {
-                        CircularProgressIndicator(Modifier.align(Alignment.Center))
+                    if (showLoadingOverlay) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.5f)), // Line 262: background is now resolved
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = PrimaryColor)
+                        }
                     }
                 }
             }
         }
     }
 
-    // Helper function to initialize ViewModels if they're null
-    private fun initViewModels(app: BrainstormiaApplication) {
-        if (app.chatViewModel == null) {
-            app.chatViewModel = ChatViewModel(application)
-        }
-        if (app.exportViewModel == null) {
-            app.exportViewModel = ExportViewModel(application)
-        }
-        // BillingViewModel is lazy-initialized in the Application class
-    }
-
-    private fun setDark(enabled: Boolean) =
-        lifecycleScope.launch { prefs.setDark(enabled) }
-
     private fun launchLogin() {
-        signInClient.signOut().addOnCompleteListener {
-            signInLauncher.launch(signInClient.signInIntent)
+        googleSignInClient.signOut().addOnCompleteListener {
+            signInLauncher.launch(googleSignInClient.signInIntent)
         }
     }
 
-    private fun handleLoginSuccess(email: String?) {
-        analytics.logEvent("google_login_success", Bundle().apply {
+    private fun handleLoginSuccess(email: String?, idToken: String?) {
+        firebaseAnalytics.logEvent("google_login_success", Bundle().apply {
             putString("email_domain", email?.substringAfter('@') ?: "unknown")
         })
 
-        val app = application as BrainstormiaApplication
-        app.exportViewModel?.setupDriveService()
-        app.chatViewModel?.handleLogin()
+        val app = applicationContext as BrainstormiaApplication
+        // AuthScreen should handle calling authViewModel.signInWithGoogle(idToken)
+        // idToken?.let {
+        //     authViewModel.signInWithGoogle(it) // This might be redundant if AuthScreen handles it
+        // }
+
+        app.exportViewModel.setupDriveService()
+        app.chatViewModel.handleLogin()
 
         Toast.makeText(
             this,
-            "Bem-vindo(a) ${email ?: "de volta"}!",
+            "Welcome ${email ?: "back"}!",
             Toast.LENGTH_SHORT
         ).show()
     }
@@ -281,37 +301,34 @@ class MainActivity : ComponentActivity() {
                 }
             }
         } catch (e: Exception) {
-            Log.e("MainActivity", "Erro ao solicitar permissão de notificação", e)
+            Log.e("MainActivity", "Error requesting notification permission", e)
         }
     }
 
+    // Line 326: Corrected signature for onNewIntent
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        // Line 327: Now 'intent' is non-nullable, matching handleNotificationIntent's expectation
         handleNotificationIntent(intent)
     }
 
-    private fun handleNotificationIntent(intent: Intent?) {
+    private fun handleNotificationIntent(intent: Intent?) { // Kept nullable here as initial intent can be null
         try {
             if (intent == null) return
 
-            // Check if we need to verify subscription status (from a notification)
+            val app = applicationContext as BrainstormiaApplication
             if (intent.getBooleanExtra("check_subscription", false)) {
-                Log.d("MainActivity", "Recebida notificação sobre assinatura, verificando status...")
-                (application as BrainstormiaApplication).handleSubscriptionCancellationNotification()
+                Log.d("MainActivity", "Received subscription check notification, verifying status...")
+                app.handleSubscriptionCancellationNotification()
             }
 
-            // Handle conversation opening from notification
             val conversationId = intent.getLongExtra("conversation_id", -1L)
             if (conversationId != -1L) {
-                Log.d("MainActivity", "Abrindo conversa da notificação: $conversationId")
-                (application as BrainstormiaApplication).chatViewModel?.selectConversation(conversationId)
+                Log.d("MainActivity", "Opening conversation from notification: $conversationId")
+                app.chatViewModel.selectConversation(conversationId)
             }
         } catch (e: Exception) {
-            Log.e("MainActivity", "Erro ao processar intent da notificação", e)
+            Log.e("MainActivity", "Error processing notification intent", e)
         }
-    }
-
-    companion object {
-        private const val PERMISSION_REQUEST_CODE = 100
     }
 }

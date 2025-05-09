@@ -2,155 +2,176 @@ package com.ivip.brainstormia.services
 
 import android.content.Context
 import android.util.Log
+import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.ByteArrayContent
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
-import com.google.api.services.drive.Drive
+import com.google.api.services.drive.Drive // Google API Drive
 import com.google.api.services.drive.DriveScopes
-import com.google.api.services.drive.model.File
+import com.google.api.services.drive.model.File // Google API File
 import com.ivip.brainstormia.ChatMessage
+import com.ivip.brainstormia.R
 import com.ivip.brainstormia.Sender
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
-import java.io.OutputStream
+import java.io.IOException
 import java.util.Collections
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class DriveService(private val context: Context) {
     private val TAG = "DriveService"
-
-    // Scopes necessários para a API do Drive
     private val SCOPES = Collections.singleton(DriveScopes.DRIVE_FILE)
-
-    // Nome da pasta para organizar os arquivos
-    private val FOLDER_NAME = "Brainstormia"
-
-    // ID da pasta no Google Drive (preenchido quando a pasta for encontrada ou criada)
+    private val FOLDER_NAME = "StormChat"
     private var folderIdCache: String? = null
+    // This is the instance of the Google Drive API service
+    private var googleApiDriveService: Drive? = null
+    private var currentUserServiceAccount: String? = null
 
-    // Instância do serviço Google Drive
-    private var driveService: Drive? = null
+    fun setupDriveService(userAccountEmail: String?): Boolean {
+        if (userAccountEmail.isNullOrBlank()) {
+            Log.e(TAG, context.getString(R.string.log_drive_setup_attempt_null_email))
+            this.googleApiDriveService = null // Use the correct member variable
+            currentUserServiceAccount = null
+            return false
+        }
 
-    // Inicializa o serviço usando a conta Google autenticada
-    fun setupDriveService(userAccount: String) {
+        // If already configured for the same user, do nothing
+        if (this.googleApiDriveService != null && currentUserServiceAccount == userAccountEmail) {
+            Log.d(TAG, context.getString(R.string.log_drive_setup_already_configured, userAccountEmail))
+            return true
+        }
+
+        Log.d(TAG, context.getString(R.string.log_drive_setup_configuring_for_user, userAccountEmail))
+        currentUserServiceAccount = userAccountEmail
+
         try {
+            val googleAccount = GoogleSignIn.getLastSignedInAccount(context)
+            if (googleAccount == null || googleAccount.email != userAccountEmail) {
+                Log.w(TAG, context.getString(R.string.log_drive_setup_google_account_issue, userAccountEmail))
+                this.googleApiDriveService = null
+                return false
+            }
+
             val credential = GoogleAccountCredential.usingOAuth2(
                 context, SCOPES
-            ).setSelectedAccountName(userAccount)
+            ).setSelectedAccount(googleAccount.account)
 
-            driveService = Drive.Builder(
+            this.googleApiDriveService = Drive.Builder( // Assign to the member variable
                 NetHttpTransport(),
                 GsonFactory.getDefaultInstance(),
                 credential
             )
-                .setApplicationName("Brainstormia")
+                .setApplicationName(context.getString(R.string.app_name))
                 .build()
 
-            Log.d(TAG, "Drive Service inicializado com sucesso.")
+            Log.i(TAG, context.getString(R.string.log_drive_setup_success_for_user, userAccountEmail))
+            return true
         } catch (e: Exception) {
-            Log.e(TAG, "Erro ao inicializar Drive Service: ${e.message}")
-            driveService = null
+            Log.e(TAG, context.getString(R.string.log_drive_setup_error_for_user, userAccountEmail, e.message ?: "Unknown error"))
+            this.googleApiDriveService = null
+            return false
         }
     }
 
-    // Verifica se o serviço está pronto para uso
-    fun isDriveServiceInitialized(): Boolean {
-        return driveService != null
-    }
-
-    // Verifica se a pasta "Brainstormia" existe, e a cria se não existir
-    private suspend fun getFolderId(): String? {
+    /**
+     * This method is intended for internal use by ViewModels that need the folder ID.
+     * It uses the 'googleApiDriveService' instance configured by this DriveService class.
+     */
+    internal suspend fun getFolderIdInternalOnly(): String? = withContext(Dispatchers.IO) {
+        val currentDriveService = this@DriveService.googleApiDriveService // Use the class member
+        if (currentDriveService == null) {
+            Log.e(TAG, context.getString(R.string.log_drive_folder_id_not_init) + " (getFolderIdInternalOnly)")
+            return@withContext null
+        }
         if (folderIdCache != null) {
-            return folderIdCache
+            Log.d(TAG, context.getString(R.string.log_drive_folder_id_cache_used, folderIdCache ?: "N/A"))
+            return@withContext folderIdCache
         }
 
-        return withContext(Dispatchers.IO) {
-            try {
-                val query = "name = '$FOLDER_NAME' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
-                val result = driveService!!.files().list()
-                    .setQ(query)
-                    .setSpaces("drive")
-                    .setFields("files(id, name)")
-                    .execute()
+        try {
+            val query = "name = '$FOLDER_NAME' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+            Log.d(TAG, context.getString(R.string.log_drive_querying_folder, query))
+            // Use currentDriveService (which is this.googleApiDriveService)
+            val result = currentDriveService.files().list()
+                .setQ(query)
+                .setSpaces("drive")
+                .setFields("files(id, name)")
+                .execute()
 
-                // Verificar se a pasta já existe
-                if (result.files.isNotEmpty()) {
-                    val folderId = result.files[0].id
-                    Log.d(TAG, "Pasta $FOLDER_NAME encontrada. ID: $folderId")
-                    folderIdCache = folderId
-                    return@withContext folderId
+            if (result.files.isNotEmpty()) {
+                val folderId = result.files[0].id
+                Log.i(TAG, context.getString(R.string.log_drive_folder_found, FOLDER_NAME, folderId))
+                folderIdCache = folderId
+                return@withContext folderId
+            } else {
+                Log.i(TAG, context.getString(R.string.log_drive_folder_not_found_creating, FOLDER_NAME))
+                val folderMetadata = File().apply { // com.google.api.services.drive.model.File
+                    name = FOLDER_NAME
+                    mimeType = "application/vnd.google-apps.folder"
                 }
-
-                // Se não existe, criar nova pasta
-                val folderMetadata = File()
-                folderMetadata.name = FOLDER_NAME
-                folderMetadata.mimeType = "application/vnd.google-apps.folder"
-
-                val folder = driveService!!.files().create(folderMetadata)
+                // Use currentDriveService
+                val folder = currentDriveService.files().create(folderMetadata)
                     .setFields("id")
                     .execute()
-
                 val newFolderId = folder.id
-                Log.d(TAG, "Nova pasta $FOLDER_NAME criada. ID: $newFolderId")
+                Log.i(TAG, context.getString(R.string.log_drive_folder_created, FOLDER_NAME, newFolderId))
                 folderIdCache = newFolderId
                 return@withContext newFolderId
-            } catch (e: Exception) {
-                Log.e(TAG, "Erro ao obter/criar pasta: ${e.message}")
-                null
             }
+        } catch (e: IOException) {
+            Log.e(TAG, context.getString(R.string.log_drive_folder_io_error, FOLDER_NAME, e.message ?: "Unknown IO error"))
+            return@withContext null
+        } catch (e: Exception) {
+            Log.e(TAG, context.getString(R.string.log_drive_folder_general_error, FOLDER_NAME, e.message ?: "Unknown error"))
+            return@withContext null
         }
     }
 
-    // Exporta uma conversa como arquivo de texto para a pasta "Brainstormia" no Google Drive
     suspend fun exportConversation(
         title: String,
         content: String,
-        onSuccess: (fileId: String, webViewLink: String) -> Unit,
+        onSuccess: (fileId: String, webViewLink: String?) -> Unit,
         onFailure: (Exception) -> Unit
     ) {
-        if (driveService == null) {
-            onFailure(Exception("Drive Service não inicializado"))
+        val currentDriveService = this.googleApiDriveService // Use the class member
+        if (currentDriveService == null) {
+            Log.e(TAG, context.getString(R.string.export_error_drive_not_init_log))
+            withContext(Dispatchers.Main) {
+                onFailure(IllegalStateException(context.getString(R.string.export_error_drive_not_init)))
+            }
             return
         }
 
-        return withContext(Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
             try {
-                // Primeiro, verifica/cria a pasta Brainstormia
-                val folderId = getFolderId()
-                if (folderId == null) {
-                    throw Exception("Não foi possível criar ou acessar a pasta Brainstormia")
+                val targetFolderId = getFolderIdInternalOnly() // This now correctly calls the method in this class
+                if (targetFolderId == null) {
+                    throw IOException(context.getString(R.string.export_error_folder_access, FOLDER_NAME))
                 }
 
-                // Preparando os metadados do arquivo
-                val fileMetadata = File()
-                fileMetadata.name = "$title.txt"
-                fileMetadata.mimeType = "text/plain"
-                fileMetadata.parents = listOf(folderId) // Define a pasta pai
-
-                // Convertendo o conteúdo para bytes
-                val contentBytes = content.toByteArray(Charsets.UTF_8)
+                val fileMetadata = File().apply { // com.google.api.services.drive.model.File
+                    name = title
+                    mimeType = "text/plain"
+                    parents = listOf(targetFolderId)
+                }
                 val mediaContent = ByteArrayContent.fromString("text/plain", content)
 
-                // Enviando para o Google Drive
-                val file = driveService!!.files().create(fileMetadata, mediaContent)
-                    .setFields("id,webViewLink")
+                Log.d(TAG, context.getString(R.string.log_drive_exporting_file_to_folder, title, targetFolderId))
+                // Use currentDriveService
+                val file = currentDriveService.files().create(fileMetadata, mediaContent)
+                    .setFields("id, webViewLink")
                     .execute()
 
-                Log.d(TAG, "Arquivo exportado com ID: ${file.id}")
-
-                // Configurando permissão para qualquer pessoa com o link poder ler
-                val permission = com.google.api.services.drive.model.Permission()
-                    .setType("anyone")
-                    .setRole("reader")
-
-                driveService!!.permissions().create(file.id, permission).execute()
+                Log.i(TAG, context.getString(R.string.log_drive_file_exported_with_id, title, file.id, file.webViewLink ?: "N/A"))
 
                 withContext(Dispatchers.Main) {
                     onSuccess(file.id, file.webViewLink)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Erro ao exportar conversa: ${e.message}")
+                Log.e(TAG, context.getString(R.string.log_drive_export_error, title, e.message ?: "Unknown error"))
                 withContext(Dispatchers.Main) {
                     onFailure(e)
                 }
@@ -158,21 +179,22 @@ class DriveService(private val context: Context) {
         }
     }
 
-    // Formata conversa para exportação
     fun formatConversationForExport(messages: List<ChatMessage>): String {
         val sb = StringBuilder()
-        sb.appendLine("# Conversa do Brainstormia")
-        sb.appendLine("Data: ${java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(java.util.Date())}")
+        sb.appendLine(context.getString(R.string.export_conversation_file_header, context.getString(R.string.app_name)))
+        sb.appendLine("${context.getString(R.string.export_header_date)} ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())}")
         sb.appendLine("-".repeat(40))
         sb.appendLine()
 
         messages.forEach { message ->
-            val sender = if (message.sender == Sender.USER) "Você" else "Brainstormia"
-            sb.appendLine("[$sender]:")
+            val senderName = when (message.sender) {
+                Sender.USER -> context.getString(R.string.export_sender_user)
+                Sender.BOT -> context.getString(R.string.app_name)
+            }
+            sb.appendLine("[$senderName]:")
             sb.appendLine(message.text)
             sb.appendLine()
         }
-
         return sb.toString()
     }
 }

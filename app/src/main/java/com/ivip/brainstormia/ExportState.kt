@@ -3,6 +3,7 @@ package com.ivip.brainstormia
 import android.app.Application
 import android.content.ContentValues
 import android.net.Uri
+import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
@@ -12,7 +13,7 @@ import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccoun
 import com.google.api.client.http.ByteArrayContent
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
-import com.google.api.services.drive.Drive
+import com.google.api.services.drive.Drive // This is the Google API Drive
 import com.google.api.services.drive.DriveScopes
 import com.google.api.services.drive.model.File as DriveFile
 import kotlinx.coroutines.Dispatchers
@@ -21,13 +22,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Collections
 import java.util.Date
 import java.util.Locale
 
+// Sealed class for export states
 sealed class ExportState {
     object Initial : ExportState()
     object Loading : ExportState()
@@ -35,14 +37,17 @@ sealed class ExportState {
     data class Error(val message: String) : ExportState()
 }
 
+// ViewModel for export logic
 class ExportViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _exportState = MutableStateFlow<ExportState>(ExportState.Initial)
     val exportState: StateFlow<ExportState> = _exportState.asStateFlow()
 
-    private var driveService: Drive? = null
+    private var googleDriveApiService: Drive? = null
     private val tag = "ExportViewModel"
     private val context = application.applicationContext
+    // Instance of our wrapper DriveService class from the 'services' package
+    private val appDriveService = com.ivip.brainstormia.services.DriveService(application)
 
     fun setupDriveService() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -50,26 +55,39 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
                 val googleAccount = GoogleSignIn.getLastSignedInAccount(getApplication())
                 if (googleAccount == null) {
                     Log.w(tag, context.getString(R.string.export_error_no_google_account))
+                    googleDriveApiService = null
                     return@launch
                 }
+                val email = googleAccount.email
+                if (email != null) {
+                    // Call setupDriveService on our wrapper, which internally configures its own Google API Drive instance
+                    if (appDriveService.setupDriveService(email)) {
+                        Log.d(tag, context.getString(R.string.export_log_drive_setup_success))
 
-                val credential = GoogleAccountCredential.usingOAuth2(
-                    getApplication(),
-                    Collections.singleton(DriveScopes.DRIVE_FILE)
-                )
-                credential.selectedAccount = googleAccount.account
-
-                driveService = Drive.Builder(
-                    NetHttpTransport(),
-                    GsonFactory.getDefaultInstance(),
-                    credential
-                )
-                    .setApplicationName("Brainstormia")
-                    .build()
-
-                Log.d(tag, context.getString(R.string.export_log_drive_setup_success))
+                        // For direct use in this ViewModel, also initialize googleDriveApiService here
+                        val credential = GoogleAccountCredential.usingOAuth2(
+                            getApplication(),
+                            Collections.singleton(DriveScopes.DRIVE_FILE)
+                        )
+                        credential.selectedAccount = googleAccount.account
+                        googleDriveApiService = Drive.Builder(
+                            NetHttpTransport(),
+                            GsonFactory.getDefaultInstance(),
+                            credential
+                        )
+                            .setApplicationName(context.getString(R.string.app_name))
+                            .build()
+                    } else {
+                        Log.e(tag, context.getString(R.string.export_error_drive_setup) + " (appDriveService.setupDriveService returned false)")
+                        googleDriveApiService = null
+                    }
+                } else {
+                    Log.e(tag, context.getString(R.string.export_error_drive_setup) + " (email from Google account is null)")
+                    googleDriveApiService = null
+                }
             } catch (e: Exception) {
                 Log.e(tag, context.getString(R.string.export_error_drive_setup), e)
+                googleDriveApiService = null
             }
         }
     }
@@ -85,39 +103,41 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
         }
 
         _exportState.value = ExportState.Loading
-        Log.d(tag, context.getString(R.string.export_log_start, conversationId, title))
+        // Ensure conversationId is converted to an appropriate type if your string resource expects an Int
+        Log.d(tag, context.getString(R.string.export_log_start, conversationId.toInt(), title))
 
         viewModelScope.launch {
             try {
-                // Formatar data e hora atual para o nome do arquivo
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd_HH-mm", Locale.getDefault())
                 val dateTime = dateFormat.format(Date())
-
-                // Criar um nome de arquivo baseado no título da conversa
                 val sanitizedTitle = sanitizeFileName(title)
+                // Use export_file_prefix for manual exports
                 val fileName = context.getString(R.string.export_file_prefix, sanitizedTitle, dateTime)
                 Log.d(tag, context.getString(R.string.export_log_filename, fileName))
 
-                // Converter mensagens para texto formatado
                 val fileContent = formatConversationAsText(messages)
-
-                // Verificar se há conteúdo para exportar
                 if (fileContent.isBlank()) {
                     _exportState.value = ExportState.Error(context.getString(R.string.export_error_no_content))
                     return@launch
                 }
 
-                // Verificar se o Drive está disponível
-                val drive = driveService
-                if (drive != null) {
-                    // Upload do arquivo para o Google Drive
-                    exportToDrive(drive, fileName, fileContent)
+                if (googleDriveApiService != null) {
+                    exportToDrive(googleDriveApiService!!, fileName, fileContent)
                 } else {
-                    // Fallback para armazenamento local se o Drive não estiver disponível
-                    exportToLocalStorage(fileName, fileContent)
+                    Log.w(tag, "Google Drive API Service not ready or null. Attempting to set it up for export.")
+                    setupDriveService()
+                    kotlinx.coroutines.delay(3000) // Allow some time for async setup
+
+                    if (googleDriveApiService != null) {
+                        Log.d(tag, "Google Drive API Service is now ready after setup attempt. Proceeding with Drive export.")
+                        exportToDrive(googleDriveApiService!!, fileName, fileContent)
+                    } else {
+                        Log.w(tag, "Google Drive API Service still not ready. Falling back to local storage.")
+                        exportToLocalStorage(fileName, fileContent)
+                    }
                 }
             } catch (e: Exception) {
-                Log.e(tag, "Erro ao exportar conversa", e)
+                Log.e(tag, "Error exporting conversation: ${e.message}", e)
                 val errorMessage = e.localizedMessage ?: context.getString(R.string.export_error_unknown)
                 _exportState.value = ExportState.Error(
                     context.getString(R.string.export_error_prefix, errorMessage)
@@ -130,41 +150,25 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
         withContext(Dispatchers.IO) {
             try {
                 Log.d(tag, context.getString(R.string.export_log_drive_create, fileName))
+                // Call the internal method from our appDriveService instance
+                val folderId: String? = appDriveService.getFolderIdInternalOnly()
 
-                // Criar metadados do arquivo
+                if (folderId == null) {
+                    // Ensure "StormChat" or the correct folder name is used if it's hardcoded here
+                    throw IOException(context.getString(R.string.export_error_folder_access, "StormChat"))
+                }
+
                 val fileMetadata = DriveFile().apply {
                     name = fileName
                     mimeType = "text/plain"
+                    parents = listOf(folderId) // folderId is smart-cast to String after the null check
                 }
-
-                // Criar conteúdo do arquivo
                 val contentStream = ByteArrayContent.fromString("text/plain", content)
-
-                // Criar o arquivo no Drive
                 val file = drive.files().create(fileMetadata, contentStream)
                     .setFields("id,webViewLink")
                     .execute()
+                Log.d(tag, context.getString(R.string.export_log_drive_created, file.id ?: "N/A"))
 
-                Log.d(tag, context.getString(R.string.export_log_drive_created, file.id))
-
-                // Configurar permissões para que o arquivo seja acessível
-                try {
-                    val permission = com.google.api.services.drive.model.Permission()
-                        .setType("user")
-                        .setRole("writer")
-                        .setEmailAddress(GoogleSignIn.getLastSignedInAccount(getApplication())?.email)
-
-                    drive.permissions().create(file.id, permission)
-                        .setFields("id")
-                        .execute()
-
-                    Log.d(tag, context.getString(R.string.export_log_drive_permissions, file.id))
-                } catch (e: Exception) {
-                    Log.e(tag, context.getString(R.string.export_error_drive_permissions), e)
-                    // Continuar mesmo se as permissões falharem
-                }
-
-                // Atualizar estado com sucesso
                 withContext(Dispatchers.Main) {
                     _exportState.value = ExportState.Success(
                         fileId = file.id,
@@ -172,8 +176,10 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 }
             } catch (e: Exception) {
-                Log.e(tag, context.getString(R.string.export_error_drive_create), e)
-                throw e
+                Log.e(tag, context.getString(R.string.export_error_drive_create) + ": ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    _exportState.value = ExportState.Error(context.getString(R.string.export_error_drive_create) + ": " + (e.localizedMessage ?: "Unknown Drive error"))
+                }
             }
         }
     }
@@ -182,33 +188,50 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
         withContext(Dispatchers.IO) {
             try {
                 Log.d(tag, context.getString(R.string.export_log_local_export, fileName))
-                val context = getApplication<Application>()
+                val contextApp = getApplication<Application>()
 
                 val values = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                     put(MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        // Save in Documents/StormChat for better organization and user visibility
+                        put(MediaStore.MediaColumns.RELATIVE_PATH, "Documents/StormChat")
+                        put(MediaStore.MediaColumns.IS_PENDING, 1)
+                    }
                 }
 
-                val uri: Uri? = context.contentResolver.insert(
-                    MediaStore.Files.getContentUri("external"), values
+                val resolver = contextApp.contentResolver
+                val uri: Uri? = resolver.insert(
+                    // Use Downloads collection for wider compatibility and user access if Documents isn't ideal
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        MediaStore.Downloads.getContentUri("external_primary")
+                    } else {
+                        MediaStore.Files.getContentUri("external") // Fallback for older versions
+                    }
+                    , values
                 )
 
                 if (uri != null) {
-                    context.contentResolver.openOutputStream(uri)?.use { output: OutputStream ->
+                    resolver.openOutputStream(uri)?.use { output: OutputStream ->
                         output.write(content.toByteArray())
                     }
-
-                    Log.d(tag, context.getString(R.string.export_log_local_saved, uri))
-
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        values.clear()
+                        values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                        resolver.update(uri, values, null, null)
+                    }
+                    Log.d(tag, context.getString(R.string.export_log_local_saved, uri.toString()))
                     withContext(Dispatchers.Main) {
                         _exportState.value = ExportState.Success(fileName = fileName)
                     }
                 } else {
-                    throw Exception(context.getString(R.string.export_error_local_file))
+                    throw IOException(context.getString(R.string.export_error_local_file))
                 }
             } catch (e: Exception) {
-                Log.e(tag, "Erro ao exportar para armazenamento local", e)
-                throw e
+                Log.e(tag, "Error exporting to local storage: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    _exportState.value = ExportState.Error(context.getString(R.string.export_error_local_file) + ": " + (e.localizedMessage ?: "Unknown local storage error"))
+                }
             }
         }
     }
@@ -218,43 +241,40 @@ class ExportViewModel(application: Application) : AndroidViewModel(application) 
         val currentDate = dateFormat.format(Date())
 
         return buildString {
-            appendLine(context.getString(R.string.export_header))
-            appendLine(context.getString(R.string.export_date, currentDate))
+            appendLine(context.getString(R.string.export_conversation_file_header, context.getString(R.string.app_name)))
+            appendLine("${context.getString(R.string.export_header_date)} $currentDate")
             appendLine(context.getString(R.string.export_message_count, messages.size))
             appendLine(context.getString(R.string.export_separator))
             appendLine()
 
             messages.forEachIndexed { index, message ->
                 val sender = when (message.sender) {
-                    Sender.USER -> context.getString(R.string.export_user)
-                    Sender.BOT -> context.getString(R.string.export_bot)
-                    else -> context.getString(R.string.export_unknown)
+                    Sender.USER -> context.getString(R.string.export_sender_user)
+                    Sender.BOT -> context.getString(R.string.app_name) // Bot is named after the app
                 }
 
                 appendLine("[$sender]:")
                 appendLine(message.text)
 
-                // Adicionar separador entre mensagens (exceto para a última)
                 if (index < messages.size - 1) {
                     appendLine()
                     appendLine(context.getString(R.string.export_message_separator))
                     appendLine()
                 }
             }
-
-            // Log do tamanho do conteúdo para depuração
-            val content = toString()
-            Log.d(tag, context.getString(R.string.export_log_content_size, content.length))
+            val contentResult = toString()
+            Log.d(tag, context.getString(R.string.export_log_content_size, contentResult.length))
+            contentResult
         }
     }
 
-    // Função auxiliar para sanitizar nomes de arquivos
+    // Sanitize file name utility function
     private fun sanitizeFileName(name: String): String {
-        // Remover caracteres inválidos para nomes de arquivos
+        // Replace invalid characters for file names with an underscore
         return name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
-            .replace("\\s+".toRegex(), "_")
-            .take(30)
-            .trim()
-            .takeIf { it.isNotEmpty() } ?: context.getString(R.string.export_fallback_title)
+            .replace("\\s+".toRegex(), "_") // Replace multiple spaces with a single underscore
+            .take(30) // Limit the length of the sanitized name
+            .trim('_') // Remove leading/trailing underscores
+            .takeIf { it.isNotEmpty() } ?: context.getString(R.string.export_fallback_title) // Fallback title if empty
     }
 }
