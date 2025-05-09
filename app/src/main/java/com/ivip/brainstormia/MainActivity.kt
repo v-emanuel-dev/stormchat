@@ -11,7 +11,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background // Import for Modifier.background
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -45,7 +45,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.Scope
-import com.google.android.gms.common.api.ApiException // Corrected import for ApiException
+import com.google.android.gms.common.api.ApiException
 import com.google.api.services.drive.DriveScopes
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.ktx.analytics
@@ -55,7 +55,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.ivip.brainstormia.navigation.Routes
 import com.ivip.brainstormia.theme.BrainstormiaTheme
 import com.ivip.brainstormia.theme.PrimaryColor
-import com.ivip.brainstormia.billing.PaymentScreen // Import for PaymentScreen
+import com.ivip.brainstormia.billing.PaymentScreen
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.map
@@ -94,9 +94,9 @@ class MainActivity : ComponentActivity() {
         if (result.resultCode == RESULT_OK) {
             val accountTask = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             try {
-                val account = accountTask.getResult(ApiException::class.java) // Use the corrected ApiException import
+                val account = accountTask.getResult(ApiException::class.java)
                 handleLoginSuccess(account?.email, account?.idToken)
-            } catch (e: ApiException) { // Use the corrected ApiException import
+            } catch (e: ApiException) {
                 Log.e("MainActivity", "Google sign in failed", e)
                 Toast.makeText(this, "Google Sign-in failed: ${e.statusCode}", Toast.LENGTH_SHORT).show()
             }
@@ -163,8 +163,6 @@ class MainActivity : ComponentActivity() {
             val exportViewModelInstance = app.exportViewModel
 
             var showLoadingOverlay by remember { mutableStateOf(false) }
-            // Ensure ExportState is imported if not already
-            // import com.ivip.brainstormia.ExportState
             val exportState by exportViewModelInstance.exportState.collectAsState()
 
             LaunchedEffect(exportState) {
@@ -172,10 +170,12 @@ class MainActivity : ComponentActivity() {
             }
 
             val authState by authViewModel.authState.collectAsState()
-            LaunchedEffect(authState) {
-                showLoadingOverlay = authState is AuthState.Loading
+            LaunchedEffect(authState, navController.currentDestination?.route) {
+                // Só ative o overlay global quando NÃO estiver na tela de autenticação
+                showLoadingOverlay = authState is AuthState.Loading &&
+                        (navController.currentDestination?.route != Routes.AUTH &&
+                                navController.currentDestination?.route != Routes.RESET_PASSWORD)
             }
-
 
             BrainstormiaTheme(darkTheme = isDarkThemeEnabled) {
                 Box(
@@ -236,7 +236,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             composable(Routes.PAYMENT) {
-                                PaymentScreen( // Line 246: PaymentScreen is now resolved
+                                PaymentScreen(
                                     onNavigateBack = { navController.popBackStack() },
                                     onPurchaseComplete = {
                                         navController.popBackStack(Routes.USER_PROFILE, inclusive = false)
@@ -251,7 +251,7 @@ class MainActivity : ComponentActivity() {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.5f)), // Line 262: background is now resolved
+                                .background(Color.Black.copy(alpha = 0.5f)),
                             contentAlignment = Alignment.Center
                         ) {
                             CircularProgressIndicator(color = PrimaryColor)
@@ -305,14 +305,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Line 326: Corrected signature for onNewIntent
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Line 327: Now 'intent' is non-nullable, matching handleNotificationIntent's expectation
         handleNotificationIntent(intent)
     }
 
-    private fun handleNotificationIntent(intent: Intent?) { // Kept nullable here as initial intent can be null
+    private fun handleNotificationIntent(intent: Intent?) {
         try {
             if (intent == null) return
 

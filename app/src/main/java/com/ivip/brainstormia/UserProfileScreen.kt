@@ -567,33 +567,6 @@ fun AddCorrectUserButton(
                 .fillMaxWidth(0.9f)
                 .padding(bottom = 16.dp)
         )
-
-        // Botão para verificação completa
-        Button(
-            onClick = {
-                val app = context.applicationContext as BrainstormiaApplication
-                app.billingViewModel.verifySubscriptionDirectly()
-            },
-            modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .height(52.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (isDarkTheme) Color(0xFFD32F2F) else Color(0xFFE57373),
-                contentColor = Color.White
-            )
-        ) {
-            Icon(
-                Icons.Default.Backup,
-                contentDescription = "Verificar assinatura corretamente",
-                modifier = Modifier.size(ButtonDefaults.IconSize)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                "Corrigir verificação de assinatura",
-                fontWeight = FontWeight.Bold
-            )
-        }
     }
 }
 
