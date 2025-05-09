@@ -625,10 +625,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     The user leaves the conversation **impressed**, equipped with fresh perspectives and a **concrete action plan** — whether it’s an algorithm, a study roadmap, a business pitch, or a practical life insight.
     """
 
-    /**
-     * Gera automaticamente um título para a conversa após a primeira interação completa
-     * (mensagem do usuário + resposta do bot).
-     */
     private fun autoGenerateConversationTitle(conversationId: Long, userMessage: String, botResponse: String) {
         // Don't generate title for new or invalid conversation
         if (conversationId == NEW_CONVERSATION_ID) {

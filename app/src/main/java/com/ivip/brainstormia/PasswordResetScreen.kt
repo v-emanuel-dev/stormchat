@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -46,6 +47,9 @@ fun PasswordResetScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var successMessage by remember { mutableStateOf<String?>(null) }
 
+    val passwordResetSuccessText = stringResource(id = R.string.password_reset_success_pt)
+    val emailRequiredErrorText = stringResource(id = R.string.email_required_error)
+
     // Track auth state
     val authState by authViewModel.authState.collectAsState()
 
@@ -62,7 +66,7 @@ fun PasswordResetScreen(
     LaunchedEffect(authState) {
         when (authState) {
             is AuthState.PasswordResetSent -> {
-                successMessage = "Email de redefinição de senha enviado com sucesso!"
+                successMessage = passwordResetSuccessText
                 errorMessage = null
             }
             is AuthState.Error -> {
@@ -126,7 +130,7 @@ fun PasswordResetScreen(
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.ic_bolt_foreground),
-                        contentDescription = "StormChat Logo",
+                        contentDescription = stringResource(id = R.string.logo_description),
                         modifier = Modifier.size(70.dp),
                         colorFilter = ColorFilter.tint(if (isDarkTheme) TextColorLight else PrimaryColor)
                     )
@@ -139,7 +143,7 @@ fun PasswordResetScreen(
                     enter = fadeIn(animationSpec = tween(durationMillis = 500))
                 ) {
                     Text(
-                        text = "Redefinir Senha",
+                        text = stringResource(id = R.string.password_reset_screen_title),
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
@@ -149,7 +153,7 @@ fun PasswordResetScreen(
                 }
 
                 Text(
-                    text = "Informe seu email para receber as instruções de redefinição de senha",
+                    text = stringResource(id = R.string.password_reset_instructions_pt),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Center,
@@ -162,7 +166,7 @@ fun PasswordResetScreen(
                     onValueChange = { email = it },
                     label = {
                         Text(
-                            "Email",
+                            stringResource(id = R.string.email),
                             fontWeight = FontWeight.Medium,
                             color = if (isDarkTheme) Color.LightGray else Color.DarkGray
                         )
@@ -257,8 +261,7 @@ fun PasswordResetScreen(
                         successMessage = null
 
                         if (email.isBlank()) {
-                            errorMessage = "Por favor, informe seu email"
-                            return@Button
+                            errorMessage = emailRequiredErrorText
                         }
 
                         // Send password reset email
@@ -278,7 +281,7 @@ fun PasswordResetScreen(
                     )
                 ) {
                     Text(
-                        "Enviar email",
+                        stringResource(id = R.string.send_email_button),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -294,14 +297,14 @@ fun PasswordResetScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Voltar",
+                            contentDescription = stringResource(id = R.string.back),
                             tint = if (isDarkTheme) TextColorLight else PrimaryColor
                         )
 
                         Spacer(modifier = Modifier.width(8.dp))
 
                         Text(
-                            "Voltar para o login",
+                            stringResource(id = R.string.back_to_login_button),
                             color = if (isDarkTheme) TextColorLight else PrimaryColor,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 15.sp
@@ -318,7 +321,5 @@ fun PasswordResetScreen(
                 }
             }
         }
-
-        // Removidas as decorações de cantos (bolhas)
     }
 }

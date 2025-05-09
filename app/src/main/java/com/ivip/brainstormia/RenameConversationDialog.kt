@@ -15,6 +15,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,10 +29,7 @@ fun RenameConversationDialog(
     onDismiss: () -> Unit,
     isDarkTheme: Boolean = true
 ) {
-    // Fix: Ensure currentTitle is properly initialized and remembered across recompositions
-    var newTitle by remember(conversationId, currentTitle) {
-        mutableStateOf(currentTitle ?: "")
-    }
+    var newTitle by remember { mutableStateOf(currentTitle ?: "") }
 
     val dialogBgColor = if (isDarkTheme) Color(0xFF121212) else Color.White // Usando #121212 para dialogs
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
@@ -43,7 +41,7 @@ fun RenameConversationDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Renomear conversa",
+                text = stringResource(id = R.string.rename_conversation_dialog_title_pt),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = textColor
@@ -56,7 +54,7 @@ fun RenameConversationDialog(
                     onValueChange = { newTitle = it },
                     label = {
                         Text(
-                            "Novo nome",
+                            stringResource(id = R.string.new_name_label),
                             fontWeight = FontWeight.Medium,
                             color = if (isDarkTheme) Color.LightGray else Color.DarkGray
                         )
@@ -98,7 +96,7 @@ fun RenameConversationDialog(
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
-                    "Salvar",
+                    stringResource(id = R.string.save_button_pt),
                     fontWeight = FontWeight.SemiBold,
                     color = buttonTextColor // Garantir texto branco
                 )
@@ -112,7 +110,7 @@ fun RenameConversationDialog(
                 )
             ) {
                 Text(
-                    "Cancelar",
+                    stringResource(id = R.string.cancel_button_pt),
                     color = buttonTextColor, // Usar sempre branco em vez de secondaryTextColor
                     fontWeight = FontWeight.Medium
                 )
