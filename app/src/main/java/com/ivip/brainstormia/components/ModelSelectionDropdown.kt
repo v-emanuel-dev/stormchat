@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -139,7 +140,7 @@ fun ModelSelectionDropdown(
                             if (model.isPremium) {
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Icon(
-                                    imageVector = Icons.Default.Lock,
+                                    imageVector = if (isPremiumUser == true) Icons.Default.Star else Icons.Default.Lock,
                                     contentDescription = stringResource(R.string.premium_feature),
                                     tint = if (model.id == selectedModel.id) Color.Black else goldColor,
                                     modifier = Modifier.size(16.dp)
