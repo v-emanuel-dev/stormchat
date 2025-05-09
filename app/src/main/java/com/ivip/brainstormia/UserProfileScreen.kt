@@ -108,6 +108,8 @@ fun UserProfileScreen(
         isRefreshing = false
     }
 
+    billingViewModel.forceRefreshPremiumStatus()
+
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
@@ -248,7 +250,7 @@ fun UserProfileScreen(
                                 border = BorderStroke(1.dp, if (isDarkTheme) goldColor.copy(alpha = 0.7f) else PrimaryColor.copy(alpha = 0.7f))
                             ) {
                                 Icon(
-                                    Icons.Default.PlayCircleOutline,
+                                    Icons.Default.Backup,
                                     contentDescription = stringResource(R.string.test_one_time_backup_button),
                                     modifier = Modifier.size(ButtonDefaults.IconSize)
                                 )
@@ -308,7 +310,7 @@ fun UserProfileScreen(
                 when {
                     isPremiumLoading || isRefreshing || isUpdatingProfilePic -> LoadingContent(isDarkTheme = isDarkTheme)
                     // Passar onNavigateToPayment para PremiumContent
-                    isPremiumUser -> PremiumContent(isDarkTheme, currentTextColor, currentSecondaryTextColor, primaryColorForTheme, onNavigateToPayment)
+                    isPremiumUser -> PremiumContent(isDarkTheme, currentTextColor, currentSecondaryTextColor, primaryColorForTheme)
                     else -> BasicContent(onNavigateToPayment, isDarkTheme, currentTextColor, currentSecondaryTextColor, primaryColorForTheme)
                 }
 
@@ -539,54 +541,11 @@ fun PremiumContent(
     textColor: Color,
     secondaryTextColor: Color,
     highlightColor: Color,
-    onNavigateToPayment: () -> Unit
 ) {
-    val cardBackgroundColor = if (isDarkTheme) MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp) else MaterialTheme.colorScheme.surface
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            stringResource(R.string.exclusive_benefits),
-            style = MaterialTheme.typography.headlineSmall,
-            color = highlightColor,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 20.dp)
-        )
-        FeatureCard(
-            title = stringResource(R.string.advanced_ai_models_title),
-            description = stringResource(R.string.advanced_ai_models_desc_premium),
-            icon = Icons.Outlined.AutoAwesome,
-            isDarkTheme = isDarkTheme,
-            cardBackgroundColor = cardBackgroundColor,
-            textColor = textColor,
-            secondaryTextColor = secondaryTextColor,
-            highlightColor = highlightColor
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        FeatureCard(
-            title = stringResource(R.string.conversation_export_title),
-            description = stringResource(R.string.conversation_export_desc_premium),
-            icon = Icons.Outlined.CloudDownload,
-            isDarkTheme = isDarkTheme,
-            cardBackgroundColor = cardBackgroundColor,
-            textColor = textColor,
-            secondaryTextColor = secondaryTextColor,
-            highlightColor = highlightColor
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        FeatureCard(
-            title = stringResource(R.string.priority_support_title),
-            description = stringResource(R.string.priority_support_desc_premium),
-            icon = Icons.Outlined.SupportAgent,
-            isDarkTheme = isDarkTheme,
-            cardBackgroundColor = cardBackgroundColor,
-            textColor = textColor,
-            secondaryTextColor = secondaryTextColor,
-            highlightColor = highlightColor
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-
         Card(
             modifier = Modifier.fillMaxWidth(0.9f),
             shape = RoundedCornerShape(16.dp),
@@ -599,19 +558,6 @@ fun PremiumContent(
                 textAlign = TextAlign.Center, fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(16.dp)
             )
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = { onNavigateToPayment() },
-            modifier = Modifier.fillMaxWidth(0.9f).height(52.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = if (isDarkTheme) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer,
-                contentColor = if (isDarkTheme) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        ) {
-            // TODO: Adicionar esta string ao seu strings.xml
-            Text("Gerenciar Assinatura", fontWeight = FontWeight.Medium)
         }
     }
 }

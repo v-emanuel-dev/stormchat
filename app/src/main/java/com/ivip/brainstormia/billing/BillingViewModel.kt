@@ -81,7 +81,7 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
     private val isInitialCheckComplete = AtomicBoolean(false)
 
     init {
-        Log.d(TAG, "Inicializando BillingViewModel (Singleton)")
+        Log.d(TAG, "Inicializando c (Singleton)")
         // Inicialização realizada em duas fases para evitar race conditions
         viewModelScope.launch {
             loadPremiumStatusLocally() // Primeiro carrega do cache local para resposta imediata
@@ -447,6 +447,7 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
      * Determina o tipo de plano com base no ID do produto.
      */
     private fun determinePlanType(productId: String?): String {
+        Log.d(TAG, "Determining plan type for productId: $productId")
         return when {
             productId == null -> "Desconhecido"
             productId.equals("mensal", ignoreCase = true) -> "Mensal"
@@ -858,6 +859,45 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
                 Log.e(TAG, "Erro ao atualizar status premium: ${e.message}", e)
             } finally {
                 // Sempre resetar o estado de loading após 3 segundos no máximo
+                _isPremiumLoading.value = false
+            }
+        }
+    }
+
+    fun clearSubscriptionDataAndRefresh() {
+        viewModelScope.launch {
+            try {
+                Log.d(TAG, "Limpando dados de assinatura e forçando atualização...")
+                _isPremiumLoading.value = true
+
+                // Limpar dados locais explicitamente
+                val prefs = getApplication<Application>().getSharedPreferences("billing_prefs", Context.MODE_PRIVATE)
+                prefs.edit()
+                    .remove("is_premium")
+                    .remove("plan_type")
+                    .remove("last_updated_local")
+                    .apply()
+
+                Log.d(TAG, "Dados locais de assinatura limpos")
+
+                // Invalidar cache
+                lastVerifiedTimestamp = 0
+
+                // Cancelar jobs anteriores
+                activeCheckJob?.cancel()
+
+                // Dar tempo para garantir que jobs anteriores terminaram
+                delay(300)
+
+                // Forçar nova verificação
+                checkUserSubscription()
+
+                // Garantir que o usuário veja o indicador de loading por tempo suficiente
+                delay(800)
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Erro ao limpar dados e atualizaFr status: ${e.message}", e)
+            } finally {
                 _isPremiumLoading.value = false
             }
         }
