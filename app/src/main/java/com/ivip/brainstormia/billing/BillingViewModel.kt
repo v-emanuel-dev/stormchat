@@ -27,6 +27,11 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.pow
+import java.util.Date
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
  * ViewModel que gerencia a integração com Google Play Billing para assinaturas e compras.
@@ -81,7 +86,7 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
     private val isInitialCheckComplete = AtomicBoolean(false)
 
     init {
-        Log.d(TAG, "Inicializando c (Singleton)")
+        Log.d(TAG, "Inicializando BillingViewModel (Singleton)")
         // Inicialização realizada em duas fases para evitar race conditions
         viewModelScope.launch {
             loadPremiumStatusLocally() // Primeiro carrega do cache local para resposta imediata
@@ -453,6 +458,11 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
             productId.equals("mensal", ignoreCase = true) -> "Mensal"
             productId.equals("anual", ignoreCase = true) -> "Anual"
             productId.equals("vital", ignoreCase = true) -> "Vitalício"
+            // Suporte para o ID legado "vitalicio" que ainda aparece em compras antigas
+            productId.equals("vitalicio", ignoreCase = true) -> {
+                Log.i(TAG, "ID de produto legado detectado (vitalicio). Convertendo para tipo de plano 'Vitalício'")
+                "Vitalício"
+            }
             else -> {
                 Log.w(TAG, "Tipo de plano não reconhecido para productId: $productId. Usando 'Premium'.")
                 "Premium"
@@ -859,45 +869,6 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
                 Log.e(TAG, "Erro ao atualizar status premium: ${e.message}", e)
             } finally {
                 // Sempre resetar o estado de loading após 3 segundos no máximo
-                _isPremiumLoading.value = false
-            }
-        }
-    }
-
-    fun clearSubscriptionDataAndRefresh() {
-        viewModelScope.launch {
-            try {
-                Log.d(TAG, "Limpando dados de assinatura e forçando atualização...")
-                _isPremiumLoading.value = true
-
-                // Limpar dados locais explicitamente
-                val prefs = getApplication<Application>().getSharedPreferences("billing_prefs", Context.MODE_PRIVATE)
-                prefs.edit()
-                    .remove("is_premium")
-                    .remove("plan_type")
-                    .remove("last_updated_local")
-                    .apply()
-
-                Log.d(TAG, "Dados locais de assinatura limpos")
-
-                // Invalidar cache
-                lastVerifiedTimestamp = 0
-
-                // Cancelar jobs anteriores
-                activeCheckJob?.cancel()
-
-                // Dar tempo para garantir que jobs anteriores terminaram
-                delay(300)
-
-                // Forçar nova verificação
-                checkUserSubscription()
-
-                // Garantir que o usuário veja o indicador de loading por tempo suficiente
-                delay(800)
-
-            } catch (e: Exception) {
-                Log.e(TAG, "Erro ao limpar dados e atualizaFr status: ${e.message}", e)
-            } finally {
                 _isPremiumLoading.value = false
             }
         }

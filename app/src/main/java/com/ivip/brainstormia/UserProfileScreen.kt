@@ -3,6 +3,7 @@ package com.ivip.brainstormia
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -45,6 +46,7 @@ import com.ivip.brainstormia.theme.BrainGold
 import com.ivip.brainstormia.theme.PrimaryColor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.material.icons.filled.Backup
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -107,8 +109,6 @@ fun UserProfileScreen(
         delay(1000)
         isRefreshing = false
     }
-
-    billingViewModel.forceRefreshPremiumStatus()
 
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
@@ -333,7 +333,7 @@ fun UserProfileScreen(
                         imageVector = Icons.AutoMirrored.Filled.ExitToApp,
                         contentDescription = stringResource(R.string.logout)
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = stringResource(R.string.logout_text),
                         fontWeight = FontWeight.Medium
@@ -536,11 +536,73 @@ fun LoadingContent(isDarkTheme: Boolean) {
 }
 
 @Composable
+fun AddCorrectUserButton(
+    isDarkTheme: Boolean,
+    textColor: Color,
+    secondaryTextColor: Color
+) {
+    val context = LocalContext.current
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Título explicativo
+        Text(
+            text = "Problemas com a assinatura?",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = if (isDarkTheme) Color(0xFFFF5252) else Color(0xFFD32F2F),
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        // Texto explicativo
+        Text(
+            text = "Foi detectada uma alteração no email do usuário nas verificações de assinatura. " +
+                    "Use o botão abaixo para corrigir o problema.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = secondaryTextColor,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .padding(bottom = 16.dp)
+        )
+
+        // Botão para verificação completa
+        Button(
+            onClick = {
+                val app = context.applicationContext as BrainstormiaApplication
+                app.billingViewModel.verifySubscriptionDirectly()
+            },
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isDarkTheme) Color(0xFFD32F2F) else Color(0xFFE57373),
+                contentColor = Color.White
+            )
+        ) {
+            Icon(
+                Icons.Default.Backup,
+                contentDescription = "Verificar assinatura corretamente",
+                modifier = Modifier.size(ButtonDefaults.IconSize)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                "Corrigir verificação de assinatura",
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
 fun PremiumContent(
     isDarkTheme: Boolean,
     textColor: Color,
     secondaryTextColor: Color,
-    highlightColor: Color,
+    highlightColor: Color
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -554,10 +616,29 @@ fun PremiumContent(
         ) {
             Text(
                 stringResource(R.string.premium_thanks),
-                style = MaterialTheme.typography.bodyMedium, color = textColor,
-                textAlign = TextAlign.Center, fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.bodyMedium,
+                color = textColor,
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier.padding(16.dp)
             )
+        }
+
+        // Opcional: Adicionar mais informações sobre os benefícios premium aqui
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(0.9f),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isDarkTheme)
+                    MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+                else
+                    MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = if (isDarkTheme) 2.dp else 3.dp),
+            border = if(!isDarkTheme) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)) else null
+        ) {
         }
     }
 }
