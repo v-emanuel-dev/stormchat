@@ -27,7 +27,9 @@
     <string name="logging_in">Logging In...</string>
     <string name="login_processing">Logging in…</string>
     <string name="fill_all_fields">Please fill in all fields</string>
-    <string name="default_web_client_id" translatable="false">1067359774815-lgm0ns1gglqsdoq2ebp1dh62rr6hiiuq.apps.googleusercontent.com</string>
+    <string name="default_web_client_id" translatable="false">
+    323925147659-l17845qiojbk789qrodo3nr3oufbr8cm.apps.googleusercontent.com
+    </string>
     <string name="google_logo_description">Google Logo</string>
     <string name="hide_password">Hide Password</string>
     <string name="show_password">Show Password</string>
