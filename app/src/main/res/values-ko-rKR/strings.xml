@@ -229,21 +229,7 @@
     <string name="export_error_folder_access">폴더를 생성하거나 접근할 수 없음: %1$s</string>
     <string name="export_error_drive_not_init_log">DriveService가 초기화되지 않은 상태에서 대화 내보내기 시도.</string>
 
-    <!-- 9. Payment & Billing -->
-    <string name="payment_title">결제</string>
-    <string name="payment_description">구매를 완료하려면 카드 정보를 입력하세요.</string>
-    <string name="card_number_label">카드 번호</string>
-    <string name="cardholder_name_label">카드 소유자 이름</string>
-    <string name="expiry_date_label">만료일 (MM/YY)</string>
-    <string name="cvv_label">CVV</string>
-    <string name="process_payment_button">결제 처리</string>
-    <string name="payment_success_message">결제가 성공적으로 처리되었습니다!</string>
-    <string name="payment_error_generic">결제 처리 오류: %1$s</string>
-    <string name="payment_error_invalid_card">유효하지 않은 카드 번호.</string>
-    <string name="payment_error_invalid_expiry">유효하지 않은 만료일.</string>
-    <string name="payment_error_invalid_cvv">유효하지 않은 CVV.</string>
-
-    <!-- 10. UI Components & Common Elements -->
+    <!-- 9. UI Components & Common Elements -->
     <string name="settings_title">설정</string>
     <string name="go_back">돌아가기</string>
     <string name="back">뒤로</string>
@@ -264,7 +250,7 @@
     <string name="expand">확장</string>
     <string name="try_again">다시 시도</string>
 
-    <!-- 11. Log & Debug Messages -->
+    <!-- 10. Log & Debug Messages -->
     <string name="log_drive_setup_attempt_null_email">null 또는 빈 이메일로 DriveService를 구성하려고 시도 중.</string>
     <string name="log_drive_setup_already_configured">DriveService가 이미 사용자에 대해 구성됨: %1$s</string>
     <string name="log_drive_setup_configuring_for_user">사용자를 위한 DriveService 구성 중: %1$s</string>
@@ -292,7 +278,7 @@
     <string name="export_log_local_saved">로컬 저장소에 파일 저장됨: %1$s</string>
     <string name="export_log_content_size">포맷된 콘텐츠: %1$d 문자</string>
 
-    <!-- Forgot password and rename conversations -->
+    <!-- 11. Forgot password and rename conversations -->
     <string name="password_reset_screen_title">비밀번호 재설정</string>
     <string name="password_reset_instructions_en">비밀번호 재설정 안내를 받을 이메일을 입력하세요</string>
     <string name="email_required_error">이메일을 입력해 주세요</string>
@@ -306,5 +292,22 @@
     <string name="loading_state">로딩 중...</string>
     <string name="password_reset_success_pt">비밀번호 재설정 이메일을 성공적으로 보냈습니다!</string>
     <string name="password_reset_instructions_pt">비밀번호 재설정 안내를 받을 이메일을 입력하세요</string>
+
+    <!-- 12. Payment Screen Additional Strings -->
+    <string name="payment_screen_title">요금제 선택</string>
+    <string name="premium_app_title">프리미엄 스톰챗</string>
+    <string name="price_unavailable">가격 정보 없음</string>
+    <string name="price_format">%1$s%2$s</string>
+    <string name="per_month">/월</string>
+    <string name="per_year">/년</string>
+    <string name="feature_premium_models">프리미엄 모델 이용</string>
+    <string name="feature_conversation_export">대화 내보내기</string>
+    <string name="feature_priority_support">우선 지원</string>
+    <string name="feature_lifetime_access">프리미엄 모델 평생 이용</string>
+    <string name="feature_unlimited_export">무제한 대화 내보내기</string>
+    <string name="feature_no_recurring_fee">월간 또는 연간 요금 없음</string>
+    <string name="purchase_error">구매 시작 오류. 다시 시도해 주세요.</string>
+    <string name="processing_payment">결제 처리 중...</string>
+    <string name="select_plan">요금제 선택</string>
 
 </resources>

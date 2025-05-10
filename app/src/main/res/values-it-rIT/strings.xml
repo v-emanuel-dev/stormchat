@@ -229,21 +229,7 @@
     <string name="export_error_folder_access">Impossibile creare o accedere alla cartella: %1$s</string>
     <string name="export_error_drive_not_init_log">Tentativo di esportare la conversazione senza DriveService inizializzato.</string>
 
-    <!-- 9. Payment & Billing -->
-    <string name="payment_title">Pagamento</string>
-    <string name="payment_description">Inserisci i dettagli della tua carta per completare l\'acquisto.</string>
-    <string name="card_number_label">Numero carta</string>
-    <string name="cardholder_name_label">Nome sulla carta</string>
-    <string name="expiry_date_label">Data di scadenza (MM/AA)</string>
-    <string name="cvv_label">CVV</string>
-    <string name="process_payment_button">Elabora pagamento</string>
-    <string name="payment_success_message">Pagamento elaborato con successo!</string>
-    <string name="payment_error_generic">Errore nell\'elaborazione del pagamento: %1$s</string>
-    <string name="payment_error_invalid_card">Numero carta non valido.</string>
-    <string name="payment_error_invalid_expiry">Data di scadenza non valida.</string>
-    <string name="payment_error_invalid_cvv">CVV non valido.</string>
-
-    <!-- 10. UI Components & Common Elements -->
+    <!-- 9. UI Components & Common Elements -->
     <string name="settings_title">Impostazioni</string>
     <string name="go_back">Torna indietro</string>
     <string name="back">Indietro</string>
@@ -264,7 +250,7 @@
     <string name="expand">Espandi</string>
     <string name="try_again">Riprova</string>
 
-    <!-- 11. Log & Debug Messages -->
+    <!-- 10. Log & Debug Messages -->
     <string name="log_drive_setup_attempt_null_email">Tentativo di configurare DriveService con email nulla o vuota.</string>
     <string name="log_drive_setup_already_configured">DriveService già configurato per l\'utente: %1$s</string>
     <string name="log_drive_setup_configuring_for_user">Configurazione di DriveService per l\'utente: %1$s</string>
@@ -292,7 +278,7 @@
     <string name="export_log_local_saved">File salvato nell\'archiviazione locale: %1$s</string>
     <string name="export_log_content_size">Contenuto formattato: %1$d caratteri</string>
 
-    <!-- Forgot password and rename conversations -->
+    <!-- 11. Forgot password and rename conversations -->
     <string name="password_reset_screen_title">Reimposta password</string>
     <string name="password_reset_instructions_en">Inserisci la tua email per ricevere le istruzioni di reimpostazione della password</string>
     <string name="email_required_error">Per favore, inserisci la tua email</string>
@@ -306,5 +292,22 @@
     <string name="loading_state">Caricamento in corso...</string>
     <string name="password_reset_success_pt">Email di reimpostazione password inviata con successo!</string>
     <string name="password_reset_instructions_pt">Inserisci la tua email per ricevere le istruzioni di reimpostazione della password</string>
+
+    <!-- 12. Payment Screen Additional Strings -->
+    <string name="payment_screen_title">Scegli il tuo piano</string>
+    <string name="premium_app_title">StormChat Premium</string>
+    <string name="price_unavailable">Prezzo non disponibile</string>
+    <string name="price_format">%1$s%2$s</string>
+    <string name="per_month">/mese</string>
+    <string name="per_year">/anno</string>
+    <string name="feature_premium_models">Accesso ai modelli premium</string>
+    <string name="feature_conversation_export">Esportazione delle conversazioni</string>
+    <string name="feature_priority_support">Supporto prioritario</string>
+    <string name="feature_lifetime_access">Accesso a vita ai modelli premium</string>
+    <string name="feature_unlimited_export">Esportazione illimitata delle conversazioni</string>
+    <string name="feature_no_recurring_fee">Nessuna tariffa mensile o annuale</string>
+    <string name="purchase_error">Errore nell\'avvio dell\'acquisto. Riprova.</string>
+    <string name="processing_payment">Elaborazione del pagamento...</string>
+    <string name="select_plan">Seleziona Piano</string>
 
 </resources>

@@ -229,21 +229,7 @@
     <string name="export_error_folder_access">Ordner konnte nicht erstellt oder darauf zugegriffen werden: %1$s</string>
     <string name="export_error_drive_not_init_log">Versuch, eine Konversation ohne initialisiertem DriveService zu exportieren.</string>
 
-    <!-- 9. Payment & Billing -->
-    <string name="payment_title">Zahlung</string>
-    <string name="payment_description">Gib deine Kartendetails ein, um den Kauf abzuschließen.</string>
-    <string name="card_number_label">Kartennummer</string>
-    <string name="cardholder_name_label">Name auf der Karte</string>
-    <string name="expiry_date_label">Ablaufdatum (MM/JJ)</string>
-    <string name="cvv_label">CVV</string>
-    <string name="process_payment_button">Zahlung verarbeiten</string>
-    <string name="payment_success_message">Zahlung erfolgreich verarbeitet!</string>
-    <string name="payment_error_generic">Fehler bei der Zahlungsverarbeitung: %1$s</string>
-    <string name="payment_error_invalid_card">Ungültige Kartennummer.</string>
-    <string name="payment_error_invalid_expiry">Ungültiges Ablaufdatum.</string>
-    <string name="payment_error_invalid_cvv">Ungültige CVV.</string>
-
-    <!-- 10. UI Components & Common Elements -->
+    <!-- 9. UI Components & Common Elements -->
     <string name="settings_title">Einstellungen</string>
     <string name="go_back">Zurück</string>
     <string name="back">Zurück</string>
@@ -264,7 +250,7 @@
     <string name="expand">Ausklappen</string>
     <string name="try_again">Erneut versuchen</string>
 
-    <!-- 11. Log & Debug Messages -->
+    <!-- 10. Log & Debug Messages -->
     <string name="log_drive_setup_attempt_null_email">Versuch, DriveService mit leerer oder nicht vorhandener E-Mail zu konfigurieren.</string>
     <string name="log_drive_setup_already_configured">DriveService bereits für Benutzer konfiguriert: %1$s</string>
     <string name="log_drive_setup_configuring_for_user">Konfigurieren von DriveService für Benutzer: %1$s</string>
@@ -292,7 +278,7 @@
     <string name="export_log_local_saved">Datei im lokalen Speicher gespeichert: %1$s</string>
     <string name="export_log_content_size">Formatierter Inhalt: %1$d Zeichen</string>
 
-    <!-- Forgot password -->
+    <!-- 11. Forgot password -->
     <string name="password_reset_screen_title">Passwort zurücksetzen</string>
     <string name="password_reset_instructions_en">Geben Sie Ihre E-Mail-Adresse ein, um Anweisungen zum Zurücksetzen des Passworts zu erhalten</string>
     <string name="email_required_error">Bitte geben Sie Ihre E-Mail-Adresse ein</string>
@@ -306,5 +292,22 @@
     <string name="loading_state">Wird geladen...</string>
     <string name="password_reset_success_pt">E-Mail zum Zurücksetzen des Passworts erfolgreich gesendet!</string>
     <string name="password_reset_instructions_pt">Geben Sie Ihre E-Mail-Adresse ein, um Anweisungen zum Zurücksetzen des Passworts zu erhalten</string>
+
+    <!-- 12. Payment Screen Additional Strings -->
+    <string name="payment_screen_title">Wählen Sie Ihren Plan</string>
+    <string name="premium_app_title">Premium StormChat</string>
+    <string name="price_unavailable">Preis nicht verfügbar</string>
+    <string name="price_format">%1$s%2$s</string>
+    <string name="per_month">/Monat</string>
+    <string name="per_year">/Jahr</string>
+    <string name="feature_premium_models">Zugang zu Premium-Modellen</string>
+    <string name="feature_conversation_export">Gesprächsexport</string>
+    <string name="feature_priority_support">Prioritäts-Support</string>
+    <string name="feature_lifetime_access">Lebenslanger Zugang zu Premium-Modellen</string>
+    <string name="feature_unlimited_export">Unbegrenzter Gesprächsexport</string>
+    <string name="feature_no_recurring_fee">Keine monatlichen oder jährlichen Gebühren</string>
+    <string name="purchase_error">Fehler beim Starten des Kaufs. Bitte versuchen Sie es erneut.</string>
+    <string name="processing_payment">Zahlung wird verarbeitet...</string>
+    <string name="select_plan">Plan auswählen</string>
 
 </resources>

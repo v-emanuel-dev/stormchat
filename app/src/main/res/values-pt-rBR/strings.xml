@@ -229,21 +229,7 @@
     <string name="export_error_folder_access">Não foi possível criar ou acessar a pasta: %1$s</string>
     <string name="export_error_drive_not_init_log">Tentando exportar conversa sem DriveService inicializado.</string>
 
-    <!-- 9. Payment & Billing -->
-    <string name="payment_title">Pagamento</string>
-    <string name="payment_description">Digite os detalhes do seu cartão para completar a compra.</string>
-    <string name="card_number_label">Número do Cartão</string>
-    <string name="cardholder_name_label">Nome no Cartão</string>
-    <string name="expiry_date_label">Data de Validade (MM/AA)</string>
-    <string name="cvv_label">CVV</string>
-    <string name="process_payment_button">Processar Pagamento</string>
-    <string name="payment_success_message">Pagamento processado com sucesso!</string>
-    <string name="payment_error_generic">Erro ao processar pagamento: %1$s</string>
-    <string name="payment_error_invalid_card">Número de cartão inválido.</string>
-    <string name="payment_error_invalid_expiry">Data de validade inválida.</string>
-    <string name="payment_error_invalid_cvv">CVV inválido.</string>
-
-    <!-- 10. UI Components & Common Elements -->
+    <!-- 9. UI Components & Common Elements -->
     <string name="settings_title">Configurações</string>
     <string name="go_back">Voltar</string>
     <string name="back">Voltar</string>
@@ -264,7 +250,7 @@
     <string name="expand">Expandir</string>
     <string name="try_again">Tentar Novamente</string>
 
-    <!-- 11. Log & Debug Messages -->
+    <!-- 10. Log & Debug Messages -->
     <string name="log_drive_setup_attempt_null_email">Tentativa de configurar DriveService com email nulo ou vazio.</string>
     <string name="log_drive_setup_already_configured">DriveService já configurado para usuário: %1$s</string>
     <string name="log_drive_setup_configuring_for_user">Configurando DriveService para usuário: %1$s</string>
@@ -292,7 +278,7 @@
     <string name="export_log_local_saved">Arquivo salvo no armazenamento local: %1$s</string>
     <string name="export_log_content_size">Conteúdo formatado: %1$d caracteres</string>
 
-    <!-- Forgot password and rename conversations -->
+    <!-- 11. Forgot password and rename conversations -->
     <string name="password_reset_screen_title">Redefinir Senha</string>
     <string name="password_reset_instructions_en">Digite seu email para receber instruções de redefinição de senha</string>
     <string name="email_required_error">Por favor, digite seu email</string>
@@ -306,5 +292,22 @@
     <string name="loading_state">Carregando...</string>
     <string name="password_reset_success_pt">E-mail de redefinição de senha enviado com sucesso!</string>
     <string name="password_reset_instructions_pt">Digite seu e-mail para receber instruções de redefinição de senha</string>
+
+    <!-- 12. Payment Screen Additional Strings -->
+    <string name="payment_screen_title">Escolha seu plano</string>
+    <string name="premium_app_title">StormChat Premium</string>
+    <string name="price_unavailable">Preço indisponível</string>
+    <string name="price_format">%1$s%2$s</string>
+    <string name="per_month">/mês</string>
+    <string name="per_year">/ano</string>
+    <string name="feature_premium_models">Acesso a modelos premium</string>
+    <string name="feature_conversation_export">Exportação de conversas</string>
+    <string name="feature_priority_support">Suporte prioritário</string>
+    <string name="feature_lifetime_access">Acesso vitalício a modelos premium</string>
+    <string name="feature_unlimited_export">Exportação ilimitada de conversas</string>
+    <string name="feature_no_recurring_fee">Sem taxas mensais ou anuais</string>
+    <string name="purchase_error">Erro ao iniciar a compra. Por favor, tente novamente.</string>
+    <string name="processing_payment">Processando pagamento...</string>
+    <string name="select_plan">Selecionar Plano</string>
 
 </resources>

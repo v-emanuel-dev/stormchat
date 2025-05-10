@@ -229,21 +229,7 @@
     <string name="export_error_folder_access">Impossible de créer ou d\'accéder au dossier : %1$s</string>
     <string name="export_error_drive_not_init_log">Tentative d\'exportation de conversation sans DriveService initialisé.</string>
 
-    <!-- 9. Payment & Billing -->
-    <string name="payment_title">Paiement</string>
-    <string name="payment_description">Entrez les détails de votre carte pour finaliser l\'achat.</string>
-    <string name="card_number_label">Numéro de carte</string>
-    <string name="cardholder_name_label">Nom sur la carte</string>
-    <string name="expiry_date_label">Date d\'expiration (MM/AA)</string>
-    <string name="cvv_label">CVV</string>
-    <string name="process_payment_button">Traiter le paiement</string>
-    <string name="payment_success_message">Paiement traité avec succès !</string>
-    <string name="payment_error_generic">Erreur lors du traitement du paiement : %1$s</string>
-    <string name="payment_error_invalid_card">Numéro de carte invalide.</string>
-    <string name="payment_error_invalid_expiry">Date d\'expiration invalide.</string>
-    <string name="payment_error_invalid_cvv">CVV invalide.</string>
-
-    <!-- 10. UI Components & Common Elements -->
+    <!-- 9. UI Components & Common Elements -->
     <string name="settings_title">Paramètres</string>
     <string name="go_back">Retour</string>
     <string name="back">Retour</string>
@@ -264,7 +250,7 @@
     <string name="expand">Développer</string>
     <string name="try_again">Réessayer</string>
 
-    <!-- 11. Log & Debug Messages -->
+    <!-- 10. Log & Debug Messages -->
     <string name="log_drive_setup_attempt_null_email">Tentative de configuration du DriveService avec un email nul ou vide.</string>
     <string name="log_drive_setup_already_configured">DriveService déjà configuré pour l\'utilisateur : %1$s</string>
     <string name="log_drive_setup_configuring_for_user">Configuration du DriveService pour l\'utilisateur : %1$s</string>
@@ -292,7 +278,7 @@
     <string name="export_log_local_saved">Fichier enregistré dans le stockage local : %1$s</string>
     <string name="export_log_content_size">Contenu formaté : %1$d caractères</string>
 
-    <!-- Forgot password and rename conversations -->
+    <!-- 11. Forgot password and rename conversations -->
     <string name="password_reset_screen_title">Réinitialiser le mot de passe</string>
     <string name="password_reset_instructions_en">Entrez votre email pour recevoir les instructions de réinitialisation du mot de passe</string>
     <string name="email_required_error">Veuillez entrer votre email</string>
@@ -306,5 +292,22 @@
     <string name="loading_state">Chargement...</string>
     <string name="password_reset_success_pt">Email de réinitialisation du mot de passe envoyé avec succès !</string>
     <string name="password_reset_instructions_pt">Entrez votre email pour recevoir les instructions de réinitialisation du mot de passe</string>
+
+    <!-- 12. Payment Screen Additional Strings -->
+    <string name="payment_screen_title">Choisissez votre forfait</string>
+    <string name="premium_app_title">StormChat Premium</string>
+    <string name="price_unavailable">Prix indisponible</string>
+    <string name="price_format">%1$s%2$s</string>
+    <string name="per_month">/mois</string>
+    <string name="per_year">/an</string>
+    <string name="feature_premium_models">Accès aux modèles premium</string>
+    <string name="feature_conversation_export">Exportation des conversations</string>
+    <string name="feature_priority_support">Support prioritaire</string>
+    <string name="feature_lifetime_access">Accès à vie aux modèles premium</string>
+    <string name="feature_unlimited_export">Exportation illimitée des conversations</string>
+    <string name="feature_no_recurring_fee">Pas de frais mensuels ou annuels</string>
+    <string name="purchase_error">Erreur lors du démarrage de l\'achat. Veuillez réessayer.</string>
+    <string name="processing_payment">Traitement du paiement...</string>
+    <string name="select_plan">Sélectionner le forfait</string>
 
 </resources>

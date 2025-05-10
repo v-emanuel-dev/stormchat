@@ -229,21 +229,7 @@
     <string name="export_error_folder_access">Не удалось создать папку или получить доступ: %1$s</string>
     <string name="export_error_drive_not_init_log">Попытка экспортировать разговор без инициализированного DriveService.</string>
 
-    <!-- 9. Payment & Billing -->
-    <string name="payment_title">Оплата</string>
-    <string name="payment_description">Введите данные вашей карты для завершения покупки.</string>
-    <string name="card_number_label">Номер карты</string>
-    <string name="cardholder_name_label">Имя на карте</string>
-    <string name="expiry_date_label">Срок действия (ММ/ГГ)</string>
-    <string name="cvv_label">CVV</string>
-    <string name="process_payment_button">Обработать платеж</string>
-    <string name="payment_success_message">Платеж успешно обработан!</string>
-    <string name="payment_error_generic">Ошибка обработки платежа: %1$s</string>
-    <string name="payment_error_invalid_card">Неверный номер карты.</string>
-    <string name="payment_error_invalid_expiry">Неверный срок действия.</string>
-    <string name="payment_error_invalid_cvv">Неверный CVV.</string>
-
-    <!-- 10. UI Components & Common Elements -->
+    <!-- 9. UI Components & Common Elements -->
     <string name="settings_title">Настройки</string>
     <string name="go_back">Вернуться</string>
     <string name="back">Назад</string>
@@ -264,7 +250,7 @@
     <string name="expand">Развернуть</string>
     <string name="try_again">Попробовать снова</string>
 
-    <!-- 11. Log & Debug Messages -->
+    <!-- 10. Log & Debug Messages -->
     <string name="log_drive_setup_attempt_null_email">Попытка настройки DriveService с пустым или отсутствующим адресом электронной почты.</string>
     <string name="log_drive_setup_already_configured">DriveService уже настроен для пользователя: %1$s</string>
     <string name="log_drive_setup_configuring_for_user">Настройка DriveService для пользователя: %1$s</string>
@@ -292,7 +278,7 @@
     <string name="export_log_local_saved">Файл сохранен в локальном хранилище: %1$s</string>
     <string name="export_log_content_size">Форматированное содержимое: %1$d символов</string>
 
-    <!-- Forgot password and rename conversations -->
+    <!-- 11. Forgot password and rename conversations -->
     <string name="password_reset_screen_title">Сбросить пароль</string>
     <string name="password_reset_instructions_en">Введите свой email для получения инструкций по сбросу пароля</string>
     <string name="email_required_error">Пожалуйста, введите ваш email</string>
@@ -306,5 +292,22 @@
     <string name="loading_state">Загрузка...</string>
     <string name="password_reset_success_pt">Письмо для сброса пароля успешно отправлено!</string>
     <string name="password_reset_instructions_pt">Введите свой email для получения инструкций по сбросу пароля</string>
+
+    <!-- 12. Payment Screen Additional Strings -->
+    <string name="payment_screen_title">Выберите свой тариф</string>
+    <string name="premium_app_title">Премиум StormChat</string>
+    <string name="price_unavailable">Цена недоступна</string>
+    <string name="price_format">%1$s%2$s</string>
+    <string name="per_month">/месяц</string>
+    <string name="per_year">/год</string>
+    <string name="feature_premium_models">Доступ к премиум-моделям</string>
+    <string name="feature_conversation_export">Экспорт бесед</string>
+    <string name="feature_priority_support">Приоритетная поддержка</string>
+    <string name="feature_lifetime_access">Пожизненный доступ к премиум-моделям</string>
+    <string name="feature_unlimited_export">Неограниченный экспорт бесед</string>
+    <string name="feature_no_recurring_fee">Без ежемесячных или ежегодных платежей</string>
+    <string name="purchase_error">Ошибка при начале покупки. Пожалуйста, попробуйте снова.</string>
+    <string name="processing_payment">Обработка платежа...</string>
+    <string name="select_plan">Выбрать тариф</string>
 
 </resources>

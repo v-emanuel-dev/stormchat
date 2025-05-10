@@ -229,21 +229,7 @@
     <string name="export_error_folder_access">No se pudo crear o acceder a la carpeta: %1$s</string>
     <string name="export_error_drive_not_init_log">Intentando exportar conversación sin DriveService inicializado.</string>
 
-    <!-- 9. Payment & Billing -->
-    <string name="payment_title">Pago</string>
-    <string name="payment_description">Ingresa los detalles de tu tarjeta para completar la compra.</string>
-    <string name="card_number_label">Número de tarjeta</string>
-    <string name="cardholder_name_label">Nombre en la tarjeta</string>
-    <string name="expiry_date_label">Fecha de vencimiento (MM/AA)</string>
-    <string name="cvv_label">CVV</string>
-    <string name="process_payment_button">Procesar pago</string>
-    <string name="payment_success_message">¡Pago procesado con éxito!</string>
-    <string name="payment_error_generic">Error al procesar el pago: %1$s</string>
-    <string name="payment_error_invalid_card">Número de tarjeta inválido.</string>
-    <string name="payment_error_invalid_expiry">Fecha de vencimiento inválida.</string>
-    <string name="payment_error_invalid_cvv">CVV inválido.</string>
-
-    <!-- 10. UI Components & Common Elements -->
+    <!-- 9. UI Components & Common Elements -->
     <string name="settings_title">Configuración</string>
     <string name="go_back">Volver</string>
     <string name="back">Atrás</string>
@@ -264,7 +250,7 @@
     <string name="expand">Expandir</string>
     <string name="try_again">Intentar de nuevo</string>
 
-    <!-- 11. Log & Debug Messages -->
+    <!-- 10. Log & Debug Messages -->
     <string name="log_drive_setup_attempt_null_email">Intentando configurar DriveService con correo electrónico nulo o vacío.</string>
     <string name="log_drive_setup_already_configured">DriveService ya configurado para el usuario: %1$s</string>
     <string name="log_drive_setup_configuring_for_user">Configurando DriveService para el usuario: %1$s</string>
@@ -292,7 +278,7 @@
     <string name="export_log_local_saved">Archivo guardado en almacenamiento local: %1$s</string>
     <string name="export_log_content_size">Contenido formateado: %1$d caracteres</string>
 
-    <!-- Forgot password and rename conversations -->
+    <!-- 11. Forgot password and rename conversations -->
     <string name="password_reset_screen_title">Restablecer contraseña</string>
     <string name="password_reset_instructions_en">Introduce tu correo electrónico para recibir instrucciones de restablecimiento de contraseña</string>
     <string name="email_required_error">Por favor, introduce tu correo electrónico</string>
@@ -306,5 +292,22 @@
     <string name="loading_state">Cargando...</string>
     <string name="password_reset_success_pt">¡Correo de restablecimiento de contraseña enviado con éxito!</string>
     <string name="password_reset_instructions_pt">Introduce tu correo electrónico para recibir instrucciones de restablecimiento de contraseña</string>
+
+    <!-- 12. Payment Screen Additional Strings -->
+    <string name="payment_screen_title">Elige tu plan</string>
+    <string name="premium_app_title">StormChat Premium</string>
+    <string name="price_unavailable">Precio no disponible</string>
+    <string name="price_format">%1$s%2$s</string>
+    <string name="per_month">/mes</string>
+    <string name="per_year">/año</string>
+    <string name="feature_premium_models">Acceso a modelos premium</string>
+    <string name="feature_conversation_export">Exportación de conversaciones</string>
+    <string name="feature_priority_support">Soporte prioritario</string>
+    <string name="feature_lifetime_access">Acceso de por vida a modelos premium</string>
+    <string name="feature_unlimited_export">Exportación ilimitada de conversaciones</string>
+    <string name="feature_no_recurring_fee">Sin tarifas mensuales o anuales</string>
+    <string name="purchase_error">Error al iniciar la compra. Por favor, inténtalo de nuevo.</string>
+    <string name="processing_payment">Procesando pago...</string>
+    <string name="select_plan">Seleccionar Plan</string>
 
 </resources>

@@ -229,21 +229,7 @@
     <string name="export_error_folder_access">تعذر إنشاء أو الوصول إلى المجلد: %1$s</string>
     <string name="export_error_drive_not_init_log">محاولة تصدير محادثة بدون تهيئة DriveService.</string>
 
-    <!-- 9. Payment & Billing -->
-    <string name="payment_title">الدفع</string>
-    <string name="payment_description">أدخل تفاصيل بطاقتك لإكمال الشراء.</string>
-    <string name="card_number_label">رقم البطاقة</string>
-    <string name="cardholder_name_label">الاسم على البطاقة</string>
-    <string name="expiry_date_label">تاريخ انتهاء الصلاحية (MM/YY)</string>
-    <string name="cvv_label">رمز التحقق CVV</string>
-    <string name="process_payment_button">معالجة الدفع</string>
-    <string name="payment_success_message">تمت معالجة الدفع بنجاح!</string>
-    <string name="payment_error_generic">خطأ في معالجة الدفع: %1$s</string>
-    <string name="payment_error_invalid_card">رقم بطاقة غير صالح.</string>
-    <string name="payment_error_invalid_expiry">تاريخ انتهاء صلاحية غير صالح.</string>
-    <string name="payment_error_invalid_cvv">رمز تحقق CVV غير صالح.</string>
-
-    <!-- 10. UI Components & Common Elements -->
+    <!-- 9. UI Components & Common Elements -->
     <string name="settings_title">الإعدادات</string>
     <string name="go_back">العودة</string>
     <string name="back">رجوع</string>
@@ -264,7 +250,7 @@
     <string name="expand">توسيع</string>
     <string name="try_again">المحاولة مرة أخرى</string>
 
-    <!-- 11. Log & Debug Messages -->
+    <!-- 10. Log & Debug Messages -->
     <string name="log_drive_setup_attempt_null_email">محاولة تكوين DriveService ببريد إلكتروني فارغ أو غير موجود.</string>
     <string name="log_drive_setup_already_configured">DriveService تم تكوينه بالفعل للمستخدم: %1$s</string>
     <string name="log_drive_setup_configuring_for_user">تكوين DriveService للمستخدم: %1$s</string>
@@ -292,7 +278,7 @@
     <string name="export_log_local_saved">تم حفظ الملف في التخزين المحلي: %1$s</string>
     <string name="export_log_content_size">المحتوى المنسق: %1$d حرف</string>
 
-    <!-- Forgot password -->
+    <!-- 11. Forgot password -->
     <string name="password_reset_screen_title">إعادة تعيين كلمة المرور</string>
     <string name="password_reset_instructions_en">أدخل بريدك الإلكتروني لتلقي تعليمات إعادة تعيين كلمة المرور</string>
     <string name="email_required_error">الرجاء إدخال البريد الإلكتروني</string>
@@ -306,5 +292,22 @@
     <string name="loading_state">جارٍ التحميل...</string>
     <string name="password_reset_success_pt">تم إرسال بريد إعادة تعيين كلمة المرور بنجاح!</string>
     <string name="password_reset_instructions_pt">أدخل بريدك الإلكتروني لتلقي تعليمات إعادة تعيين كلمة المرور</string>
+
+    <!-- 12. Payment Screen Additional Strings -->
+    <string name="payment_screen_title">اختر خطتك</string>
+    <string name="premium_app_title">ستورم تشات المميز</string>
+    <string name="price_unavailable">السعر غير متوفر</string>
+    <string name="price_format">%1$s%2$s</string>
+    <string name="per_month">/شهر</string>
+    <string name="per_year">/سنة</string>
+    <string name="feature_premium_models">الوصول إلى النماذج المميزة</string>
+    <string name="feature_conversation_export">تصدير المحادثات</string>
+    <string name="feature_priority_support">دعم ذو أولوية</string>
+    <string name="feature_lifetime_access">وصول مدى الحياة إلى النماذج المميزة</string>
+    <string name="feature_unlimited_export">تصدير غير محدود للمحادثات</string>
+    <string name="feature_no_recurring_fee">لا توجد رسوم شهرية أو سنوية</string>
+    <string name="purchase_error">خطأ في بدء الشراء. يرجى المحاولة مرة أخرى.</string>
+    <string name="processing_payment">جاري معالجة الدفع...</string>
+    <string name="select_plan">اختر الخطة</string>
 
 </resources>
