@@ -85,6 +85,9 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
     private val CACHE_VALIDITY_PERIOD = 30000L // 30 segundos
     private val isInitialCheckComplete = AtomicBoolean(false)
 
+    // Produto atual sendo comprado
+    private var currentProductDetails: ProductDetails? = null
+
     init {
         Log.d(TAG, "Inicializando BillingViewModel (Singleton)")
         // Inicialização realizada em duas fases para evitar race conditions
@@ -317,6 +320,9 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
             return
         }
 
+        // Armazenar o produto atual sendo comprado
+        currentProductDetails = productDetails
+
         _purchaseInProgress.value = true
         Log.i(TAG, "Iniciando fluxo de compra para ${productDetails.productId}")
 
@@ -328,6 +334,7 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
             if (offerToken.isNullOrBlank()) {
                 Log.e(TAG, "Erro CRÍTICO: offerToken não encontrado para ${productDetails.productId}. A compra não pode prosseguir.")
                 _purchaseInProgress.value = false
+                currentProductDetails = null // Limpar referência ao produto
                 return
             }
 
@@ -350,6 +357,7 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
         if (productDetailsParamsList.isEmpty()) {
             Log.e(TAG, "Nenhum ProductDetailsParams construído para ${productDetails.productId}.")
             _purchaseInProgress.value = false
+            currentProductDetails = null // Limpar referência ao produto
             return
         }
 
@@ -362,6 +370,7 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
         if (billingResult.responseCode != BillingClient.BillingResponseCode.OK) {
             Log.e(TAG, "Erro ao iniciar fluxo de cobrança para ${productDetails.productId}: ${billingResult.responseCode} - ${billingResult.debugMessage}")
             _purchaseInProgress.value = false
+            currentProductDetails = null // Limpar referência ao produto
         } else {
             Log.i(TAG, "Fluxo de cobrança iniciado com sucesso para ${productDetails.productId}")
         }
@@ -395,7 +404,67 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
             }
 
             BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> {
-                Log.i(TAG, "Usuário já possui este item/assinatura. Verificando status...")
+                Log.i(TAG, "Usuário já possui este item/assinatura. Verificando e resolvendo status...")
+
+                // Consulta especificamente as compras atuais para ver se realmente existe
+                viewModelScope.launch {
+                    try {
+                        val productId = currentProductDetails?.productId
+
+                        if (productId != null) {
+                            Log.d(TAG, "Verificando compra existente para produto: $productId")
+
+                            // Verificar SUBS
+                            val subsResult = billingClient.queryPurchasesAsync(
+                                QueryPurchasesParams.newBuilder()
+                                    .setProductType(BillingClient.ProductType.SUBS)
+                                    .build()
+                            )
+
+                            // Obter o ID do usuário atual
+                            val currentUser = FirebaseAuth.getInstance().currentUser
+                            val userId = currentUser?.uid
+                            val userEmail = currentUser?.email
+
+                            Log.d(TAG, "Verificando para usuário: $userEmail (ID: $userId)")
+
+                            // Log de todas as compras encontradas para diagnóstico
+                            subsResult.purchasesList.forEach { purchase ->
+                                Log.d(TAG, "Compra encontrada: ${purchase.orderId}, produtos: ${purchase.products.joinToString()}, " +
+                                        "token: ${purchase.purchaseToken}, accountIdentifiers: ${purchase.accountIdentifiers}, " +
+                                        "package: ${purchase.packageName}")
+                            }
+
+                            // Verificar se existe alguma assinatura ativa do item sendo comprado E com dados de compra válidos
+                            val hasActiveSub = subsResult.purchasesList.any { purchase ->
+                                purchase.products.contains(productId) &&
+                                        isSubscriptionActive(purchase) &&
+                                        (purchase.accountIdentifiers?.obfuscatedAccountId == userId || // Verificar se é do mesmo usuário
+                                                purchase.accountIdentifiers?.obfuscatedProfileId == userEmail)
+                            }
+
+                            if (hasActiveSub) {
+                                val purchase = subsResult.purchasesList.first {
+                                    it.products.contains(productId) && isSubscriptionActive(it)
+                                }
+
+                                Log.i(TAG, "Assinatura $productId realmente encontrada e ativa para este usuário.")
+                                handlePurchase(purchase)
+                            } else {
+                                Log.w(TAG, "ALERTA: Código ITEM_ALREADY_OWNED recebido, mas não encontramos assinatura ativa" +
+                                        " para $productId que pertença ao usuário $userEmail. Possível erro no Google Play Billing!")
+
+                                // Você pode notificar o usuário ou tentar uma abordagem alternativa aqui
+                                // Talvez verifique diretamente no Firebase se o usuário tem um registro de compra
+                            }
+                        } else {
+                            Log.w(TAG, "Código ITEM_ALREADY_OWNED recebido, mas não há produto atual armazenado.")
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Erro ao verificar assinaturas após ITEM_ALREADY_OWNED: ${e.message}", e)
+                    }
+                }
+
                 // Força atualização imediata do cache
                 lastVerifiedTimestamp = 0
                 checkUserSubscription()
@@ -410,6 +479,9 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
                 }
             }
         }
+
+        // Limpar a referência ao produto após o processamento
+        currentProductDetails = null
     }
 
     /**
@@ -640,9 +712,6 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
         }
     }
 
-    /**
-     * Verifica as compras no Play Store.
-     */
     private suspend fun checkBillingPurchases(
         userEmail: String,
         firebaseIsPremium: Boolean,
@@ -670,11 +739,12 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
                         isActivePremiumResult = true
                         activePlanTypeResult = determinePlanType(purchase.products.firstOrNull())
                         foundMatchingPurchase = true
+                        Log.d(TAG, "Compra INAPP correspondente encontrada para $registeredOrderId: ${purchase.products.firstOrNull()}")
                     }
                 }
 
-                // Ou qualquer compra vitalícia válida
-                if (!foundMatchingPurchase && firebaseIsPremium) {
+                // Ou qualquer compra vitalícia válida - APENAS se o productId registrado for "vital"
+                if (!foundMatchingPurchase && firebaseIsPremium && registeredPlanType == "Lifetime") {
                     val vitalPurchase = inAppPurchases.find { p ->
                         p.purchaseState == Purchase.PurchaseState.PURCHASED &&
                                 p.products.any { it.equals("vital", ignoreCase = true) }
@@ -684,6 +754,7 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
                         isActivePremiumResult = true
                         activePlanTypeResult = determinePlanType(vitalPurchase.products.firstOrNull())
                         foundMatchingPurchase = true
+                        Log.d(TAG, "Compra vitalícia válida encontrada: ${vitalPurchase.products.firstOrNull()}")
                     }
                 }
             }
@@ -704,37 +775,45 @@ class BillingViewModel private constructor(application: Application) : AndroidVi
                             isActivePremiumResult = true
                             activePlanTypeResult = determinePlanType(purchase.products.firstOrNull())
                             foundMatchingPurchase = true
+                            Log.d(TAG, "Assinatura correspondente encontrada para $registeredOrderId: ${purchase.products.firstOrNull()}")
                         }
                     }
 
-                    // Ou qualquer assinatura ativa
+                    // Ou qualquer assinatura ativa - MAS mantendo o tipo de plano correto
                     if (!foundMatchingPurchase && firebaseIsPremium) {
                         val activeSub = subPurchases.find { isSubscriptionActive(it) }
                         if (activeSub != null) {
                             isActivePremiumResult = true
                             activePlanTypeResult = determinePlanType(activeSub.products.firstOrNull())
                             foundMatchingPurchase = true
+                            Log.d(TAG, "Assinatura ativa encontrada: ${activeSub.products.firstOrNull()}")
                         }
                     }
                 }
             }
 
-            // Atualiza UI com resultado final
+            // Atualiza UI com resultado final - NUNCA DEVE USAR "vital" SE O PLANO REAL FOR OUTRO
+            // Atualiza UI com resultado final - ADICIONE LOGS para debug
             withContext(Dispatchers.Main) {
                 if (isActivePremiumResult) {
+                    // Este é o fluxo quando uma compra ativa foi encontrada
                     _isPremiumUser.value = true
                     _userPlanType.value = activePlanTypeResult
                     // Salva status localmente
                     savePremiumStatusLocally(true, activePlanTypeResult)
+                    Log.d(TAG, "Status final: Premium=true, Plano=$activePlanTypeResult (verificado através de compra)")
                 } else if (firebaseIsPremium) {
-                    // Confiar no Firebase se Play Store não retornar nada
+                    // Este é o fluxo quando o Firebase indica premium mas sem compra verificada
                     _isPremiumUser.value = true
                     _userPlanType.value = registeredPlanType
                     savePremiumStatusLocally(true, registeredPlanType)
+                    Log.d(TAG, "Status final: Premium=true, Plano=$registeredPlanType (verificado através do Firebase)")
                 } else {
+                    // Este é o fluxo quando nem compra nem Firebase indicam premium
                     _isPremiumUser.value = false
                     _userPlanType.value = null
                     savePremiumStatusLocally(false, null)
+                    Log.d(TAG, "Status final: Premium=false, Plano=null")
                 }
 
                 // Atualizamos o estado de loading aqui para garantir

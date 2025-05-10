@@ -4,16 +4,19 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,501 +26,365 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
+import com.android.billingclient.api.ProductDetails
+import com.ivip.brainstormia.BrainstormiaApplication
 import com.ivip.brainstormia.R
 import com.ivip.brainstormia.theme.*
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentScreen(
     onNavigateBack: () -> Unit,
     onPurchaseComplete: () -> Unit,
     isDarkTheme: Boolean
 ) {
-    // Create a local view model instance
-    val paymentViewModel: PaymentViewModel = viewModel()
+    val context = LocalContext.current
+    val currentActivity = context as? android.app.Activity
+    val billingViewModel = (context.applicationContext as BrainstormiaApplication).billingViewModel
 
-    // Track payment success to trigger navigation
-    val paymentState by paymentViewModel.paymentState.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // Navigate on payment success
-    LaunchedEffect(paymentState) {
-        if (paymentState is PaymentState.Success) {
-            delay(1500) // Give user time to see success message
+    // Observar o estado de produtos e compras
+    val products by billingViewModel.products.collectAsState()
+    val isPremiumUser by billingViewModel.isPremiumUser.collectAsState()
+
+    // Navegar quando o usuário se tornar premium
+    LaunchedEffect(isPremiumUser) {
+        if (isPremiumUser) {
+            delay(1000) // Dar tempo para o usuário ver a mensagem de sucesso
             onPurchaseComplete()
         }
     }
 
-    // Main payment UI implementation
-    PaymentScreenContent(
-        onBackToHome = onNavigateBack,
-        paymentViewModel = paymentViewModel,
-        isDarkTheme = isDarkTheme
-    )
-}
+    // Carregar produtos se necessário
+    LaunchedEffect(Unit) {
+        if (products.isEmpty()) {
+            billingViewModel.queryAvailableProducts()
+        }
+    }
 
-@Composable
-private fun PaymentScreenContent(
-    onBackToHome: () -> Unit,
-    paymentViewModel: PaymentViewModel,
-    isDarkTheme: Boolean
-) {
-    var cardNumber by remember { mutableStateOf("") }
-    var cardholderName by remember { mutableStateOf("") }
-    var expiryDate by remember { mutableStateOf("") }
-    var cvv by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var successMessage by remember { mutableStateOf<String?>(null) }
-
-    // Track payment state
-    val paymentState by paymentViewModel.paymentState.collectAsState()
-
-    // Theme-specific colors
+    // Cores específicas do tema
     val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
     val cardColor = if (isDarkTheme) Color(0xFF121212) else Color.White
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
     val textSecondaryColor = if (isDarkTheme) TextColorLight.copy(alpha = 0.7f) else TextColorDark.copy(alpha = 0.9f)
-    val inputBgColor = if (isDarkTheme) Color(0xFF212121) else Color.White
-    val borderColor = if (isDarkTheme) Color.Gray.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.5f)
-    val cardElevation = if (isDarkTheme) 8.dp else 4.dp
+    val highlightColor = if (isDarkTheme) BrainGold else PrimaryColor
 
-    // Handle payment state changes
-    LaunchedEffect(paymentState) {
-        when (paymentState) {
-            is PaymentState.Success -> {
-                successMessage = "Payment processed successfully!"
-                errorMessage = null
-            }
-            is PaymentState.Error -> {
-                errorMessage = (paymentState as PaymentState.Error).message
-                successMessage = null
-            }
-            else -> {}
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                if (isDarkTheme) Color(0xFF121212) else backgroundColor,
-                shape = RectangleShape
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .padding(16.dp)
-                .shadow(
-                    elevation = cardElevation,
-                    spotColor = Color.Black.copy(alpha = if (isDarkTheme) 0.3f else 0.1f),
-                    shape = RoundedCornerShape(32.dp)
-                ),
-            shape = RoundedCornerShape(32.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = cardColor
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.payment_screen_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = stringResource(R.string.go_back)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else PrimaryColor,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
             )
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(if (isDarkTheme) Color(0xFF121212) else backgroundColor)
+                .padding(paddingValues)
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                // Logo
                 Box(
                     modifier = Modifier
                         .size(90.dp)
                         .clip(CircleShape)
-                        .background(PrimaryColor.copy(alpha = if (isDarkTheme) 0.2f else 0.1f)),
+                        .background(if (isDarkTheme) Color(0xFF333333) else PrimaryColor.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
                         painter = painterResource(id = R.drawable.ic_bolt_foreground),
                         contentDescription = stringResource(R.string.logo_description),
                         modifier = Modifier.size(70.dp),
-                        colorFilter = ColorFilter.tint(if (isDarkTheme) TextColorLight else PrimaryColor)
+                        colorFilter = ColorFilter.tint(if (isDarkTheme) Color(0xFFFFD700) else Color.Black)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                AnimatedVisibility(
-                    visible = true,
-                    enter = fadeIn(animationSpec = tween(durationMillis = 500))
-                ) {
-                    Text(
-                        text = "Payment",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        color = textColor,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
-
+                // Título e descrição
                 Text(
-                    text = "Enter your payment details below to complete your purchase",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    color = textSecondaryColor,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    text = stringResource(R.string.premium_app_title),
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor
                 )
 
-                // Card Number Field
-                OutlinedTextField(
-                    value = cardNumber,
-                    onValueChange = { if (it.length <= 16) cardNumber = it },
-                    label = {
-                        Text(
-                            "Card Number",
-                            fontWeight = FontWeight.Medium,
-                            color = if (isDarkTheme) Color.LightGray else Color.DarkGray
-                        )
-                    },
-                    textStyle = TextStyle(
-                        fontWeight = FontWeight.Medium,
-                        color = textColor
-                    ),
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = inputBgColor,
-                        unfocusedContainerColor = inputBgColor,
-                        focusedBorderColor = PrimaryColor,
-                        unfocusedBorderColor = borderColor,
-                        focusedLabelColor = PrimaryColor,
-                        unfocusedLabelColor = if (isDarkTheme) Color.LightGray else Color.DarkGray,
-                        cursorColor = PrimaryColor,
-                        focusedTextColor = textColor,
-                        unfocusedTextColor = textColor
-                    ),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Next
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp)
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Lista de planos
+                Text(
+                    text = stringResource(R.string.choose_plan),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor
                 )
 
-                // Cardholder Name Field
-                OutlinedTextField(
-                    value = cardholderName,
-                    onValueChange = { cardholderName = it },
-                    label = {
-                        Text(
-                            "Cardholder Name",
-                            fontWeight = FontWeight.Medium,
-                            color = if (isDarkTheme) Color.LightGray else Color.DarkGray
-                        )
-                    },
-                    textStyle = TextStyle(
-                        fontWeight = FontWeight.Medium,
-                        color = textColor
-                    ),
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = inputBgColor,
-                        unfocusedContainerColor = inputBgColor,
-                        focusedBorderColor = PrimaryColor,
-                        unfocusedBorderColor = borderColor,
-                        focusedLabelColor = PrimaryColor,
-                        unfocusedLabelColor = if (isDarkTheme) Color.LightGray else Color.DarkGray,
-                        cursorColor = PrimaryColor,
-                        focusedTextColor = textColor,
-                        unfocusedTextColor = textColor
-                    ),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Text,
-                        imeAction = ImeAction.Next
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp)
-                )
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Expiry Date and CVV in a row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Expiry Date Field
-                    OutlinedTextField(
-                        value = expiryDate,
-                        onValueChange = { if (it.length <= 5) expiryDate = it },
-                        label = {
-                            Text(
-                                "Expiry Date",
-                                fontWeight = FontWeight.Medium,
-                                color = if (isDarkTheme) Color.LightGray else Color.DarkGray
-                            )
-                        },
-                        placeholder = { Text("MM/YY") },
-                        textStyle = TextStyle(
-                            fontWeight = FontWeight.Medium,
-                            color = textColor
-                        ),
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = inputBgColor,
-                            unfocusedContainerColor = inputBgColor,
-                            focusedBorderColor = PrimaryColor,
-                            unfocusedBorderColor = borderColor,
-                            focusedLabelColor = PrimaryColor,
-                            unfocusedLabelColor = if (isDarkTheme) Color.LightGray else Color.DarkGray,
-                            cursorColor = PrimaryColor,
-                            focusedTextColor = textColor,
-                            unfocusedTextColor = textColor
-                        ),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Next
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(bottom = 8.dp)
-                    )
-
-                    // CVV Field
-                    OutlinedTextField(
-                        value = cvv,
-                        onValueChange = { if (it.length <= 3) cvv = it },
-                        label = {
-                            Text(
-                                "CVV",
-                                fontWeight = FontWeight.Medium,
-                                color = if (isDarkTheme) Color.LightGray else Color.DarkGray
-                            )
-                        },
-                        textStyle = TextStyle(
-                            fontWeight = FontWeight.Medium,
-                            color = textColor
-                        ),
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = inputBgColor,
-                            unfocusedContainerColor = inputBgColor,
-                            focusedBorderColor = PrimaryColor,
-                            unfocusedBorderColor = borderColor,
-                            focusedLabelColor = PrimaryColor,
-                            unfocusedLabelColor = if (isDarkTheme) Color.LightGray else Color.DarkGray,
-                            cursorColor = PrimaryColor,
-                            focusedTextColor = textColor,
-                            unfocusedTextColor = textColor
-                        ),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done
-                        ),
-                        modifier = Modifier
-                            .weight(0.7f)
-                            .padding(bottom = 8.dp)
-                    )
-                }
-
-                // Error message
-                AnimatedVisibility(
-                    visible = errorMessage != null,
-                    enter = fadeIn(animationSpec = tween(durationMillis = 300)),
-                    exit = fadeOut(animationSpec = tween(durationMillis = 300))
-                ) {
-                    errorMessage?.let {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                                .background(
-                                    color = Color(0xFFE53935),
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                text = it,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-                }
-
-                // Success message
-                AnimatedVisibility(
-                    visible = successMessage != null,
-                    enter = fadeIn(animationSpec = tween(durationMillis = 300)),
-                    exit = fadeOut(animationSpec = tween(durationMillis = 300))
-                ) {
-                    successMessage?.let {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                                .background(
-                                    color = Color(0xFF43A047),
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                text = it,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-                }
-
-                Button(
-                    onClick = {
-                        errorMessage = null
-                        successMessage = null
-
-                        // Validate fields
-                        when {
-                            cardNumber.isBlank() -> {
-                                errorMessage = "Card number is required"
-                                return@Button
-                            }
-                            cardholderName.isBlank() -> {
-                                errorMessage = "Cardholder name is required"
-                                return@Button
-                            }
-                            expiryDate.isBlank() -> {
-                                errorMessage = "Expiry date is required"
-                                return@Button
-                            }
-                            cvv.isBlank() -> {
-                                errorMessage = "CVV is required"
-                                return@Button
-                            }
-                        }
-
-                        // Process payment
-                        paymentViewModel.processPayment(
-                            cardNumber = cardNumber,
-                            cardholderName = cardholderName,
-                            expiryDate = expiryDate,
-                            cvv = cvv
-                        )
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isDarkTheme) Color(0xFF333333) else PrimaryColor,
-                        contentColor = Color.White
-                    ),
-                    elevation = ButtonDefaults.buttonElevation(
-                        defaultElevation = 2.dp,
-                        pressedElevation = 0.dp
-                    )
-                ) {
-                    Text(
-                        "Process Payment",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                TextButton(
-                    onClick = onBackToHome,
-                    modifier = Modifier.padding(top = 16.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+                if (products.isEmpty()) {
+                    // Estado de carregamento
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = stringResource(R.string.go_back),
-                            tint = if (isDarkTheme) TextColorLight else PrimaryColor
+                        CircularProgressIndicator(
+                            color = if (isDarkTheme) BrainGold else PrimaryColor
                         )
 
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
-                            "Back to Profile",
-                            color = if (isDarkTheme) TextColorLight else PrimaryColor,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp
+                            text = stringResource(R.string.loading_plans),
+                            color = textSecondaryColor
                         )
                     }
-                }
+                } else {
+                    // Filtramos para mostrar apenas as assinaturas e compras pontuais
+                    val subscriptionProducts = products.filter {
+                        it.productType == "subs" || it.productId == "vital"
+                    }.sortedBy { prod ->
+                        when {
+                            prod.productId.contains("mensal") -> 1
+                            prod.productId.contains("anual") -> 2
+                            prod.productId.contains("vital") -> 3
+                            else -> 4
+                        }
+                    }
 
-                if (paymentState is PaymentState.Loading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.padding(top = 16.dp),
-                        color = PrimaryColor,
-                        strokeWidth = 3.dp
-                    )
+                    if (subscriptionProducts.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.no_plans_available),
+                            color = textSecondaryColor,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(
+                            onClick = { billingViewModel.retryConnection() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isDarkTheme) Color(0xFF333333) else PrimaryColor
+                            )
+                        ) {
+                            Text(stringResource(R.string.try_again))
+                        }
+                    } else {
+                        subscriptionProducts.forEach { product ->
+                            SubscriptionPlanCard(
+                                product = product,
+                                onSelectPlan = {
+                                    if (currentActivity != null) {
+                                        billingViewModel.launchBillingFlow(currentActivity, product)
+                                    } else {
+                                        // Preparar a mensagem de erro aqui para evitar chamar stringResource
+                                        // fora de um contexto @Composable
+                                        val errorMessage = context.getString(R.string.purchase_error)
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(errorMessage)
+                                        }
+                                    }
+                                },
+                                isDarkTheme = isDarkTheme,
+                                textColor = textColor,
+                                secondaryTextColor = textSecondaryColor,
+                                highlightColor = highlightColor
+                            )
+
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-// Payment State sealed class
-sealed class PaymentState {
-    object Idle : PaymentState()
-    object Loading : PaymentState()
-    object Success : PaymentState()
-    data class Error(val message: String) : PaymentState()
+@Composable
+fun SubscriptionPlanCard(
+    product: ProductDetails,
+    onSelectPlan: () -> Unit,
+    isDarkTheme: Boolean,
+    textColor: Color,
+    secondaryTextColor: Color,
+    highlightColor: Color
+) {
+    // Determinar preço e período
+    val price = if (product.productType == "subs") {
+        product.subscriptionOfferDetails?.firstOrNull()?.pricingPhases?.pricingPhaseList?.firstOrNull()?.formattedPrice
+    } else {
+        product.oneTimePurchaseOfferDetails?.formattedPrice
+    } ?: stringResource(R.string.price_unavailable)
+
+    val period = if (product.productType == "subs") {
+        when {
+            product.productId.contains("mensal", ignoreCase = true) -> stringResource(R.string.per_month)
+            product.productId.contains("anual", ignoreCase = true) -> stringResource(R.string.per_year)
+            else -> ""
+        }
+    } else ""
+
+    // Determinar nome do plano
+    val planName = when {
+        product.productId.contains("mensal", ignoreCase = true) -> stringResource(R.string.monthly_plan)
+        product.productId.contains("anual", ignoreCase = true) -> stringResource(R.string.annual_plan)
+        product.productId.contains("vital", ignoreCase = true) -> stringResource(R.string.lifetime_plan)
+        else -> product.name
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onSelectPlan() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDarkTheme) Color(0xFF1A1A1A) else Color.White
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (product.productId.contains("anual", ignoreCase = true))
+                highlightColor.copy(alpha = 0.5f)
+            else
+                if (isDarkTheme) Color.Gray.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = planName,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (product.productId.contains("anual", ignoreCase = true)) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = highlightColor,
+                            modifier = Modifier
+                                .size(20.dp)
+                                .padding(end = 4.dp)
+                        )
+                    }
+
+                    // Usar um formato de string para preço + período
+                    Text(
+                        text = stringResource(R.string.price_format, price, period),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = highlightColor
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Recursos específicos de cada plano
+            when {
+                product.productId.contains("mensal", ignoreCase = true) -> {
+                    PlanFeatureItem(text = stringResource(R.string.feature_premium_models), isDarkTheme = isDarkTheme, textColor = textColor)
+                    PlanFeatureItem(text = stringResource(R.string.feature_conversation_export), isDarkTheme = isDarkTheme, textColor = textColor)
+                    PlanFeatureItem(text = stringResource(R.string.feature_priority_support), isDarkTheme = isDarkTheme, textColor = textColor)
+                }
+                product.productId.contains("anual", ignoreCase = true) -> {
+                    PlanFeatureItem(text = stringResource(R.string.feature_premium_models), isDarkTheme = isDarkTheme, textColor = textColor)
+                    PlanFeatureItem(text = stringResource(R.string.feature_conversation_export), isDarkTheme = isDarkTheme, textColor = textColor)
+                    PlanFeatureItem(text = stringResource(R.string.feature_priority_support), isDarkTheme = isDarkTheme, textColor = textColor)
+                }
+                product.productId.contains("vital", ignoreCase = true) -> {
+                    PlanFeatureItem(text = stringResource(R.string.feature_lifetime_access), isDarkTheme = isDarkTheme, textColor = textColor)
+                    PlanFeatureItem(text = stringResource(R.string.feature_conversation_export), isDarkTheme = isDarkTheme, textColor = textColor)
+                    PlanFeatureItem(text = stringResource(R.string.feature_priority_support), isDarkTheme = isDarkTheme, textColor = textColor)
+                    PlanFeatureItem(text = stringResource(R.string.feature_no_recurring_fee), isDarkTheme = isDarkTheme, textColor = textColor)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onSelectPlan,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isDarkTheme) BrainGold else BrainGold,
+                    contentColor = Color.Black
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.select_plan),
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
 }
 
-// Payment ViewModel Class
-class PaymentViewModel : ViewModel() {
-    private val _paymentState = MutableStateFlow<PaymentState>(PaymentState.Idle)
-    val paymentState: StateFlow<PaymentState> = _paymentState.asStateFlow()
+@Composable
+fun PlanFeatureItem(
+    text: String,
+    isDarkTheme: Boolean,
+    textColor: Color
+) {
+    Row(
+        modifier = Modifier.padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.CheckCircle,
+            contentDescription = null,
+            tint = if (isDarkTheme) Color.Gray else Color.DarkGray,
+            modifier = Modifier.size(16.dp)
+        )
 
-    fun processPayment(cardNumber: String, cardholderName: String, expiryDate: String, cvv: String) {
-        _paymentState.value = PaymentState.Loading
+        Spacer(modifier = Modifier.width(8.dp))
 
-        // Simulate payment processing (replace with actual implementation)
-        viewModelScope.launch {
-            delay(1500) // Simulate network delay
-
-            // Simulated validation/processing
-            if (cardNumber.length != 16) {
-                _paymentState.value = PaymentState.Error("Invalid card number")
-                return@launch
-            }
-
-            if (!expiryDate.matches(Regex("\\d{2}/\\d{2}"))) {
-                _paymentState.value = PaymentState.Error("Invalid expiry date format")
-                return@launch
-            }
-
-            // For demo purposes, always succeed if validation passes
-            _paymentState.value = PaymentState.Success
-        }
+        Text(
+            text = text,
+            fontSize = 14.sp,
+            color = textColor.copy(alpha = 0.8f)
+        )
     }
 }

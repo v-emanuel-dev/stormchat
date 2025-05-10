@@ -137,9 +137,8 @@
     <string name="premium_plans">Premium Plans</string>
     <string name="reload_plans">Reload Plans</string>
     <string name="loading_plans">Loading plans...</string>
-    <string name="no_plans_available">No plans available at the moment.</string>
+    <string name="no_plans_available">No plans available at the moment. Please try again later.</string>
     <string name="check_internet">Please check your internet connection or try reloading.</string>
-    <string name="choose_plan">Choose your plan:</string>
     <string name="subscribe_now">Subscribe Now</string>
     <string name="monthly_plan">Monthly Plan</string>
     <string name="monthly_period">/month</string>
@@ -229,21 +228,7 @@
     <string name="export_error_folder_access">Could not create or access the folder: %1$s</string>
     <string name="export_error_drive_not_init_log">Attempting to export conversation without DriveService initialized.</string>
 
-    <!-- 9. Payment & Billing -->
-    <string name="payment_title">Payment</string>
-    <string name="payment_description">Enter your card details to complete the purchase.</string>
-    <string name="card_number_label">Card Number</string>
-    <string name="cardholder_name_label">Name on Card</string>
-    <string name="expiry_date_label">Expiry Date (MM/YY)</string>
-    <string name="cvv_label">CVV</string>
-    <string name="process_payment_button">Process Payment</string>
-    <string name="payment_success_message">Payment processed successfully!</string>
-    <string name="payment_error_generic">Error processing payment: %1$s</string>
-    <string name="payment_error_invalid_card">Invalid card number.</string>
-    <string name="payment_error_invalid_expiry">Invalid expiry date.</string>
-    <string name="payment_error_invalid_cvv">Invalid CVV.</string>
-
-    <!-- 10. UI Components & Common Elements -->
+    <!-- 9. UI Components & Common Elements -->
     <string name="settings_title">Settings</string>
     <string name="go_back">Go back</string>
     <string name="back">Back</string>
@@ -264,7 +249,7 @@
     <string name="expand">Expand</string>
     <string name="try_again">Try Again</string>
 
-    <!-- 11. Log & Debug Messages -->
+    <!-- 10. Log & Debug Messages -->
     <string name="log_drive_setup_attempt_null_email">Attempting to configure DriveService with null or empty email.</string>
     <string name="log_drive_setup_already_configured">DriveService already configured for user: %1$s</string>
     <string name="log_drive_setup_configuring_for_user">Configuring DriveService for user: %1$s</string>
@@ -292,7 +277,7 @@
     <string name="export_log_local_saved">File saved to local storage: %1$s</string>
     <string name="export_log_content_size">Formatted content: %1$d characters</string>
 
-    <!-- Forgot password and rename conversations -->
+    <!-- 11. Forgot password and rename conversations -->
     <string name="password_reset_screen_title">Reset Password</string>
     <string name="password_reset_instructions_en">Enter your email to receive password reset instructions</string>
     <string name="email_required_error">Please enter your email</string>
@@ -306,4 +291,23 @@
     <string name="new_name_label">New name</string>
     <string name="password_reset_success_pt">Password reset email sent successfully!</string>
     <string name="password_reset_instructions_pt">Enter your email to receive password reset instructions</string>
+
+    <!-- 12. Payment Screen Additional Strings -->
+    <string name="payment_screen_title">Choose Your Plan</string>
+    <string name="premium_app_title">Premium StormChat</string>
+    <string name="price_unavailable">Price unavailable</string>
+    <string name="price_format">%1$s%2$s</string> <!-- Para formatar preço + período -->
+    <string name="per_month">/month</string>
+    <string name="per_year">/year</string>
+    <string name="feature_premium_models">Access to premium models</string>
+    <string name="feature_conversation_export">Conversation export</string>
+    <string name="feature_priority_support">Priority support</string>
+    <string name="feature_lifetime_access">Lifetime access to premium models</string>
+    <string name="feature_unlimited_export">Unlimited conversation export</string>
+    <string name="feature_no_recurring_fee">No monthly or annual fees</string>
+    <string name="choose_plan">Choose your plan</string>
+    <string name="purchase_error">Error starting purchase. Please try again.</string>
+    <string name="processing_payment">Processing payment...</string>
+    <string name="select_plan">Select Plan</string>
+
 </resources>
