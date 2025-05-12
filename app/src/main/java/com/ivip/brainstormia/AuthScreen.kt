@@ -100,22 +100,36 @@ fun AuthScreen(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         isLoading = true
+        Log.d("googlelogin", "AuthScreen: Resultado de login Google recebido, processando...")
 
         coroutineScope.launch {
-            val signInResult = googleSignInManager.handleSignInResult(result.data)
+            try {
+                val signInResult = googleSignInManager.handleSignInResult(result.data)
 
-            when (signInResult) {
-                is GoogleSignInManager.SignInResult.Success -> {
-                    // Atualizar o ViewModel com o usuário autenticado
-                    Log.d("AuthScreen", "Google login successful: ${signInResult.user.email}")
-                    authViewModel.handleFirebaseUser(signInResult.user)
+                when (signInResult) {
+                    is GoogleSignInManager.SignInResult.Success -> {
+                        Log.d("googlelogin", "AuthScreen: Login Google bem-sucedido: ${signInResult.user.email}")
+                        FirebaseCrashlytics.getInstance().log("Login Google bem-sucedido via AuthScreen")
+                        authViewModel.handleFirebaseUser(signInResult.user)
+                    }
+                    is GoogleSignInManager.SignInResult.Error -> {
+                        Log.e("googlelogin", "AuthScreen: Login Google falhou: ${signInResult.message}")
+                        FirebaseCrashlytics.getInstance().log("Login Google falhou via AuthScreen: ${signInResult.message}")
+                        // Reportar como erro fatal
+                        FirebaseCrashlytics.getInstance().recordException(
+                            RuntimeException("Falha de autenticação Google via AuthScreen: ${signInResult.message}")
+                        )
+                        errorMessage = signInResult.message
+                        isLoading = false
+                    }
                 }
-                is GoogleSignInManager.SignInResult.Error -> {
-                    // Atualizar o estado de erro
-                    Log.e("AuthScreen", "Google login failed: ${signInResult.message}")
-                    errorMessage = signInResult.message
-                    isLoading = false
-                }
+            } catch (e: Exception) {
+                Log.e("googlelogin", "AuthScreen: Exceção durante processamento de login Google", e)
+                FirebaseCrashlytics.getInstance().log("Exceção durante processamento de login Google via AuthScreen")
+                // Reportar como erro fatal
+                FirebaseCrashlytics.getInstance().recordException(e)
+                errorMessage = "Erro inesperado: ${e.message}"
+                isLoading = false
             }
         }
     }

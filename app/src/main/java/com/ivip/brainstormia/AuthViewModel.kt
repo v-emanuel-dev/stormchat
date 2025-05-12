@@ -25,7 +25,7 @@ sealed class AuthState {
 }
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
-    private val tag = "AuthViewModel"
+    private val tag = "googlelogin"
     private val auth = FirebaseAuth.getInstance()
     private val storage = FirebaseStorage.getInstance()
     private val crashlytics = FirebaseCrashlytics.getInstance()
@@ -47,13 +47,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         _currentUser.value = auth.currentUser
+        Log.d(tag, "AuthViewModel: Inicializado. Usuário atual: ${auth.currentUser?.email}")
 
         // Log initial authentication state
         if (auth.currentUser != null) {
             crashlytics.setUserId(auth.currentUser!!.uid)
             crashlytics.log("App iniciado com usuário autenticado: ${auth.currentUser!!.uid}")
+            Log.d(tag, "AuthViewModel: App iniciado com usuário autenticado: ${auth.currentUser!!.email} (${auth.currentUser!!.uid})")
         } else {
             crashlytics.log("App iniciado sem autenticação")
+            Log.d(tag, "AuthViewModel: App iniciado sem autenticação")
         }
 
         auth.addAuthStateListener { firebaseAuth ->
@@ -62,6 +65,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             if (firebaseAuth.currentUser == null) {
                 crashlytics.log("Autenticação perdida/removida")
                 crashlytics.setUserId("")
+                Log.d(tag, "AuthViewModel: Autenticação perdida/removida")
 
                 if (_authState.value is AuthState.Success) {
                     _authState.value = AuthState.Initial
@@ -69,6 +73,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 crashlytics.setUserId(firebaseAuth.currentUser!!.uid)
                 crashlytics.log("Estado de autenticação atualizado: usuário ${firebaseAuth.currentUser!!.uid}")
+                Log.d(tag, "AuthViewModel: Estado de autenticação atualizado: usuário ${firebaseAuth.currentUser!!.email} (${firebaseAuth.currentUser!!.uid})")
 
                 if (_authState.value is AuthState.Initial || _authState.value is AuthState.Error) {
                     _authState.value = AuthState.Success(firebaseAuth.currentUser!!)
@@ -78,7 +83,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun handleFirebaseUser(user: FirebaseUser) {
-        Log.d(TAG, "Firebase user received: ${user.email}")
+        Log.d(tag, "AuthViewModel: Firebase user recebido: ${user.email}")
 
         // Adicionar registro para Crashlytics
         crashlytics.setUserId(user.uid)
@@ -94,7 +99,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun loginWithEmail(email: String, password: String) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
-            Log.d(tag, "Attempting email login for $email")
+            Log.d(tag, "AuthViewModel: Tentando login com email para $email")
             crashlytics.log("Attempting email login")
             crashlytics.setCustomKey("auth_method", "email")
             crashlytics.setCustomKey("email_domain", email.substringAfter('@'))
@@ -103,7 +108,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 auth.signInWithEmailAndPassword(email, password)
                     .addOnSuccessListener { result ->
                         _currentUser.value = result.user
-                        Log.d(tag, "Email login successful: ${result.user?.email}")
+                        Log.d(tag, "AuthViewModel: Login com email bem-sucedido: ${result.user?.email}")
                         crashlytics.log("Email login successful")
                         result.user?.let {
                             crashlytics.setUserId(it.uid)
@@ -111,18 +116,24 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                     .addOnFailureListener { e ->
-                        Log.e(tag, "Email login failed for $email", e)
+                        Log.e(tag, "AuthViewModel: Login com email falhou para $email", e)
                         crashlytics.log("Email login failed: ${e.message}")
                         crashlytics.setCustomKey("auth_error", e.message ?: "unknown")
                         crashlytics.setCustomKey("auth_error_code", getFirebaseErrorCode(e))
-                        crashlytics.recordException(e)
+
+                        // Tornar o erro fatal
+                        throw RuntimeException("Falha no login com email: ${e.message}", e)
+
                         _authState.value = AuthState.Error(e.message ?: "Login failed")
                     }
             } catch (e: Exception) {
-                Log.e(tag, "Email login exception for $email", e)
+                Log.e(tag, "AuthViewModel: Exceção de login com email para $email", e)
                 crashlytics.log("Email login exception: ${e.message}")
                 crashlytics.setCustomKey("auth_error", e.message ?: "unknown")
-                crashlytics.recordException(e)
+
+                // Tornar o erro fatal
+                throw RuntimeException("Exceção durante login com email", e)
+
                 _authState.value = AuthState.Error(e.message ?: "Login failed")
             }
         }
@@ -131,7 +142,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun registerWithEmail(email: String, password: String) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
-            Log.d(tag, "Attempting registration for $email")
+            Log.d(tag, "AuthViewModel: Tentando registro para $email")
             crashlytics.log("Attempting email registration")
             crashlytics.setCustomKey("auth_method", "email_registration")
             crashlytics.setCustomKey("email_domain", email.substringAfter('@'))
@@ -140,7 +151,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 auth.createUserWithEmailAndPassword(email, password)
                     .addOnSuccessListener { result ->
                         _currentUser.value = result.user
-                        Log.d(tag, "Registration successful: ${result.user?.email}")
+                        Log.d(tag, "AuthViewModel: Registro bem-sucedido: ${result.user?.email}")
                         crashlytics.log("Email registration successful")
                         result.user?.let {
                             crashlytics.setUserId(it.uid)
@@ -148,18 +159,24 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                     .addOnFailureListener { e ->
-                        Log.e(tag, "Registration failed for $email", e)
+                        Log.e(tag, "AuthViewModel: Registro falhou para $email", e)
                         crashlytics.log("Email registration failed: ${e.message}")
                         crashlytics.setCustomKey("auth_error", e.message ?: "unknown")
                         crashlytics.setCustomKey("auth_error_code", getFirebaseErrorCode(e))
-                        crashlytics.recordException(e)
+
+                        // Tornar o erro fatal
+                        throw RuntimeException("Falha no registro com email: ${e.message}", e)
+
                         _authState.value = AuthState.Error(e.message ?: "Registration failed")
                     }
             } catch (e: Exception) {
-                Log.e(tag, "Registration exception for $email", e)
+                Log.e(tag, "AuthViewModel: Exceção de registro para $email", e)
                 crashlytics.log("Email registration exception: ${e.message}")
                 crashlytics.setCustomKey("auth_error", e.message ?: "unknown")
-                crashlytics.recordException(e)
+
+                // Tornar o erro fatal
+                throw RuntimeException("Exceção durante registro com email", e)
+
                 _authState.value = AuthState.Error(e.message ?: "Registration failed")
             }
         }
@@ -168,7 +185,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     fun resetPassword(email: String) {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
-            Log.d(tag, "Attempting password reset for $email")
+            Log.d(tag, "AuthViewModel: Tentando resetar senha para $email")
             crashlytics.log("Attempting password reset")
             crashlytics.setCustomKey("auth_method", "password_reset")
             crashlytics.setCustomKey("email_domain", email.substringAfter('@'))
@@ -176,30 +193,36 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 auth.sendPasswordResetEmail(email)
                     .addOnSuccessListener {
-                        Log.d(tag, "Password reset email sent to $email")
+                        Log.d(tag, "AuthViewModel: Email de reset de senha enviado para $email")
                         crashlytics.log("Password reset email sent successfully")
                         _authState.value = AuthState.PasswordResetSent
                     }
                     .addOnFailureListener { e ->
-                        Log.e(tag, "Password reset failed for $email", e)
+                        Log.e(tag, "AuthViewModel: Reset de senha falhou para $email", e)
                         crashlytics.log("Password reset failed: ${e.message}")
                         crashlytics.setCustomKey("auth_error", e.message ?: "unknown")
                         crashlytics.setCustomKey("auth_error_code", getFirebaseErrorCode(e))
-                        crashlytics.recordException(e)
+
+                        // Tornar o erro fatal
+                        throw RuntimeException("Falha no reset de senha: ${e.message}", e)
+
                         _authState.value = AuthState.Error(e.message ?: "Password reset failed")
                     }
             } catch (e: Exception) {
-                Log.e(tag, "Password reset exception for $email", e)
+                Log.e(tag, "AuthViewModel: Exceção de reset de senha para $email", e)
                 crashlytics.log("Password reset exception: ${e.message}")
                 crashlytics.setCustomKey("auth_error", e.message ?: "unknown")
-                crashlytics.recordException(e)
+
+                // Tornar o erro fatal
+                throw RuntimeException("Exceção durante reset de senha", e)
+
                 _authState.value = AuthState.Error(e.message ?: "Password reset failed")
             }
         }
     }
 
     fun logout() {
-        Log.d(tag, "Logging out user: ${_currentUser.value?.email}")
+        Log.d(tag, "AuthViewModel: Deslogando usuário: ${_currentUser.value?.email}")
         crashlytics.log("User logging out")
         auth.signOut()
         crashlytics.setUserId("") // Limpar o ID do usuário no Crashlytics
@@ -208,24 +231,27 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             kotlinx.coroutines.delay(100)
             _logoutEvent.value = false
         }
-        Log.d(tag, "Logout completed")
+        Log.d(tag, "AuthViewModel: Logout completo")
         crashlytics.log("Logout completed")
     }
 
     // Métodos para atualização de foto de perfil atualizados
     fun updateProfilePicture(localImageUri: Uri) {
         val user = _currentUser.value
-        Log.d(tag, "updateProfilePicture: Iniciado com URI: $localImageUri")
+        Log.d(tag, "AuthViewModel: updateProfilePicture: Iniciado com URI: $localImageUri")
         crashlytics.log("Iniciando atualização de foto de perfil")
 
         if (user == null) {
-            Log.w(tag, "updateProfilePicture: Utilizador é nulo. Abortando.")
+            Log.w(tag, "AuthViewModel: updateProfilePicture: Utilizador é nulo. Abortando.")
             _userMessage.value = "Utilizador não autenticado para atualizar a foto."
             crashlytics.log("Falha na atualização de foto: usuário nulo")
+
+            // Tornar o erro fatal
+            throw RuntimeException("Falha na atualização de foto: usuário nulo")
             return
         }
 
-        Log.d(tag, "updateProfilePicture: Utilizador autenticado: ${user.uid} / ${user.email}")
+        Log.d(tag, "AuthViewModel: updateProfilePicture: Utilizador autenticado: ${user.uid} / ${user.email}")
         crashlytics.setCustomKey("profile_update_user", user.uid)
         _isUpdatingProfilePicture.value = true
         _userMessage.value = null
@@ -236,42 +262,44 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 val storagePath = "profile_images/${user.uid}/$fileName"
                 val storageRef = storage.reference.child(storagePath)
 
-                Log.d(tag, "updateProfilePicture: Tentando upload para Storage path: $storagePath")
+                Log.d(tag, "AuthViewModel: updateProfilePicture: Tentando upload para Storage path: $storagePath")
                 crashlytics.log("Iniciando upload de foto para $storagePath")
 
                 // Upload
                 val uploadTaskSnapshot = storageRef.putFile(localImageUri).await()
-                Log.d(tag, "updateProfilePicture: Upload concluído. Bytes: ${uploadTaskSnapshot.bytesTransferred}")
+                Log.d(tag, "AuthViewModel: updateProfilePicture: Upload concluído. Bytes: ${uploadTaskSnapshot.bytesTransferred}")
                 crashlytics.log("Upload concluído: ${uploadTaskSnapshot.bytesTransferred} bytes")
                 crashlytics.setCustomKey("profile_pic_size", uploadTaskSnapshot.bytesTransferred)
 
                 // Obter URL de Download
-                Log.d(tag, "updateProfilePicture: Obtendo URL de download...")
+                Log.d(tag, "AuthViewModel: updateProfilePicture: Obtendo URL de download...")
                 val downloadUrl = storageRef.downloadUrl.await()
-                Log.d(tag, "updateProfilePicture: URL de Download obtida: $downloadUrl")
+                Log.d(tag, "AuthViewModel: updateProfilePicture: URL de Download obtida: $downloadUrl")
                 crashlytics.log("URL de download obtida")
 
                 // Atualizar Perfil Firebase Auth
                 val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
                     .setPhotoUri(downloadUrl)
                     .build()
-                Log.d(tag, "updateProfilePicture: Atualizando perfil do FirebaseUser...")
+                Log.d(tag, "AuthViewModel: updateProfilePicture: Atualizando perfil do FirebaseUser...")
                 crashlytics.log("Atualizando perfil do usuário")
                 user.updateProfile(profileUpdates).await()
-                Log.d(tag, "updateProfilePicture: Perfil do FirebaseUser atualizado com sucesso.")
+                Log.d(tag, "AuthViewModel: updateProfilePicture: Perfil do FirebaseUser atualizado com sucesso.")
                 crashlytics.log("Perfil atualizado com sucesso")
 
                 // Atualizar StateFlow e Mensagem
                 _currentUser.value = auth.currentUser
                 _userMessage.value = "Foto de perfil atualizada com sucesso!"
-                Log.i(tag, "updateProfilePicture: Foto atualizada com sucesso para ${user.email}. Nova URL: ${auth.currentUser?.photoUrl}")
+                Log.i(tag, "AuthViewModel: updateProfilePicture: Foto atualizada com sucesso para ${user.email}. Nova URL: ${auth.currentUser?.photoUrl}")
 
             } catch (e: com.google.firebase.storage.StorageException) {
                 // Tratar erros específicos do Firebase Storage
-                Log.e(tag, "updateProfilePicture: Erro de Storage - Código: ${e.errorCode}, Mensagem: ${e.message}", e)
+                Log.e(tag, "AuthViewModel: updateProfilePicture: Erro de Storage - Código: ${e.errorCode}, Mensagem: ${e.message}", e)
                 crashlytics.setCustomKey("storage_error_code", e.errorCode)
                 crashlytics.setCustomKey("storage_http_code", e.httpResultCode)
-                crashlytics.recordException(e)
+
+                // Tornar o erro fatal
+                throw RuntimeException("Erro de Storage durante atualização de foto: (${e.errorCode}) ${e.httpResultCode}", e)
 
                 var errorMessage = "Erro de Storage: (${e.errorCode}) ${e.httpResultCode} - ${e.message}"
                 // Adicionar mais detalhes baseados no errorCode
@@ -292,12 +320,16 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 _userMessage.value = errorMessage
                 crashlytics.log("Erro no storage: $errorMessage")
             } catch (e: Exception) {
-                Log.e(tag, "updateProfilePicture: Falha genérica", e)
+                Log.e(tag, "AuthViewModel: updateProfilePicture: Falha genérica", e)
                 crashlytics.recordException(e)
+
+                // Tornar o erro fatal
+                throw RuntimeException("Falha genérica na atualização de foto", e)
+
                 crashlytics.log("Erro genérico na atualização de perfil: ${e.message}")
                 _userMessage.value = "Erro ao atualizar foto: ${e.message}"
             } finally {
-                Log.d(tag, "updateProfilePicture: Finalizado.")
+                Log.d(tag, "AuthViewModel: updateProfilePicture: Finalizado.")
                 _isUpdatingProfilePicture.value = false
             }
         }

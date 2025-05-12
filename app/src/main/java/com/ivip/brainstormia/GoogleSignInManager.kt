@@ -25,53 +25,126 @@ import kotlinx.coroutines.withContext
 
 class GoogleSignInManager(private val context: Context) {
 
-    private val tag = "GoogleSignInManager"
+    private val tag = "googlelogin"
     private val auth = FirebaseAuth.getInstance()
     private val crashlytics = FirebaseCrashlytics.getInstance()
 
     init {
         // Registrar informações do dispositivo e ambiente
+        Log.d(tag, "GoogleSignInManager: inicializando...")
         crashlytics.setCustomKey("device_manufacturer", Build.MANUFACTURER)
         crashlytics.setCustomKey("device_model", Build.MODEL)
         crashlytics.setCustomKey("android_version", Build.VERSION.SDK_INT)
         crashlytics.setCustomKey("app_version", getAppVersionName())
         crashlytics.setCustomKey("has_network", isNetworkAvailable())
+        crashlytics.setCustomKey("build_type", if (BuildConfig.DEBUG) "debug" else "release")
         crashlytics.setCustomKey("google_play_services_version", getGooglePlayServicesVersion())
         crashlytics.log("GoogleSignInManager inicializado")
+
+        // Verificar Play Services no início
+        val playServicesAvailable = isGooglePlayServicesAvailable()
+        crashlytics.setCustomKey("play_services_available", playServicesAvailable)
+        Log.d(tag, "GoogleSignInManager: Play Services disponível: $playServicesAvailable")
+
+        // Registrar certificados para diagnóstico
+        logAppSignatures()
     }
 
-    private val googleSignInClient: GoogleSignInClient by lazy {
-        val webClientId = context.getString(R.string.default_web_client_id)
-        Log.d(tag, "Initializing with webClientId: $webClientId")
-        crashlytics.log("Iniciando GSO com webClientId: $webClientId")
-
+    private fun logAppSignatures() {
         try {
-            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestEmail()
-                .requestIdToken(webClientId)
-                .build()
+            Log.d(tag, "GoogleSignInManager: verificando assinaturas do aplicativo...")
+            val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val packageInfo = context.packageManager.getPackageInfo(
+                    context.packageName,
+                    android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
+                )
+                packageInfo.signingInfo.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                val packageInfo = context.packageManager.getPackageInfo(
+                    context.packageName,
+                    android.content.pm.PackageManager.GET_SIGNATURES
+                )
+                @Suppress("DEPRECATION")
+                packageInfo.signatures
+            }
 
-            crashlytics.log("GSO configurado com sucesso")
-            GoogleSignIn.getClient(context, gso)
+            if (signatures.isNotEmpty()) {
+                val sha1 = getSignatureHash(signatures[0], "SHA-1")
+                val sha256 = getSignatureHash(signatures[0], "SHA-256")
+
+                Log.d(tag, "GoogleSignInManager: App SHA-1: $sha1")
+                Log.d(tag, "GoogleSignInManager: App SHA-256: $sha256")
+
+                crashlytics.log("App SHA-1: $sha1")
+                crashlytics.log("App SHA-256: $sha256")
+
+                // Armazenar apenas para diagnóstico
+                crashlytics.setCustomKey("app_sha1", sha1)
+            }
         } catch (e: Exception) {
-            crashlytics.log("Erro na inicialização do GoogleSignInClient")
+            Log.e(tag, "GoogleSignInManager: Falha ao obter assinaturas", e)
             crashlytics.recordException(e)
-            throw e  // Re-lançar para tratamento superior
+            // Marcar como FATAL para aparecer no dashboard
+            throw RuntimeException("Falha ao verificar assinaturas do app", e)
+        }
+    }
+
+    private fun getSignatureHash(signature: android.content.pm.Signature, algorithm: String): String {
+        val messageDigest = java.security.MessageDigest.getInstance(algorithm)
+        messageDigest.update(signature.toByteArray())
+        val digest = messageDigest.digest()
+
+        return digest.joinToString(":") {
+            String.format("%02x", it)
         }
     }
 
     fun getSignInIntent(): Intent {
-        Log.d(tag, "Getting sign in intent")
+        Log.d(tag, "GoogleSignInManager: Obtendo intent de login")
         crashlytics.log("Obtendo intent de login Google")
 
-        return try {
-            val intent = googleSignInClient.signInIntent
+        try {
+            // Obter o WebClientID diretamente
+            val webClientId = context.getString(R.string.default_web_client_id)
+
+            // Log explícito do WebClientID para verificação
+            Log.d(tag, "GoogleSignInManager: Usando webClientId: $webClientId")
+            crashlytics.log("WebClientID usado para login: $webClientId")
+
+            // Criar um GSO novo a cada chamada para evitar problemas de cache
+            val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestEmail()
+                .requestIdToken(webClientId)
+                // Adicionar configuração explícita para APIs de audiência
+                .requestServerAuthCode(webClientId, false)
+                .build()
+
+            // Criar um cliente novo a cada vez
+            val client = GoogleSignIn.getClient(context, gso)
+            Log.d(tag, "GoogleSignInManager: Cliente Google Sign-In criado")
+
+            // Forçar uma atualização das configurações
+            client.signOut().addOnCompleteListener {
+                Log.d(tag, "GoogleSignInManager: Sign out completado antes de obter intent")
+            }
+
+            // Obter a intent com configurações atualizadas
+            val intent = client.signInIntent
+            Log.d(tag, "GoogleSignInManager: Intent de login obtida com sucesso")
+
+            // Adicionar parâmetros extras para diagnóstico
+            intent.putExtra("login_environment", if (BuildConfig.DEBUG) "debug" else "release")
+
             crashlytics.log("Intent de login Google obtida com sucesso")
-            intent
+            return intent
         } catch (e: Exception) {
+            Log.e(tag, "GoogleSignInManager: Falha ao obter intent de login Google", e)
             crashlytics.log("Falha ao obter intent de login Google")
             crashlytics.recordException(e)
-            throw e  // Re-lançar para tratamento superior
+
+            // Marcar como FATAL para aparecer no dashboard
+            throw RuntimeException("Falha ao obter intent de login Google", e)
         }
     }
 
@@ -79,30 +152,25 @@ class GoogleSignInManager(private val context: Context) {
         return try {
             if (data == null) {
                 val error = "Intent de resultado nula"
+                Log.e(tag, "GoogleSignInManager: $error")
                 crashlytics.log(error)
-                // Forçar um registro mais visível no Crashlytics
-                crashlytics.recordException(RuntimeException("GoogleSignIn Falhou: Intent nula"))
-
-                // Toast para desenvolvedores
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Erro: Intent nula", Toast.LENGTH_LONG).show()
-                }
-
-                return SignInResult.Error(error)
+                // Forçar um registro como FATAL para o dashboard
+                throw RuntimeException("GoogleSignIn Falhou: Intent nula")
             }
 
-            Log.d(tag, "Processing sign in result")
+            Log.d(tag, "GoogleSignInManager: Processando resultado do login")
             crashlytics.log("Processando resultado do login Google")
 
             try {
                 val task = GoogleSignIn.getSignedInAccountFromIntent(data)
                 val account = task.getResult(ApiException::class.java)
 
-                Log.d(tag, "Google Account retrieved: ${account.email}")
+                Log.d(tag, "GoogleSignInManager: Conta Google recuperada: ${account.email}")
                 crashlytics.log("Conta Google recuperada com sucesso")
                 crashlytics.setCustomKey("google_auth_email_domain", account.email?.substringAfter('@') ?: "unknown")
                 crashlytics.setCustomKey("google_auth_display_name", account.displayName != null)
                 crashlytics.setCustomKey("google_auth_photo_url", account.photoUrl != null)
+                crashlytics.setCustomKey("google_auth_id_token_present", account.idToken != null)
 
                 // Firebase authentication
                 firebaseAuthWithGoogle(account)
@@ -110,8 +178,8 @@ class GoogleSignInManager(private val context: Context) {
                 val statusCode = e.statusCode
                 val statusMessage = e.status?.statusMessage ?: "Sem mensagem de status"
 
-                Log.e(tag, "Google sign in failed", e)
-                Log.e(tag, "Status code: $statusCode, Status message: $statusMessage")
+                Log.e(tag, "GoogleSignInManager: Login Google falhou - Código: $statusCode", e)
+                Log.e(tag, "GoogleSignInManager: Status message: $statusMessage")
 
                 // Record detailed error data to Crashlytics
                 crashlytics.log("Falha no login Google - ApiException")
@@ -121,8 +189,8 @@ class GoogleSignInManager(private val context: Context) {
                 crashlytics.setCustomKey("google_play_services_available", isGooglePlayServicesAvailable())
                 crashlytics.setCustomKey("network_available", isNetworkAvailable())
 
-                // Registrar como exceção "fatal" para aparecer como crash no dashboard
-                crashlytics.recordException(RuntimeException("GoogleSignIn falhou: Código=$statusCode", e))
+                // Registrar como exceção FATAL para aparecer como crash no dashboard
+                throw RuntimeException("GoogleSignIn falhou: Código=$statusCode", e)
 
                 // Exibir Toast com código de status
                 withContext(Dispatchers.Main) {
@@ -148,13 +216,13 @@ class GoogleSignInManager(private val context: Context) {
                 val errorMsg = getErrorMessageByStatusCode(statusCode)
                 SignInResult.Error(errorMsg)
             } catch (e: Exception) {
-                Log.e(tag, "Unexpected error during Google sign in", e)
+                Log.e(tag, "GoogleSignInManager: Erro inesperado durante login Google", e)
                 crashlytics.log("Erro inesperado no login Google")
                 crashlytics.setCustomKey("exception_type", e.javaClass.simpleName)
                 crashlytics.setCustomKey("network_available", isNetworkAvailable())
 
-                // Registrar como exceção "fatal"
-                crashlytics.recordException(RuntimeException("Erro inesperado no GoogleSignIn", e))
+                // Registrar como exceção FATAL
+                throw RuntimeException("Erro inesperado no GoogleSignIn", e)
 
                 // Mostrar Toast com detalhes
                 withContext(Dispatchers.Main) {
@@ -169,8 +237,10 @@ class GoogleSignInManager(private val context: Context) {
             }
         } catch (e: Exception) {
             // Captura falhas no próprio método handleSignInResult
-            Log.e(tag, "Fatal error in handleSignInResult", e)
-            crashlytics.recordException(RuntimeException("Falha crítica no processamento do login Google", e))
+            Log.e(tag, "GoogleSignInManager: Falha crítica no handleSignInResult", e)
+            // Gravar como exceção FATAL
+            crashlytics.recordException(e)
+            throw RuntimeException("Falha crítica no processamento do login Google", e)
 
             withContext(Dispatchers.Main) {
                 Toast.makeText(
@@ -186,13 +256,16 @@ class GoogleSignInManager(private val context: Context) {
 
     private suspend fun firebaseAuthWithGoogle(account: GoogleSignInAccount): SignInResult {
         return try {
-            Log.d(tag, "Authenticating with Firebase")
+            Log.d(tag, "GoogleSignInManager: Autenticando com Firebase")
             crashlytics.log("Autenticando com Firebase usando credencial Google")
             val idToken = account.idToken
 
             if (idToken == null) {
-                Log.e(tag, "ID Token is null!")
+                Log.e(tag, "GoogleSignInManager: ID Token é nulo!")
                 crashlytics.log("Token ID Google é nulo")
+
+                // Registrar como FATAL para o dashboard
+                throw RuntimeException("Token ID Google nulo para ${account.email}")
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
@@ -205,25 +278,29 @@ class GoogleSignInManager(private val context: Context) {
                 return SignInResult.Error("Token de autenticação ausente")
             }
 
-            Log.d(tag, "ID Token retrieved successfully, length: ${idToken.length}")
+            Log.d(tag, "GoogleSignInManager: Token ID recuperado, tamanho: ${idToken.length}")
             crashlytics.log("Token ID Google obtido com sucesso")
             crashlytics.setCustomKey("token_length", idToken.length)
 
             val credential = GoogleAuthProvider.getCredential(idToken, null)
 
             crashlytics.log("Iniciando signInWithCredential")
+            Log.d(tag, "GoogleSignInManager: Iniciando signInWithCredential")
             val authResult = auth.signInWithCredential(credential).await()
 
             val user = authResult.user
             if (user != null) {
-                Log.d(tag, "Firebase authentication successful: ${user.uid}")
+                Log.d(tag, "GoogleSignInManager: Autenticação Firebase bem-sucedida: ${user.uid}")
                 crashlytics.log("Autenticação Firebase bem-sucedida")
                 crashlytics.setUserId(user.uid)
                 crashlytics.setCustomKey("is_new_user", authResult.additionalUserInfo?.isNewUser ?: false)
                 SignInResult.Success(user)
             } else {
-                Log.e(tag, "Firebase authentication failed: User is null")
+                Log.e(tag, "GoogleSignInManager: Autenticação Firebase falhou: Usuário é nulo")
                 crashlytics.log("Autenticação Firebase falhou: usuário é nulo")
+
+                // Registrar como FATAL para o dashboard
+                throw RuntimeException("Autenticação Firebase retornou usuário nulo")
 
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
@@ -236,7 +313,7 @@ class GoogleSignInManager(private val context: Context) {
                 SignInResult.Error("Falha na autenticação")
             }
         } catch (e: Exception) {
-            Log.e(tag, "Firebase authentication failed", e)
+            Log.e(tag, "GoogleSignInManager: Falha na autenticação Firebase", e)
             crashlytics.log("Falha na autenticação Firebase")
             crashlytics.setCustomKey("auth_exception_type", e.javaClass.simpleName)
 
@@ -245,7 +322,8 @@ class GoogleSignInManager(private val context: Context) {
                 crashlytics.setCustomKey("firebase_auth_error_code", e.errorCode)
             }
 
-            crashlytics.recordException(e)
+            // Registrar como FATAL para o dashboard
+            throw RuntimeException("Falha na autenticação Firebase", e)
 
             // Exibir Toast com mensagem de erro
             withContext(Dispatchers.Main) {
@@ -277,17 +355,30 @@ class GoogleSignInManager(private val context: Context) {
     }
 
     fun signOut() {
+        Log.d(tag, "GoogleSignInManager: Realizando logout")
         crashlytics.log("Realizando logout do Google e Firebase")
         try {
             googleSignInClient.signOut()
             auth.signOut()
             crashlytics.log("Logout realizado com sucesso")
             crashlytics.setUserId("")  // Limpar ID do usuário no Crashlytics
+            Log.d(tag, "GoogleSignInManager: Logout completo")
         } catch (e: Exception) {
             crashlytics.log("Erro durante o logout")
             crashlytics.recordException(e)
-            Log.e(tag, "Error during sign out", e)
+            Log.e(tag, "GoogleSignInManager: Erro durante logout", e)
+            throw RuntimeException("Falha durante logout do Google", e)
         }
+    }
+
+    // Cliente lazy para operações como signOut
+    private val googleSignInClient: GoogleSignInClient by lazy {
+        val webClientId = context.getString(R.string.default_web_client_id)
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+            .requestIdToken(webClientId)
+            .build()
+        GoogleSignIn.getClient(context, gso)
     }
 
     // Método para traduzir códigos de erro em mensagens amigáveis
@@ -309,11 +400,12 @@ class GoogleSignInManager(private val context: Context) {
         }
     }
 
-    // Função para testar a captura de erros (pode ser usada em desenvolvimento)
+    // Função para diagnóstico e testes
     fun testCrashlyticsErrorReporting() {
+        Log.d(tag, "GoogleSignInManager: Testando relatório de erro")
         crashlytics.log("Teste de relatório de erro forçado")
         crashlytics.setCustomKey("test_forced_error", true)
-        crashlytics.recordException(RuntimeException("Teste de captura de erro de autenticação Google"))
+        throw RuntimeException("Teste de captura de erro de autenticação Google")
 
         // Exibir toast para confirmar
         Toast.makeText(
@@ -327,9 +419,12 @@ class GoogleSignInManager(private val context: Context) {
     private fun getAppVersionName(): String {
         return try {
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            packageInfo.versionName ?: "unknown"
+            val versionName = packageInfo.versionName ?: "unknown"
+            Log.d(tag, "GoogleSignInManager: App version: $versionName")
+            versionName
         } catch (e: Exception) {
             crashlytics.recordException(e)
+            Log.e(tag, "GoogleSignInManager: Falha ao obter versão do app", e)
             "unknown"
         }
     }
@@ -340,16 +435,21 @@ class GoogleSignInManager(private val context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val network = connectivityManager.activeNetwork ?: return false
                 val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
-                return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                val hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                Log.d(tag, "GoogleSignInManager: Rede disponível: $hasInternet")
+                return hasInternet
             } else {
                 @Suppress("DEPRECATION")
                 val networkInfo = connectivityManager.activeNetworkInfo ?: return false
                 @Suppress("DEPRECATION")
-                return networkInfo.isConnected
+                val isConnected = networkInfo.isConnected
+                Log.d(tag, "GoogleSignInManager: Rede disponível (legacy): $isConnected")
+                return isConnected
             }
         } catch (e: Exception) {
             crashlytics.recordException(e)
-            return false
+            Log.e(tag, "GoogleSignInManager: Erro ao verificar rede", e)
+            throw RuntimeException("Falha ao verificar disponibilidade de rede", e)
         }
     }
 
@@ -357,19 +457,35 @@ class GoogleSignInManager(private val context: Context) {
         try {
             val availability = com.google.android.gms.common.GoogleApiAvailability.getInstance()
             val resultCode = availability.isGooglePlayServicesAvailable(context)
-            return resultCode == com.google.android.gms.common.ConnectionResult.SUCCESS
+            val isAvailable = resultCode == com.google.android.gms.common.ConnectionResult.SUCCESS
+
+            if (!isAvailable) {
+                val errorMessage = availability.getErrorString(resultCode)
+                Log.e(tag, "GoogleSignInManager: Google Play Services não disponível: $errorMessage (código $resultCode)")
+                crashlytics.log("Google Play Services não disponível: $errorMessage")
+                crashlytics.setCustomKey("play_services_error_code", resultCode)
+                crashlytics.setCustomKey("play_services_error_message", errorMessage)
+            } else {
+                Log.d(tag, "GoogleSignInManager: Google Play Services disponível")
+            }
+
+            return isAvailable
         } catch (e: Exception) {
             crashlytics.recordException(e)
-            return false
+            Log.e(tag, "GoogleSignInManager: Erro ao verificar Google Play Services", e)
+            throw RuntimeException("Falha ao verificar disponibilidade do Google Play Services", e)
         }
     }
 
     private fun getGooglePlayServicesVersion(): Int {
         try {
-            return com.google.android.gms.common.GoogleApiAvailability.GOOGLE_PLAY_SERVICES_VERSION_CODE
+            val version = com.google.android.gms.common.GoogleApiAvailability.GOOGLE_PLAY_SERVICES_VERSION_CODE
+            Log.d(tag, "GoogleSignInManager: Google Play Services version: $version")
+            return version
         } catch (e: Exception) {
             crashlytics.recordException(e)
-            return -1
+            Log.e(tag, "GoogleSignInManager: Erro ao obter versão do Google Play Services", e)
+            throw RuntimeException("Falha ao obter versão do Google Play Services", e)
         }
     }
 

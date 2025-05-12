@@ -90,10 +90,11 @@ class MainActivity : ComponentActivity() {
         })
 
         // Adicionar registro para Crashlytics
+        Log.d("googlelogin", "MainActivity: Resultado de login Google recebido, código: ${result.resultCode}, tem dados: ${result.data != null}")
         crashlytics.apply {
             log("Google Sign In result received in MainActivity")
             setCustomKey("signin_result_code", result.resultCode)
-            setCustomKey("signin_has_data", result.data != null) // Boolean é aceito, não há problema aqui
+            setCustomKey("signin_has_data", result.data != null)
         }
 
         lifecycleScope.launch {
@@ -102,23 +103,26 @@ class MainActivity : ComponentActivity() {
 
                 when (signInResult) {
                     is GoogleSignInManager.SignInResult.Success -> {
-                        Log.d("MainActivity", "Google login successful: ${signInResult.user.email}")
+                        Log.d("googlelogin", "MainActivity: Login Google bem-sucedido: ${signInResult.user.email}")
                         crashlytics.log("Google login successful in MainActivity")
                         handleLoginSuccess(signInResult.user.email, null)
                     }
                     is GoogleSignInManager.SignInResult.Error -> {
-                        Log.e("MainActivity", "Google login failed: ${signInResult.message}")
+                        Log.e("googlelogin", "MainActivity: Login Google falhou: ${signInResult.message}")
                         crashlytics.apply {
                             log("Google login failed in MainActivity: ${signInResult.message}")
                             setCustomKey("main_auth_error_message", signInResult.message)
+                            // Tornar o erro fatal
+                            recordException(RuntimeException("Falha de login Google via MainActivity: ${signInResult.message}"))
                         }
                         Toast.makeText(this@MainActivity, signInResult.message, Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
-                Log.e("MainActivity", "Unexpected error handling sign in result", e)
+                Log.e("googlelogin", "MainActivity: Erro inesperado ao processar resultado de login", e)
                 crashlytics.apply {
                     log("Exception in MainActivity sign in result handling")
+                    // Tornar o erro fatal
                     recordException(e)
                 }
                 Toast.makeText(
@@ -332,16 +336,33 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun launchLogin() {
+        Log.d("googlelogin", "MainActivity: Iniciando processo de login Google")
         crashlytics.log("Iniciando login Google via MainActivity")
 
+        // Execute diagnóstico antes de iniciar login
         try {
+            val authDiagnostics = AuthDiagnostics(this)
+            authDiagnostics.runDiagnostics()
+        } catch (e: Exception) {
+            Log.e("googlelogin", "MainActivity: Erro ao executar diagnóstico antes do login", e)
+            crashlytics.recordException(e)
+        }
+
+        try {
+            // Obter WebClientID para log
+            val webClientId = getString(R.string.default_web_client_id)
+            Log.d("googlelogin", "MainActivity: Usando WebClientID: $webClientId")
+            crashlytics.log("WebClientID em uso: $webClientId")
+
             // Usar o gerenciador para iniciar o login
             googleSignInManager.signOut() // Limpar estado anterior
+            Log.d("googlelogin", "MainActivity: Lançando intent de login Google")
             signInLauncher.launch(googleSignInManager.getSignInIntent())
         } catch (e: Exception) {
-            Log.e("MainActivity", "Error launching Google sign in", e)
+            Log.e("googlelogin", "MainActivity: Erro ao lançar login Google", e)
             crashlytics.apply {
                 log("Exception launching Google sign in")
+                // Tornar o erro fatal
                 recordException(e)
             }
             Toast.makeText(

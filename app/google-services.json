@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "323925147659-1muj5v23kmrtif89umgmt13v13e76l6d.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ivip.brainstormia",
+            "certificate_hash": "c03226ff301bfe781d5c13fbecae9d36f0c5e931"
+          }
+        },
+        {
           "client_id": "323925147659-g5t2jhihmchmh8lmc77vf4h89fd7p4db.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

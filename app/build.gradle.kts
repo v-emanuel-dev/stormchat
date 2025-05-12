@@ -13,23 +13,33 @@ if (localPropertiesFile.exists()) {
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.android.libraries.mapsplatform.secrets.gradle.plugin)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.google.services)
+
+    id("com.google.gms.google-services")
     id("com.google.firebase.crashlytics")
+}
+
+// Configuração para resolver o conflito de versões do Kotlin
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.22")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.22")
+        force("org.jetbrains.kotlin:kotlin-reflect:1.9.22")
+    }
 }
 
 android {
     namespace = "com.ivip.brainstormia"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.ivip.brainstormia"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 70
-        versionName = "7.0"
+        targetSdk = 34
+        versionCode = 71
+        versionName = "7.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiKeyOpenaiFromProperties = localProperties.getProperty("apiKeyOpenai") ?: ""
@@ -50,7 +60,7 @@ android {
         buildConfigField("String", "OPENAI_API_KEY", "\"${apiKeyOpenaiFromProperties}\"")
         buildConfigField("String", "GOOGLE_API_KEY", "\"${apiKeyGoogleFromProperties}\"")
         buildConfigField("String", "ANTHROPIC_API_KEY", "\"${apiKeyAnthropicFromProperties}\"")
-}
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -69,6 +79,10 @@ android {
 
     kotlinOptions {
         jvmTarget = "11"
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.8"
     }
 
     buildFeatures {
@@ -95,47 +109,44 @@ android {
 }
 
 dependencies {
+
+    /* ---------- AndroidX / Compose ---------- */
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.activity.compose)
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
-    implementation(libs.generativeai)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.ui.text.google.fonts)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.material)
+
+    /* ---------- Data & Room ---------- */
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
-    implementation(libs.androidx.ui.text.google.fonts)
-    implementation(libs.androidx.navigation.compose)
-    implementation(libs.androidx.datastore.preferences.core.android)
-    implementation(libs.firebase.crashlytics.buildtools)
     ksp(libs.androidx.room.compiler)
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.auth)
-    implementation(libs.firebase.firestore)
-    implementation(libs.androidx.credentials)
-    implementation(libs.androidx.credentials.play.services.auth)
-    implementation(libs.play.services.auth.v2120)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.ui.test.junit4)
-    androidTestImplementation(libs.androidx.room.testing)
-    androidTestImplementation(libs.kotlinx.coroutines.test)
-    debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
-    implementation(libs.androidx.core.splashscreen)
-    implementation("com.github.jeziellago:compose-markdown:0.5.0")
+    implementation(libs.androidx.datastore.preferences.core.android)
 
-    // Google Drive API - Ajustado para evitar conflitos
-    implementation("com.google.android.gms:play-services-auth:20.7.0")
+    /* ---------- Firebase (UM ÚNICO BOM) ---------- */
+    implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-analytics-ktx")
+    implementation("com.google.firebase:firebase-crashlytics-ktx")
+    implementation("com.google.firebase:firebase-messaging-ktx")
+    implementation("com.google.firebase:firebase-storage-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")   // se realmente usa
+
+    /* ---------- Google Sign‑In ---------- */
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+
+    /* ---------- Google Drive (se necessário) ---------- */
     implementation("com.google.api-client:google-api-client-android:2.2.0") {
         exclude(group = "org.apache.httpcomponents", module = "httpclient")
     }
@@ -143,41 +154,42 @@ dependencies {
     implementation("com.google.auth:google-auth-library-oauth2-http:1.20.0")
     implementation("com.google.http-client:google-http-client-gson:1.43.3")
 
-    // Forçar uma única versão do HTTP Client
-    implementation("org.apache.httpcomponents:httpclient:4.5.14") {
-        exclude(group = "org.apache.httpcomponents", module = "httpcore")
-    }
-    implementation("org.apache.httpcomponents:httpcore:4.4.16")
-    implementation ("androidx.datastore:datastore-preferences:1.1.4")
-    implementation ("com.google.firebase:firebase-bom:32.7.0")
-    implementation ("com.google.firebase:firebase-analytics")
-    implementation("com.google.firebase:firebase-crashlytics")
-    implementation("com.google.firebase:firebase-messaging-ktx")
-    implementation("com.google.firebase:firebase-messaging-ktx:24.1.1")
-    implementation("com.google.firebase:firebase-messaging")
-    implementation("com.google.firebase:firebase-database-ktx:21.0.0")
-    implementation("com.google.firebase:firebase-messaging-ktx:24.1.1")
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("androidx.appcompat:appcompat:1.7.0")
-
-    // OpenAI API
+    /* ---------- Terceiros ---------- */
+    implementation("com.github.jeziellago:compose-markdown:0.5.0")
     implementation("com.aallam.openai:openai-client:3.5.1")
     implementation("io.ktor:ktor-client-android:2.3.3")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.3")
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.3")
-    implementation ("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation ("org.json:json:20210307")
-    implementation ("com.android.billingclient:billing-ktx:7.1.1")
-    implementation ("io.noties.markwon:core:4.6.2")
-    implementation ("io.noties.markwon:html:4.6.2") // para suporte a HTML
-    implementation ("io.noties.markwon:linkify:4.6.2")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.json:json:20210307")
+    implementation("com.android.billingclient:billing-ktx:7.1.1")
+    implementation("io.noties.markwon:core:4.6.2")
+    implementation("io.noties.markwon:html:4.6.2")
+    implementation("io.noties.markwon:linkify:4.6.2")
     implementation("io.coil-kt:coil-compose:2.2.2")
-    implementation("com.google.firebase:firebase-storage-ktx")
-    implementation ("com.google.code.gson:gson:2.10.1")
-    implementation ("androidx.work:work-runtime-ktx:2.10.1")
+    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 
-    implementation ("com.google.firebase:firebase-auth:23.2.0")
-    implementation ("com.google.android.gms:play-services-auth:21.0.0")
-    implementation ("com.google.firebase:firebase-crashlytics:19.4.3")
-    implementation ("com.google.accompanist:accompanist-systemuicontroller:0.31.5-beta")
+    /* ---------- Generative AI (Google) ---------- */
+    implementation(libs.generativeai)
+
+    /* ---------- HTTP client unificado (se realmente precisa) ---------- */
+    implementation("org.apache.httpcomponents:httpclient:4.5.14") {
+        exclude(group = "org.apache.httpcomponents", module = "httpcore")
+    }
+    implementation("org.apache.httpcomponents:httpcore:4.4.16")
+
+    implementation ("androidx.datastore:datastore-preferences:1.1.6")
+
+    /* ---------- Tests ---------- */
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    androidTestImplementation(libs.androidx.room.testing)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+
+    debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }
