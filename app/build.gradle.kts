@@ -28,8 +28,8 @@ android {
         applicationId = "com.ivip.brainstormia"
         minSdk = 24
         targetSdk = 35
-        versionCode = 61
-        versionName = "6.1"
+        versionCode = 70
+        versionName = "7.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiKeyOpenaiFromProperties = localProperties.getProperty("apiKeyOpenai") ?: ""
@@ -175,4 +175,9 @@ dependencies {
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation ("com.google.code.gson:gson:2.10.1")
     implementation ("androidx.work:work-runtime-ktx:2.10.1")
+
+    implementation ("com.google.firebase:firebase-auth:23.2.0")
+    implementation ("com.google.android.gms:play-services-auth:21.0.0")
+    implementation ("com.google.firebase:firebase-crashlytics:19.4.3")
+    implementation ("com.google.accompanist:accompanist-systemuicontroller:0.31.5-beta")
 }

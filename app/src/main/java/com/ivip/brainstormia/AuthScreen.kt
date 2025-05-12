@@ -27,10 +27,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -43,18 +43,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ivip.brainstormia.auth.GoogleSignInManager
 import com.ivip.brainstormia.components.ThemeSwitch
 import com.ivip.brainstormia.theme.*
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.android.gms.common.api.ApiException
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.vectorResource
+import com.google.firebase.crashlytics.FirebaseCrashlytics
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuthScreen(
     onNavigateToChat: () -> Unit,
@@ -82,44 +82,41 @@ fun AuthScreen(
 
     // Theme-specific colors
     val backgroundColor = if (isDarkTheme) BackgroundColorDark else BackgroundColor
-    val cardColor = if (isDarkTheme) Color(0xFF121212) else Color.White // Mudando para mais escuro
+    val cardColor = if (isDarkTheme) Color(0xFF121212) else Color.White
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
     val textSecondaryColor = if (isDarkTheme) TextColorLight.copy(alpha = 0.7f) else TextColorDark.copy(alpha = 0.9f)
-    val inputBgColor = if (isDarkTheme) Color(0xFF212121) else Color.White // Usando #212121 para inputs
+    val inputBgColor = if (isDarkTheme) Color(0xFF212121) else Color.White
     val borderColor = if (isDarkTheme) Color.Gray.copy(alpha = 0.3f) else Color.Gray.copy(alpha = 0.5f)
     val dividerColor = if (isDarkTheme) Color.Gray.copy(alpha = 0.5f) else Color.Gray.copy(alpha = 0.3f)
     val cardElevation = if (isDarkTheme) 8.dp else 4.dp
     val raioYellowColor = Color(0xFFFFD700) // Amarelo dourado
 
-    val googleSignInClient = remember {
-        GoogleSignIn.getClient(
-            context,
-            GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestIdToken(context.getString(R.string.default_web_client_id))
-                .requestEmail()
-                .build()
-        )
-    }
+    // Inicializar o gerenciador de login Google
+    val googleSignInManager = remember { GoogleSignInManager(context) }
+    val coroutineScope = rememberCoroutineScope()
 
+    // Configurar o launcher para o Google Sign-In
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        isLoading = true // Ativando o spinner quando a atividade do Google retorna
-        if (result.resultCode == Activity.RESULT_OK) {
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-            try {
-                val account = task.getResult(ApiException::class.java)
-                account?.idToken?.let { idToken ->
-                    authViewModel.signInWithGoogle(idToken)
+        isLoading = true
+
+        coroutineScope.launch {
+            val signInResult = googleSignInManager.handleSignInResult(result.data)
+
+            when (signInResult) {
+                is GoogleSignInManager.SignInResult.Success -> {
+                    // Atualizar o ViewModel com o usuário autenticado
+                    Log.d("AuthScreen", "Google login successful: ${signInResult.user.email}")
+                    authViewModel.handleFirebaseUser(signInResult.user)
                 }
-            } catch (e: ApiException) {
-                Log.e("GoogleSignIn", "Google sign in failed", e)
-                errorMessage = googleAuthFailedPrefix + e.localizedMessage
-                isLoading = false // Desativando o spinner em caso de erro
+                is GoogleSignInManager.SignInResult.Error -> {
+                    // Atualizar o estado de erro
+                    Log.e("AuthScreen", "Google login failed: ${signInResult.message}")
+                    errorMessage = signInResult.message
+                    isLoading = false
+                }
             }
-        } else {
-            // Usuário cancelou o login
-            isLoading = false // Desativando o spinner se o usuário cancelar
         }
     }
 
@@ -217,7 +214,7 @@ fun AuthScreen(
                             painter = painterResource(id = R.drawable.ic_bolt_foreground),
                             contentDescription = stringResource(R.string.logo_description),
                             modifier = Modifier.size(80.dp),
-                            colorFilter = ColorFilter.tint(if (isDarkTheme) Color(0xFFFFD700) else Color.Black) // Raio amarelo no tema escuro, preto no tema claro
+                            colorFilter = ColorFilter.tint(if (isDarkTheme) Color(0xFFFFD700) else Color.Black)
                         )
                     }
 
@@ -400,6 +397,12 @@ fun AuthScreen(
                             } else {
                                 authViewModel.registerWithEmail(email, password)
                             }
+
+                            FirebaseCrashlytics.getInstance().apply {
+                                log("Tentativa de autenticação via ${if (isLogin) "login" else "registro"} com email")
+                                setCustomKey("auth_email_domain", email.substringAfter('@'))
+                            }
+
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -445,6 +448,7 @@ fun AuthScreen(
                         )
                     }
 
+                    // NOVA IMPLEMENTAÇÃO DO BOTÃO DE GOOGLE
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -456,9 +460,10 @@ fun AuthScreen(
                                 shape = RoundedCornerShape(16.dp)
                             )
                             .background(inputBgColor)
-                            .clickable {
-                                isLoading = true // Ativando o spinner antes de iniciar o login do Google
-                                googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                            .clickable(enabled = !isLoading) {
+                                isLoading = true
+                                googleSignInManager.signOut() // Limpar estado anterior
+                                googleSignInLauncher.launch(googleSignInManager.getSignInIntent())
                             },
                         contentAlignment = Alignment.Center
                     ) {
@@ -501,14 +506,6 @@ fun AuthScreen(
                                 fontSize = 15.sp
                             )
                         }
-                    }
-
-                    if (authState is AuthState.Loading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.padding(top = 16.dp),
-                            color = PrimaryColor,
-                            strokeWidth = 3.dp
-                        )
                     }
                 }
             }
@@ -559,4 +556,4 @@ fun AuthScreen(
 }
 
 @Composable
-fun googleIcon() = ImageVector.vectorResource(id = R.drawable.ic_google_logo)
+fun googleIcon() = androidx.compose.ui.graphics.vector.ImageVector.vectorResource(id = R.drawable.ic_google_logo)

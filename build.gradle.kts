@@ -1,11 +1,10 @@
 // build.gradle.kts (raiz)
 buildscript {
     repositories {
-        google()  // Importante: adicione os repositórios aqui
+        google()
         mavenCentral()
     }
     dependencies {
-        // Adicione o classpath para o plugin do Crashlytics
         classpath("com.google.firebase:firebase-crashlytics-gradle:2.9.9")
         classpath("com.google.gms:google-services:4.4.0")
     }

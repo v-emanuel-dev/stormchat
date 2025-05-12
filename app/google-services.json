@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "323925147659-l59oj45dk4mblag37ifm67qek62r7kc6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.ivip.brainstormia",
+            "certificate_hash": "f726439b292c522528ea17674f6f18484ff3b97c"
+          }
+        },
+        {
           "client_id": "323925147659-u7g6lj3cv2c9thacgbasvqrro9ld6bjo.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
