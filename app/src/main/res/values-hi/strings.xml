@@ -27,7 +27,6 @@
     <string name="logging_in">लॉगिन हो रहा है...</string>
     <string name="login_processing">लॉगिन हो रहा है...</string>
     <string name="fill_all_fields">कृपया सभी फ़ील्ड भरें</string>
-    <string name="default_web_client_id" translatable="false">1067359774815-lgm0ns1gglqsdoq2ebp1dh62rr6hiiuq.apps.googleusercontent.com</string>
     <string name="google_logo_description">Google लोगो</string>
     <string name="hide_password">पासवर्ड छिपाएं</string>
     <string name="show_password">पासवर्ड दिखाएं</string>

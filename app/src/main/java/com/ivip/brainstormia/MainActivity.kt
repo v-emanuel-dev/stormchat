@@ -53,6 +53,7 @@ import com.ivip.brainstormia.billing.PaymentScreen
 import com.ivip.brainstormia.navigation.Routes
 import com.ivip.brainstormia.theme.BrainstormiaTheme
 import com.ivip.brainstormia.theme.PrimaryColor
+import com.ivip.brainstormia.theme.TopBarColorDark
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -218,16 +219,23 @@ class MainActivity : ComponentActivity() {
             val exportState by exportViewModelInstance.exportState.collectAsState()
 
             DisposableEffect(isDarkThemeEnabled) {
-                // Obtenha as cores da TopBar
+                // Obtenha as cores da TopBar usando a constante definida
                 val topBarColor = if (isDarkThemeEnabled) {
-                    Color(0xFF1E1E1E).toArgb()
+                    TopBarColorDark.toArgb()  // Usando a constante atualizada Color(0xFF1E1E1E)
                 } else {
                     PrimaryColor.toArgb()
                 }
 
+                val BackgroundColorBlack = Color(0xFF121212)  // #121212  (modo escuro)
+                val BackgroundColor      = Color(0xFFF0F4F7)  // #F0F4F7  (modo claro)
+
                 // Aplique as cores às barras do sistema
                 window.statusBarColor = topBarColor
                 window.navigationBarColor = topBarColor
+
+                // Evita áreas brancas em tela cheia, preenchendo to.do o fundo da janela
+                // Usando exatamente as cores solicitadas: #121212 para escuro e #F0F4F7 para claro
+                window.decorView.setBackgroundColor(if (isDarkThemeEnabled) BackgroundColorBlack.toArgb() else BackgroundColor.toArgb())
 
                 // Configure a visibilidade dos ícones (sempre brancos, já que ambos os fundos são escuros)
                 WindowInsetsControllerCompat(window, window.decorView).apply {

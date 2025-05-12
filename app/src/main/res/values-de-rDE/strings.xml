@@ -27,7 +27,6 @@
     <string name="logging_in">Anmeldung läuft...</string>
     <string name="login_processing">Anmeldung läuft…</string>
     <string name="fill_all_fields">Bitte alle Felder ausfüllen</string>
-    <string name="default_web_client_id" translatable="false">1067359774815-lgm0ns1gglqsdoq2ebp1dh62rr6hiiuq.apps.googleusercontent.com</string>
     <string name="google_logo_description">Google-Logo</string>
     <string name="hide_password">Passwort verbergen</string>
     <string name="show_password">Passwort anzeigen</string>

@@ -28,7 +28,7 @@ val TextColorLight = Color(0xFFF7F7F7) // Mantendo o branco para texto em fundos
 val TextColorDark = Color(0xFF121212) // Preto mais puro para texto
 
 // TopBar colors
-val TopBarColorDark = Color.Black // Cor preto puro para topbar no tema escuro
+val TopBarColorDark = Color(0xFF1E1E1E) // Atualizar de Color.Black para #1E1E1E
 
 // Message bubble colors
 val UserBubbleColor = Color(0xFFD4E6F1) // Bolhas de mensagem do usuário em azul claro

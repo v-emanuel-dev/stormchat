@@ -27,7 +27,6 @@
     <string name="logging_in">جاري تسجيل الدخول...</string>
     <string name="login_processing">جاري تسجيل الدخول…</string>
     <string name="fill_all_fields">يرجى ملء جميع الحقول</string>
-    <string name="default_web_client_id" translatable="false">1067359774815-lgm0ns1gglqsdoq2ebp1dh62rr6hiiuq.apps.googleusercontent.com</string>
     <string name="google_logo_description">شعار Google</string>
     <string name="hide_password">إخفاء كلمة المرور</string>
     <string name="show_password">إظهار كلمة المرور</string>

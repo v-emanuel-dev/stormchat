@@ -27,7 +27,6 @@
     <string name="logging_in">로그인 중...</string>
     <string name="login_processing">로그인 중…</string>
     <string name="fill_all_fields">모든 필드를 채워주세요</string>
-    <string name="default_web_client_id" translatable="false">1067359774815-lgm0ns1gglqsdoq2ebp1dh62rr6hiiuq.apps.googleusercontent.com</string>
     <string name="google_logo_description">Google 로고</string>
     <string name="hide_password">비밀번호 숨기기</string>
     <string name="show_password">비밀번호 표시</string>

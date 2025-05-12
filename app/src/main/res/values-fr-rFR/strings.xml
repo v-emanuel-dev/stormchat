@@ -27,7 +27,6 @@
     <string name="logging_in">Connexion en cours...</string>
     <string name="login_processing">Connexion en cours…</string>
     <string name="fill_all_fields">Veuillez remplir tous les champs</string>
-    <string name="default_web_client_id" translatable="false">1067359774815-lgm0ns1gglqsdoq2ebp1dh62rr6hiiuq.apps.googleusercontent.com</string>
     <string name="google_logo_description">Logo Google</string>
     <string name="hide_password">Masquer le mot de passe</string>
     <string name="show_password">Afficher le mot de passe</string>

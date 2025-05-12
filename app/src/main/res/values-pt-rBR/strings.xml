@@ -27,7 +27,6 @@
     <string name="logging_in">Fazendo login...</string>
     <string name="login_processing">Fazendo login…</string>
     <string name="fill_all_fields">Por favor, preencha todos os campos</string>
-    <string name="default_web_client_id" translatable="false">1067359774815-lgm0ns1gglqsdoq2ebp1dh62rr6hiiuq.apps.googleusercontent.com</string>
     <string name="google_logo_description">Logo do Google</string>
     <string name="hide_password">Ocultar senha</string>
     <string name="show_password">Mostrar senha</string>
