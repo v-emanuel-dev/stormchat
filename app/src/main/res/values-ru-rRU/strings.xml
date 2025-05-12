@@ -6,7 +6,7 @@
     <string name="logo_description">Логотип StormChat</string>
     <string name="app_icon_description">Иконка StormChat</string>
     <string name="welcome_message">Привет, добро пожаловать! Я StormChat ⚡. Чем могу помочь?</string>
-    <string name="export_sender_bot">Brainstormia</string>
+    <string name="export_sender_bot">StormChat</string>
     <string name="export_bot">StormChat</string>
     <string name="brainstormer">Мозговой штурм</string>
     <string name="export_header_title">Разговор Brainstormia</string>

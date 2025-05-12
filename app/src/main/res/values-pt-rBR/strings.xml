@@ -6,7 +6,7 @@
     <string name="logo_description">Logo do StormChat</string>
     <string name="app_icon_description">Ícone do StormChat</string>
     <string name="welcome_message">Olá, bem-vindo! Eu sou o StormChat ⚡. Como posso ajudar você?</string>
-    <string name="export_sender_bot">Brainstormia</string>
+    <string name="export_sender_bot">StormChat</string>
     <string name="export_bot">StormChat</string>
     <string name="brainstormer">Brainstormer</string>
     <string name="export_header_title">Conversa do Brainstormia</string>

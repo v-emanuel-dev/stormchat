@@ -6,7 +6,7 @@
     <string name="logo_description">StormChat Logo</string>
     <string name="app_icon_description">StormChat Icon</string>
     <string name="welcome_message">Hello, welcome! I\'m StormChat ⚡. How can I help you?</string>
-    <string name="export_sender_bot">Brainstormia</string>
+    <string name="export_sender_bot">StormChat</string>
     <string name="export_bot">StormChat</string>
     <string name="brainstormer">Brainstormer</string>
     <string name="export_header_title">Brainstormia Conversation</string>
@@ -27,9 +27,6 @@
     <string name="logging_in">Logging In...</string>
     <string name="login_processing">Logging in…</string>
     <string name="fill_all_fields">Please fill in all fields</string>
-    <string name="default_web_client_id" translatable="false">
-    323925147659-l17845qiojbk789qrodo3nr3oufbr8cm.apps.googleusercontent.com
-    </string>
     <string name="google_logo_description">Google Logo</string>
     <string name="hide_password">Hide Password</string>
     <string name="show_password">Show Password</string>

@@ -6,7 +6,7 @@
     <string name="logo_description">StormChat标志</string>
     <string name="app_icon_description">StormChat图标</string>
     <string name="welcome_message">你好，欢迎！我是StormChat ⚡。我能为您做什么？</string>
-    <string name="export_sender_bot">Brainstormia</string>
+    <string name="export_sender_bot">StormChat</string>
     <string name="export_bot">StormChat</string>
     <string name="brainstormer">头脑风暴者</string>
     <string name="export_header_title">Brainstormia对话</string>
