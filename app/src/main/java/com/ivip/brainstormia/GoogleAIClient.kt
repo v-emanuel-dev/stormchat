@@ -16,9 +16,9 @@ class GoogleAIClient(private val apiKey: String) {
     private val tag = "GoogleAIClient"
     private val baseUrl = "https://generativelanguage.googleapis.com/v1beta/models"
     private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(240, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
     suspend fun generateChatCompletion(

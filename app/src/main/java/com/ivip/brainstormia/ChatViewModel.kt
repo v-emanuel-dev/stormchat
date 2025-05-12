@@ -66,7 +66,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             displayName = "Claude 3.5 Sonnet",
             apiEndpoint = "claude-3-5-sonnet-20241022",
             provider = AIProvider.ANTHROPIC,
-            isPremium = false
+            isPremium = true
         ),
 
         // Google Gemini
@@ -133,14 +133,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             displayName = "GPT o3 Mini",
             apiEndpoint = "o3-mini",
             provider = AIProvider.OPENAI,
-            isPremium = false
+            isPremium = true
         ),
         AIModel(
             id = "o4-mini",
             displayName = "GPT o4 Mini",
             apiEndpoint = "o4-mini",
             provider = AIProvider.OPENAI,
-            isPremium = false
+            isPremium = true
         )
     )
 
@@ -1044,7 +1044,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     val result = when (currentModel.provider) {
                         AIProvider.OPENAI -> {
                             Log.d("ChatViewModel", "Usando cliente OpenAI")
-                            withTimeoutOrNull(100000) {
+                            withTimeoutOrNull(200000) {
                                 openAIClient.generateChatCompletion(
                                     modelId = currentModel.apiEndpoint,
                                     systemPrompt = brainstormiaSystemPrompt,
@@ -1058,7 +1058,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                         AIProvider.GOOGLE -> {
                             Log.d("ChatViewModel", "Usando cliente Google")
-                            withTimeoutOrNull(100000) {
+                            withTimeoutOrNull(200000) {
                                 googleAIClient.generateChatCompletion(
                                     modelId = currentModel.apiEndpoint,
                                     systemPrompt = brainstormiaSystemPrompt,
@@ -1072,7 +1072,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                         AIProvider.ANTHROPIC -> {
                             Log.d("ChatViewModel", "Usando cliente Anthropic")
-                            withTimeoutOrNull(120000) { // Damos mais tempo ao Claude
+                            withTimeoutOrNull(300000) { // Damos mais tempo ao Claude
                                 anthropicClient.generateChatCompletion(
                                     modelId = currentModel.apiEndpoint,
                                     systemPrompt = brainstormiaSystemPrompt,

@@ -16,9 +16,9 @@ class AnthropicClient(private val apiKey: String) {
     private val tag = "AnthropicClient"
     private val baseUrl = "https://api.anthropic.com/v1/messages"
     private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(240, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
         .build()
 
     suspend fun generateChatCompletion(
