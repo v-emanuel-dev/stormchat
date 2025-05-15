@@ -144,6 +144,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.core.content.ContextCompat
 
 @Composable
@@ -824,7 +826,7 @@ fun ChatScreen(
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     snackbarHost = { SnackbarHost(snackbarHostState) },
-                    contentWindowInsets = WindowInsets(0),
+                    contentWindowInsets = WindowInsets.ime,
                     topBar = {
                         CenterAlignedTopAppBar(
                             windowInsets = WindowInsets(0),
@@ -1342,8 +1344,9 @@ fun MessageInput(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .imePadding() // Adicionar esta linha
             .background(backgroundColor)
-            .padding(horizontal = 14.dp, vertical = 6.dp) // Reduzido padding para maximizar espaço
+            .padding(horizontal = 14.dp, vertical = 6.dp)
     ) {
         Row(
             modifier = Modifier
