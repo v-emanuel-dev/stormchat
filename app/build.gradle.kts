@@ -35,10 +35,10 @@ android {
 
     defaultConfig {
         applicationId = "com.ivip.brainstormia"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 34
-        versionCode = 81
-        versionName = "8.1"
+        versionCode = 83
+        versionName = "8.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiKeyOpenaiFromProperties = localProperties.getProperty("apiKeyOpenai") ?: ""
@@ -174,7 +174,13 @@ dependencies {
     implementation("io.ktor:ktor-client-android:2.3.7")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
+
     implementation ("org.apache.pdfbox:pdfbox:2.0.27")
+    implementation ("com.tom-roush:pdfbox-android:2.0.27.0")
+    implementation ("org.apache.poi:poi:5.2.3")
+    implementation ("org.apache.poi:poi-ooxml:5.2.3")
+    implementation ("androidx.multidex:multidex:2.0.1")
+    implementation ("com.google.mlkit:image-labeling:17.0.9")
 
     /* ---------- Generative AI (Google) ---------- */
     implementation(libs.generativeai)

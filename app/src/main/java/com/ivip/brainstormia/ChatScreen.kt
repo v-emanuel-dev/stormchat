@@ -577,16 +577,21 @@ fun FileAttachmentCard(
         if (isDarkTheme) Color(0xFF333333) else Color(0xFFF5F5F5)
     }
 
-    val textColor = if (isUserMessage) {
+    // MODIFICAÇÃO: Correção das cores do texto para garantir que sejam brancas em tema escuro
+    val textColor = if (isUserMessage || isDarkTheme) {
+        // Forçar texto branco para: 1) mensagens do usuário OU 2) qualquer mensagem em tema escuro
         Color.White
     } else {
-        if (isDarkTheme) Color.White else Color.Black
+        // Para mensagens não-usuário em tema claro
+        Color.Black
     }
 
-    val secondaryTextColor = if (isUserMessage) {
+    // MODIFICAÇÃO: Ajuste na cor secundária para maior contraste
+    val secondaryTextColor = if (isUserMessage || isDarkTheme) {
+        // Texto secundário mais visível para mensagens do usuário ou tema escuro
         Color.White.copy(alpha = 0.7f)
     } else {
-        if (isDarkTheme) Color.LightGray else Color.DarkGray
+        Color.DarkGray
     }
 
     // Determinar o ícone baseado na extensão do arquivo
@@ -672,11 +677,6 @@ fun FileAttachmentPreview(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = stringResource(R.string.attachment_title),
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = accentColor
-                )
 
                 // Botão para remover o anexo
                 IconButton(
@@ -1406,12 +1406,20 @@ fun ChatScreen(
                                 }
                             }
 
+                            // MODIFICAÇÃO: Mudança na exibição de mensagens de erro/sucesso
                             errorMessage?.let { errorMsg ->
+                                // Determinar se é uma mensagem de sucesso ou erro
+                                val isSuccess = errorMsg.contains("sucesso", ignoreCase = true) ||
+                                        errorMsg.contains("carregado com sucesso", ignoreCase = true)
+
+                                val backgroundColor = if (isSuccess) {
+                                    Color(0xFF388E3C) // Verde para mensagens de sucesso
+                                } else {
+                                    Color(0xFFE53935) // Vermelho para mensagens de erro
+                                }
+
                                 Text(
-                                    text = stringResource(
-                                        R.string.error_prefix,
-                                        errorMsg
-                                    ),
+                                    text = if (isSuccess) errorMsg else stringResource(R.string.error_prefix, errorMsg),
                                     color = Color.White,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
@@ -1420,7 +1428,7 @@ fun ChatScreen(
                                         .fillMaxWidth()
                                         .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
                                         .background(
-                                            color = Color(0xFFE53935),
+                                            color = backgroundColor,
                                             shape = RoundedCornerShape(8.dp)
                                         )
                                         .padding(vertical = 8.dp, horizontal = 12.dp)

@@ -333,8 +333,6 @@
     <string name="file_not_found">File not found</string>
     <string name="no_app_to_open_file">No application found to open this file type</string>
     <string name="error_opening_file">Error opening file</string>
-    <string name="message_with_attachment_hint">Add a context to your attachment... (optional)</string>
-    <string name="attachment_title">Attachment to send</string>
-
+    <string name="message_with_attachment_hint">Add a context</string>
 
 </resources>

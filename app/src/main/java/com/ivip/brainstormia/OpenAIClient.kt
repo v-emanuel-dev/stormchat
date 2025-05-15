@@ -10,20 +10,33 @@ import com.aallam.openai.client.OpenAI
 import com.aallam.openai.client.OpenAIConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 import com.aallam.openai.api.chat.ChatMessage as OpenAIChatMessage
 
 /**
  * Client for communicating with the OpenAI API
  */
-class OpenAIClient(apiKey: String) {
+class OpenAIClient(private val apiKey: String) {
 
     val openAI: OpenAI
+    private val client: OkHttpClient
 
     init {
         val config = OpenAIConfig(
             token = apiKey
         )
         openAI = OpenAI(config)
+        client = OkHttpClient.Builder()
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(240, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .build()
         Log.d(TAG, "OpenAIClient initialized")
     }
 
@@ -37,6 +50,20 @@ class OpenAIClient(apiKey: String) {
         historyMessages: List<com.ivip.brainstormia.ChatMessage>
     ): Flow<String> = flow {
         try {
+            // Verificar se estamos usando um modelo com capacidade de visão
+            val isVisionModel = modelId.contains("o") || modelId.contains("vision")
+            val hasImageContent = userMessage.contains("[BASE64_IMAGE]")
+
+            if (isVisionModel && hasImageContent) {
+                Log.d(TAG, "Usando modo de visão para o modelo $modelId")
+                // Usar o método para mensagens multimodais, passando 'emit' como argumento
+                handleMultimodalRequest(modelId, systemPrompt, userMessage, historyMessages) { value ->
+                    emit(value)
+                }
+                return@flow
+            }
+
+            // Código original para modelos sem capacidade de visão
             // Convert messages from application format to OpenAI format
             val openAIMessages = mutableListOf<OpenAIChatMessage>()
 
@@ -87,6 +114,157 @@ class OpenAIClient(apiKey: String) {
 
         } catch (e: Exception) {
             Log.e(TAG, "Error in generateChatCompletion", e)
+            throw e
+        }
+    }
+
+    /**
+     * Handles multimodal requests with both text and images
+     */
+    private suspend fun handleMultimodalRequest(
+        modelId: String,
+        systemPrompt: String,
+        userMessage: String,
+        historyMessages: List<com.ivip.brainstormia.ChatMessage>,
+        emit: suspend (String) -> Unit
+    ) {
+        try {
+            // Extrair a base64 da imagem - MODIFICADO PARA DEPURAÇÃO
+            val regex = "\\[BASE64_IMAGE\\](.*?)\\[/BASE64_IMAGE\\]".toRegex()
+            val match = regex.find(userMessage)
+
+            // Adicionar mais logs para debugar
+            Log.d(TAG, "Tentando extrair base64 da mensagem, tamanho: ${userMessage.length}")
+
+            if (match == null) {
+                Log.e(TAG, "Padrão [BASE64_IMAGE] não encontrado na mensagem")
+                throw Exception("Formato de imagem inválido")
+            }
+
+            // Verificar a estrutura do base64 encontrado
+            val imageBase64 = match.groupValues[1]
+            Log.d(TAG, "Encontrado base64 de tamanho: ${imageBase64.length}")
+
+            // Verificar se o base64 tem o formato correto e consertar se necessário
+            val validBase64 = if (!imageBase64.startsWith("data:image")) {
+                // Se não começar com "data:image", assumir que é uma imagem JPEG
+                Log.d(TAG, "Base64 sem prefixo de tipo MIME, adicionando prefixo")
+                "data:image/jpeg;base64,$imageBase64"
+            } else {
+                // Já tem o prefixo correto
+                imageBase64
+            }
+
+            Log.d(TAG, "Base64 validado: ${validBase64.substring(0, Math.min(50, validBase64.length))}...")
+
+            val textPart = userMessage.replace(regex, "").trim()
+
+            // Construir o JSON para a requisição multimodal
+            val messagesArray = JSONArray()
+
+            // Adicionar prompt de sistema
+            messagesArray.put(JSONObject().apply {
+                put("role", "system")
+                put("content", systemPrompt)
+            })
+
+            // Adicionar histórico de mensagens
+            val recentMessages = historyMessages.takeLast(MAX_HISTORY_MESSAGES)
+            for (message in recentMessages) {
+                val role = if (message.sender == Sender.USER) "user" else "assistant"
+                messagesArray.put(JSONObject().apply {
+                    put("role", role)
+                    put("content", message.text)
+                })
+            }
+
+            // Adicionar mensagem do usuário com conteúdo multimodal
+            val contentArray = JSONArray()
+
+            // Adicionar parte de texto
+            if (textPart.isNotBlank()) {
+                contentArray.put(JSONObject().apply {
+                    put("type", "text")
+                    put("text", textPart)
+                })
+            }
+
+            // Adicionar parte da imagem com o base64 validado
+            contentArray.put(JSONObject().apply {
+                put("type", "image_url")
+                put("image_url", JSONObject().apply {
+                    put("url", validBase64)
+                })
+            })
+
+            messagesArray.put(JSONObject().apply {
+                put("role", "user")
+                put("content", contentArray)
+            })
+
+            val jsonBody = JSONObject().apply {
+                put("model", modelId)
+                put("messages", messagesArray)
+                put("stream", true)
+                put("max_tokens", 4096)
+            }
+
+            val requestBody = jsonBody.toString().toRequestBody("application/json".toMediaType())
+
+            val request = Request.Builder()
+                .url("https://api.openai.com/v1/chat/completions")
+                .header("Authorization", "Bearer $apiKey")
+                .header("Content-Type", "application/json")
+                .post(requestBody)
+                .build()
+
+            Log.d(TAG, "Enviando requisição multimodal para OpenAI")
+
+            // Fazer a requisição
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    val errorBody = response.body?.string()
+                    Log.e(TAG, "Erro na API OpenAI: ${response.code} - $errorBody")
+                    throw Exception("Erro ao processar imagem: ${response.code}")
+                }
+
+                val responseBody = response.body
+                if (responseBody != null) {
+                    val reader = responseBody.charStream().buffered()
+                    var line: String?
+                    var responseText = StringBuilder()
+
+                    // Processar resposta em streaming
+                    while (reader.readLine().also { line = it } != null) {
+                        if (line!!.startsWith("data: ")) {
+                            val data = line!!.substring(6)
+                            if (data == "[DONE]") break
+
+                            try {
+                                val jsonObj = JSONObject(data)
+                                val choices = jsonObj.optJSONArray("choices")
+                                if (choices != null && choices.length() > 0) {
+                                    val delta = choices.getJSONObject(0).optJSONObject("delta")
+                                    if (delta != null) {
+                                        val content = delta.optString("content")
+                                        if (content.isNotEmpty()) {
+                                            responseText.append(content)
+                                            emit(content)
+                                        }
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Erro ao processar chunk: $data", e)
+                            }
+                        }
+                    }
+
+                    Log.d(TAG, "Resposta multimodal completa: ${responseText.length} caracteres")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao processar requisição multimodal: ${e.message}", e)
+            emit("Erro ao processar a imagem: ${e.message ?: "Formato de imagem inválido"}")
             throw e
         }
     }

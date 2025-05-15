@@ -27,6 +27,7 @@ import com.ivip.brainstormia.data.db.ModelPreferenceDao
 import com.ivip.brainstormia.data.db.ModelPreferenceEntity
 import com.ivip.brainstormia.data.models.AIModel
 import com.ivip.brainstormia.data.models.AIProvider
+import com.ivip.brainstormia.file.FileProcessingManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -165,6 +166,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             isPremium = true
         ),
         AIModel(
+            id = "gpt-4.1-,mini",
+            displayName = "GPT-4.1 Mini",
+            apiEndpoint = "gpt-4.1-mini",
+            provider = AIProvider.OPENAI,
+            isPremium = false
+        ),
+        AIModel(
             id = "gpt-4o",
             displayName = "GPT-4o",
             apiEndpoint = "gpt-4o",
@@ -204,21 +212,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             displayName = "GPT o3 Mini",
             apiEndpoint = "o3-mini",
             provider = AIProvider.OPENAI,
-            isPremium = false
+            isPremium = true
         ),
         AIModel(
             id = "o4-mini",
             displayName = "GPT o4 Mini",
             apiEndpoint = "o4-mini",
             provider = AIProvider.OPENAI,
-            isPremium = false
+            isPremium = true
         )
     )
 
     private val defaultModel = AIModel(
-        id = "gpt-4o-mini",
-        displayName = "GPT-4o Mini",
-        apiEndpoint = "gpt-4o-mini",
+        id = "gpt-4.1-mini",
+        displayName = "GPT-4.1 Mini",
+        apiEndpoint = "gpt-4.1-mini",
         provider = AIProvider.OPENAI,
         isPremium = false
     )
@@ -233,6 +241,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // Adicione esta propriedade para armazenar o prompt durante a geração
     private val _currentImagePrompt = MutableStateFlow<String?>(null)
     val currentImagePrompt: StateFlow<String?> = _currentImagePrompt.asStateFlow()
+
+    private val fileProcessingManager = FileProcessingManager(getApplication<Application>().applicationContext)
 
     /**
      * Processa o upload de um arquivo
@@ -321,6 +331,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Envia uma mensagem com arquivo anexado
      */
+    /**
+     * Envia uma mensagem com arquivo anexado
+     */
     fun sendMessageWithAttachment(userMessageText: String, attachment: FileAttachment) {
         if (_loadingState.value == LoadingState.LOADING) {
             Log.w("ChatViewModel", "sendMessageWithAttachment cancelled: Already loading.")
@@ -380,28 +393,95 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val historyMessages = mapEntitiesToUiMessages(currentMessagesFromDb)
                     .takeLast(MAX_HISTORY_MESSAGES)
 
-                // Preparar a mensagem para o modelo de IA incluindo informações sobre o arquivo
-                val fileInfo = """
-            Foi enviado um arquivo com as seguintes informações:
-            Nome: ${attachment.name}
-            Tipo: ${attachment.type}
-            Tamanho: ${formatFileSize(attachment.size)}
-            
-            Por favor, forneça insights ou orientações sobre como posso ajudar com este arquivo.
-            """.trimIndent()
+                // NOVA IMPLEMENTAÇÃO: Processar o conteúdo do arquivo
+                var fileContent = ""
 
-                // Mensagem do usuário + informações do arquivo
-                val augmentedUserMessage = if (userMessageText.isBlank()) {
-                    fileInfo
+                try {
+                    // Verificar se temos um arquivo local ou precisamos processar da URI
+                    if (attachment.filePath != null && File(attachment.filePath).exists()) {
+                        // Processar do arquivo local
+                        Log.d("ChatViewModel", "Processando arquivo local: ${attachment.filePath}")
+                        fileContent = fileProcessingManager.processFile(
+                            File(attachment.filePath),
+                            attachment.type
+                        )
+                    } else if (attachment.localUri != null) {
+                        // Processar da URI
+                        Log.d("ChatViewModel", "Processando arquivo de URI: ${attachment.localUri}")
+                        fileContent = fileProcessingManager.processUri(
+                            attachment.localUri,
+                            attachment.type
+                        )
+                    } else {
+                        Log.w("ChatViewModel", "Arquivo não encontrado nem no caminho local nem na URI")
+                        fileContent = "Arquivo não encontrado ou não acessível"
+                    }
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "Erro ao processar conteúdo do arquivo", e)
+                    fileContent = "Erro ao extrair conteúdo do arquivo: ${e.message}"
+                }
+
+                // Verificar se o modelo suporta visão e se o conteúdo tem base64
+                val currentModel = _selectedModel.value
+                val isVisionCapable = when (currentModel.provider) {
+                    AIProvider.OPENAI -> currentModel.id.contains("o") || currentModel.id.contains("vision")
+                    AIProvider.GOOGLE -> currentModel.id.contains("gemini")
+                    AIProvider.ANTHROPIC -> currentModel.id.contains("claude-3")
+                    else -> false
+                }
+
+                // Verificar se o arquivo é uma imagem
+                val isImageFile = attachment.type.startsWith("image/")
+
+                // Preparar a mensagem para o modelo de IA incluindo o conteúdo do arquivo
+                val augmentedUserMessage = if (isImageFile && isVisionCapable) {
+                    // Para modelos com visão e arquivos de imagem, vamos manter o base64
+                    if (fileContent.contains("[BASE64_IMAGE]")) {
+                        // Adicionar contexto ao base64 para o modelo
+                        val userContext = if (userMessageText.isBlank()) {
+                            "Por favor analise esta imagem."
+                        } else {
+                            userMessageText
+                        }
+                        "$userContext\n\n$fileContent"
+                    } else {
+                        // Se não tem base64 (possivelmente imagem grande demais)
+                        "$userMessageText\n\n" +
+                                "Foi enviado um arquivo de imagem com as seguintes informações:\n" +
+                                "Nome: ${attachment.name}\n" +
+                                "Tipo: ${attachment.type}\n" +
+                                "Tamanho: ${formatFileSize(attachment.size)}\n\n" +
+                                "Conteúdo extraído da imagem:\n" +
+                                fileContent
+                    }
                 } else {
-                    "$userMessageText\n\n$fileInfo"
+                    // Para modelos sem visão ou arquivos não-imagem, usar formato normal de texto
+                    val fileInfo = """
+                Foi enviado um arquivo com as seguintes informações:
+                Nome: ${attachment.name}
+                Tipo: ${attachment.type}
+                Tamanho: ${formatFileSize(attachment.size)}
+                
+                CONTEÚDO DO ARQUIVO:
+                $fileContent
+                
+                Por favor, analise este conteúdo e forneça insights ou orientações relevantes.
+                """.trimIndent()
+
+                    if (userMessageText.isBlank()) {
+                        fileInfo
+                    } else {
+                        "$userMessageText\n\n$fileInfo"
+                    }
                 }
 
                 Log.d("ChatViewModel", "API Call (with attachment): Sending message to API for conv $targetConversationId")
                 callOpenAIApi(augmentedUserMessage, historyMessages, targetConversationId!!)
 
                 // Limpar o anexo atual após o envio
-                _currentAttachment.value = null
+                withContext(Dispatchers.Main) {
+                    _currentAttachment.value = null
+                }
 
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "Error preparing history or calling API with attachment", e)
@@ -511,7 +591,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (model.isPremium && !_isPremiumUser.value) {
             _errorMessage.value = context.getString(R.string.error_premium_required)
 
-            val defaultModel = availableModels.find { it.id == "gpt-4o-mini" } ?: defaultModel
+            val defaultModel = availableModels.find { it.id == "gpt-4.1-mini" } ?: defaultModel
 
             // Force model update with more aggressive approach
             viewModelScope.launch {
@@ -875,7 +955,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (!isPremium && _selectedModel.value.isPremium) {
             // Non-premium user using premium model
             // Return to default model
-            val defaultModel = availableModels.find { it.id == "gpt-4o-mini" } ?: defaultModel
+            val defaultModel = availableModels.find { it.id == "gpt-4.1-mini" } ?: defaultModel
 
             viewModelScope.launch {
                 try {
@@ -983,7 +1063,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 Log.i("ChatViewModel", "Loaded user model preference: ${savedModel.displayName}")
                             } else {
                                 // User is not premium but trying to use a premium model
-                                val defaultModel = availableModels.find { it.id == "gpt-4o-mini" } ?: defaultModel
+                                val defaultModel = availableModels.find { it.id == "gpt-4.1-mini" } ?: defaultModel
                                 _selectedModel.value = defaultModel
                                 Log.i("ChatViewModel", "User is not premium. Reverting to default model: ${defaultModel.displayName}")
 
@@ -1205,7 +1285,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                 // Use a lightweight model by default to save tokens
                 val titleModelId = when (_selectedModel.value.provider) {
-                    AIProvider.OPENAI -> "gpt-4o-mini"
+                    AIProvider.OPENAI -> "gpt-4.1-mini"
                     AIProvider.GOOGLE -> "gemini-2.0-flash"
                     AIProvider.ANTHROPIC -> "claude-3-5-sonnet-20241022"
                 }
@@ -1636,6 +1716,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Apenas a função modificada dentro do ChatViewModel.kt
+// Substitua esta função pelo existente
+
     private suspend fun callOpenAIApi(
         userMessageText: String,
         historyMessages: List<ChatMessage>,
@@ -1650,6 +1733,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             var responseText = StringBuilder()
             var modelUsed = currentModel
+
+            // Verifica se a mensagem tem imagem e se o modelo é compatível com visão
+            val hasImageContent = userMessageText.contains("[BASE64_IMAGE]")
+            val isVisionCapableModel = when (currentModel.provider) {
+                AIProvider.OPENAI -> currentModel.id.contains("o") || currentModel.id.contains("vision")
+                AIProvider.GOOGLE -> currentModel.id.contains("gemini")
+                AIProvider.ANTHROPIC -> currentModel.id.contains("claude-3")
+                else -> false
+            }
+
+            // Logar detalhes de diagnóstico para debugging
+            if (hasImageContent) {
+                Log.d("ChatViewModel", "Mensagem contém imagem. Modelo suporta visão: $isVisionCapableModel")
+            }
 
             withContext(Dispatchers.IO) {
                 try {
@@ -1703,11 +1800,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     if (result == null) {
                         Log.w("ChatViewModel", "Timeout with model ${currentModel.id}")
 
-                        if (currentModel.provider == AIProvider.OPENAI && currentModel.id != "gpt-4o-mini") {
+                        // Caso de timeout com OpenAI, tentar modelo de backup
+                        if (currentModel.provider == AIProvider.OPENAI && currentModel.id != "gpt-4.1-minii") {
                             responseText.clear()
-                            Log.w("ChatViewModel", "Using backup model (GPT-4o Mini)")
+                            Log.w("ChatViewModel", "Using backup model (GPT 4.1 Mini)")
 
-                            val backupModel = availableModels.first { it.id == "gpt-4o-mini" }
+                            val backupModel = availableModels.first { it.id == "gpt-4.1-mini" }
                             modelUsed = backupModel
 
                             val backupResult = withTimeoutOrNull(60000) {

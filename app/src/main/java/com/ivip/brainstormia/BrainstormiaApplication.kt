@@ -13,6 +13,7 @@ import com.google.firebase.crashlytics.FirebaseCrashlytics
 // import com.google.firebase.ktx.Firebase // Not strictly needed if using getInstance
 import com.google.firebase.messaging.FirebaseMessaging
 import com.ivip.brainstormia.billing.BillingViewModel // Correct import for BillingViewModel
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 
 // Ensure ExportViewModel and ExportState are imported from their correct file, NOT defined here
 // import com.ivip.brainstormia.ExportViewModel // This should be from the file where it's defined
@@ -59,6 +60,7 @@ class BrainstormiaApplication : Application() {
         FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(true)
         createNotificationChannel()
         setupNotifications()
+        PDFBoxResourceLoader.init(applicationContext)
 
         // Eagerly initialize ViewModels if not using by lazy for all
         // chatViewModel = ChatViewModel(this)
