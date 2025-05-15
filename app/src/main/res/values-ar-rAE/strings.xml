@@ -309,4 +309,22 @@
     <string name="processing_payment">جاري معالجة الدفع...</string>
     <string name="select_plan">اختر الخطة</string>
 
+    <!-- 13. Image generation strings -->
+    <string name="generate_image">توليد صورة</string>
+    <string name="image_prompt">صف الصورة التي تريدها...</string>
+    <string name="quality">الجودة</string>
+    <string name="transparent_background">خلفية شفافة</string>
+    <string name="image_generated_successfully">تم توليد الصورة بنجاح!</string>
+    <string name="generate">توليد</string>
+    <string name="generate_image_description">توليد صورة</string>
+    <string name="error_prompt_required_after_command">الرجاء تقديم وصف للصورة بعد أمر %1$s.</string>
+    <string name="generated_image_description">وصف الصورة</string>
+    <string name="error_file_not_found_for_saving">لم يتم العثور على الملف للحفظ.</string>
+    <string name="error_saving_image_generic">خطأ في حفظ الصورة.</string>
+    <string name="image_saved_to_gallery">تم حفظ الصورة في %1$s</string>
+    <string name="save_image">حفظ الصورة</string>
+    <string name="image_save_permission_denied">تم رفض إذن حفظ الصورة.</string>
+    <string name="request_save_permission">لحفظ الصور، يحتاج التطبيق إلى إذن للوصول إلى ملفاتك. يرجى منح الإذن في إعدادات التطبيق.</string>
+    <string name="permission_required">الإذن مطلوب</string>
+
 </resources>

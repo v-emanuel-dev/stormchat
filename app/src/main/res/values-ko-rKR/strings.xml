@@ -309,4 +309,22 @@
     <string name="processing_payment">결제 처리 중...</string>
     <string name="select_plan">요금제 선택</string>
 
+    <!-- 13. Image generation strings -->
+    <string name="generate_image">이미지 생성</string>
+    <string name="image_prompt">원하는 이미지를 설명하세요...</string>
+    <string name="quality">품질</string>
+    <string name="transparent_background">투명 배경</string>
+    <string name="image_generated_successfully">이미지가 성공적으로 생성되었습니다!</string>
+    <string name="generate">생성</string>
+    <string name="generate_image_description">이미지 생성</string>
+    <string name="error_prompt_required_after_command">%1$s 명령 뒤에 이미지에 대한 설명을 제공해 주세요.</string>
+    <string name="generated_image_description">이미지 설명</string>
+    <string name="error_file_not_found_for_saving">저장할 파일을 찾을 수 없습니다.</string>
+    <string name="error_saving_image_generic">이미지 저장 오류.</string>
+    <string name="image_saved_to_gallery">이미지가 %1$s에 저장되었습니다</string>
+    <string name="save_image">이미지 저장</string>
+    <string name="image_save_permission_denied">이미지 저장 권한이 거부되었습니다.</string>
+    <string name="request_save_permission">이미지를 저장하려면 앱이 파일에 접근할 수 있는 권한이 필요합니다. 앱 설정에서 권한을 부여해 주세요.</string>
+    <string name="permission_required">권한 필요</string>
+
 </resources>

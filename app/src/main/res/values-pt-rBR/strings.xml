@@ -309,4 +309,22 @@
     <string name="processing_payment">Processando pagamento...</string>
     <string name="select_plan">Selecionar Plano</string>
 
+    <!-- 13. Image generation strings -->
+    <string name="generate_image">Gerar imagem</string>
+    <string name="image_prompt">Descreva a imagem que você deseja...</string>
+    <string name="quality">Qualidade</string>
+    <string name="transparent_background">Fundo transparente</string>
+    <string name="image_generated_successfully">Imagem gerada com sucesso!</string>
+    <string name="generate">Gerar</string>
+    <string name="generate_image_description">Gerar imagem</string>
+    <string name="error_prompt_required_after_command">Por favor, forneça uma descrição para a imagem após o comando %1$s.</string>
+    <string name="generated_image_description">Descrição da imagem</string>
+    <string name="error_file_not_found_for_saving">Arquivo não encontrado para salvar.</string>
+    <string name="error_saving_image_generic">Erro ao salvar a imagem.</string>
+    <string name="image_saved_to_gallery">Imagem salva em %1$s</string>
+    <string name="save_image">Salvar imagem</string>
+    <string name="image_save_permission_denied">Permissão para salvar imagem negada.</string>
+    <string name="request_save_permission">Para salvar imagens, o aplicativo precisa de permissão para acessar seus arquivos. Por favor, conceda a permissão nas configurações do aplicativo.</string>
+    <string name="permission_required">Permissão necessária</string>
+
 </resources>

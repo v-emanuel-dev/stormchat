@@ -309,4 +309,22 @@
     <string name="processing_payment">正在处理付款...</string>
     <string name="select_plan">选择套餐</string>
 
+    <!-- 13. Image generation strings -->
+    <string name="generate_image">生成图像</string>
+    <string name="image_prompt">描述您想要的图像...</string>
+    <string name="quality">质量</string>
+    <string name="transparent_background">透明背景</string>
+    <string name="image_generated_successfully">图像生成成功！</string>
+    <string name="generate">生成</string>
+    <string name="generate_image_description">生成图像</string>
+    <string name="error_prompt_required_after_command">请在 %1$s 命令后提供图像描述。</string>
+    <string name="generated_image_description">图像描述</string>
+    <string name="error_file_not_found_for_saving">未找到要保存的文件。</string>
+    <string name="error_saving_image_generic">保存图像时出错。</string>
+    <string name="image_saved_to_gallery">图像已保存至 %1$s</string>
+    <string name="save_image">保存图像</string>
+    <string name="image_save_permission_denied">保存图像的权限被拒绝。</string>
+    <string name="request_save_permission">要保存图像，应用需要访问您文件的权限。请在应用设置中授予权限。</string>
+    <string name="permission_required">需要权限</string>
+
 </resources>

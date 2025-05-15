@@ -1,5 +1,9 @@
 package com.ivip.brainstormia
 
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.text.style.LeadingMarginSpan
+import android.text.style.LineBackgroundSpan
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.TextView
@@ -20,6 +24,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -50,6 +55,7 @@ import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardVoice
 import androidx.compose.material.icons.filled.Menu
@@ -58,6 +64,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -74,6 +81,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -93,11 +101,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -105,39 +116,53 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
 import com.ivip.brainstormia.components.ExportDialog
+import com.ivip.brainstormia.components.ImageGenerationDialog
 import com.ivip.brainstormia.components.ModelSelectionDropdown
 import com.ivip.brainstormia.theme.BackgroundColor
 import com.ivip.brainstormia.theme.BotBubbleColor
-import com.ivip.brainstormia.theme.BrainGold
 import com.ivip.brainstormia.theme.PrimaryColor
 import com.ivip.brainstormia.theme.SurfaceColor
 import com.ivip.brainstormia.theme.SurfaceColorDark
 import com.ivip.brainstormia.theme.TextColorDark
 import com.ivip.brainstormia.theme.TextColorLight
+import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.Markwon
+import io.noties.markwon.MarkwonSpansFactory
 import io.noties.markwon.html.HtmlPlugin
 import io.noties.markwon.linkify.LinkifyPlugin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.commonmark.node.ThematicBreak
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.text.style.LeadingMarginSpan
-import android.text.style.LineBackgroundSpan
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.ui.draw.shadow
-import io.noties.markwon.AbstractMarkwonPlugin
-import io.noties.markwon.MarkwonSpansFactory
+import androidx.compose.material.icons.filled.SaveAlt // Novo ícone
+import androidx.compose.material3.Button // Se não estiver lá
+import androidx.compose.material3.SnackbarDuration
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 
 @Composable
 fun MessageBubble(
     message: ChatMessage,
-    isDarkTheme: Boolean = true
+    isDarkTheme: Boolean = true,
+    onSaveImageClicked: (String?) -> Unit = {} // Callback para salvar a imagem
 ) {
     val isUserMessage = message.sender == Sender.USER
+
+    // Verificar se a mensagem contém uma imagem
+    val containsImage = message.text.contains("![Imagem Gerada]")
+
+    // Se for uma mensagem com imagem, extrair o caminho
+    val imagePath = if (containsImage) {
+        val regex = "!\\[Imagem Gerada\\]\\((.+?)\\)".toRegex()
+        val matchResult = regex.find(message.text)
+        matchResult?.groupValues?.get(1)
+    } else null
 
     val userShape = RoundedCornerShape(
         topStart = 20.dp,
@@ -146,12 +171,18 @@ fun MessageBubble(
         bottomEnd = 6.dp
     )
 
-    // Colors - FIXED: Made bot text color more contrast-aware
+    val botShape = RoundedCornerShape(
+        topStart = 6.dp,
+        topEnd = 20.dp,
+        bottomStart = 20.dp,
+        bottomEnd = 20.dp
+    )
+
+    // Colors
     val userBubbleColor = BotBubbleColor
     val userTextColor = Color.White
-    // Change the bot text color logic to ensure proper contrast in both themes
-    val botTextColor = if (isDarkTheme) TextColorLight else Color.Black // Changed to black in light theme
-    val linkColor = if (isDarkTheme) Color(0xFFCCE9FF) else Color(0xFF0066CC) // Darker blue links in light theme
+    val botTextColor =
+        if (isDarkTheme) TextColorLight else Color.Black
 
     val visibleState = remember { MutableTransitionState(initialState = isUserMessage) }
 
@@ -193,7 +224,7 @@ fun MessageBubble(
                 }
             }
         } else {
-            // Bot message with Markwon rendering
+            // Bot message
             AnimatedVisibility(
                 visibleState = visibleState,
                 enter = fadeIn(animationSpec = tween(300)) +
@@ -202,38 +233,214 @@ fun MessageBubble(
                             animationSpec = tween(400, easing = FastOutSlowInEasing)
                         )
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    // Use AndroidView com TextView + Markwon
-                    AndroidView(
-                        factory = { context ->
-                            TextView(context).apply {
-                                // Configuração básica do TextView
-                                layoutParams = ViewGroup.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.WRAP_CONTENT
+                // Para mensagens com imagem, trate de forma diferente
+                if (imagePath != null) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth(0.85f)
+                            .padding(start = 16.dp, end = 16.dp)
+                    ) {
+                        // Exibição da imagem simplificada - sem cards ou boxes aninhados
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 300.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                        ) {
+                            var isImageLoading by remember { mutableStateOf(true) }
+
+                            // Imagem sem containers adicionais
+                            Image(
+                                painter = rememberAsyncImagePainter(
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(imagePath)
+                                        .listener(
+                                            onStart = {
+                                                isImageLoading = true
+                                            },
+                                            onSuccess = { _, _ ->
+                                                isImageLoading = false
+                                            },
+                                            onError = { _, _ ->
+                                                isImageLoading = false
+                                            }
+                                        )
+                                        .build()
+                                ),
+                                contentDescription = stringResource(R.string.generated_image_description),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 300.dp),
+                                contentScale = ContentScale.Fit // Mantém a proporção original
+                            )
+
+                            // Mostrar indicador de carregamento
+                            if (isImageLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .size(30.dp)
                                 )
-                                // FIXED: Set bot text color with better contrast
-                                setTextColor(botTextColor.toArgb())
-                                textSize = 16f
-                                setLineSpacing(4f, 1f) // Use setLineSpacing em vez de atribuir a lineSpacingExtra
-
-                                // Aplicar técnica de correção de seleção de texto
-                                setTextIsSelectable(false)
-                                post {
-                                    setTextIsSelectable(true)
+                            } else {
+                                // Botão de salvar
+                                IconButton(
+                                    onClick = {
+                                        onSaveImageClicked(imagePath)
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .padding(8.dp)
+                                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                        .size(40.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.SaveAlt,
+                                        contentDescription = stringResource(R.string.save_image),
+                                        tint = Color.White
+                                    )
                                 }
+                            }
+                        }
 
-                                // Plugin personalizado para lidar com regras horizontais
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Container para o texto do prompt
+                        Card(
+                            shape = botShape,
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isDarkTheme) Color(0xFF292929) else Color(
+                                    0xFFE8E8E8
+                                )
+                            ),
+                            elevation = CardDefaults.cardElevation(
+                                defaultElevation = if (isDarkTheme) 2.dp else 1.dp
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp)
+                            ) {
+                                // Texto do prompt
+                                val promptRegex = "\"(.+?)\"".toRegex()
+                                val promptMatch = promptRegex.find(message.text)
+                                val prompt = promptMatch?.groupValues?.get(1) ?: ""
+
+                                Text(
+                                    text = "Imagem gerada com base no prompt:",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontStyle = FontStyle.Italic,
+                                    color = botTextColor
+                                )
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Text(
+                                    text = "\"$prompt\"",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium,
+                                    color = botTextColor
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // Mensagens normais de texto (sem imagem)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        // Use AndroidView com TextView + Markwon
+                        AndroidView(
+                            factory = { context ->
+                                TextView(context).apply {
+                                    // Configuração básica do TextView
+                                    layoutParams = ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.WRAP_CONTENT
+                                    )
+                                    setTextColor(botTextColor.toArgb())
+                                    textSize = 16f
+                                    setLineSpacing(4f, 1f)
+
+                                    // Aplicar técnica de correção de seleção de texto
+                                    setTextIsSelectable(false)
+                                    post {
+                                        setTextIsSelectable(true)
+                                    }
+
+                                    // Plugin personalizado para lidar com regras horizontais
+                                    val customHrPlugin = object : AbstractMarkwonPlugin() {
+                                        override fun configureSpansFactory(builder: MarkwonSpansFactory.Builder) {
+                                            builder.setFactory(ThematicBreak::class.java) { _, _ ->
+                                                arrayOf(
+                                                    // Criar um span personalizado em vez do HR padrão
+                                                    object : LeadingMarginSpan.Standard(0),
+                                                        LineBackgroundSpan {
+                                                        override fun drawBackground(
+                                                            canvas: Canvas,
+                                                            paint: Paint,
+                                                            left: Int,
+                                                            right: Int,
+                                                            top: Int,
+                                                            baseline: Int,
+                                                            bottom: Int,
+                                                            text: CharSequence,
+                                                            start: Int,
+                                                            end: Int,
+                                                            lineNumber: Int
+                                                        ) {
+                                                            val originalColor = paint.color
+                                                            val originalWidth = paint.strokeWidth
+
+                                                            // Usar valores diretos em vez de métodos do theme
+                                                            paint.color = botTextColor.toArgb()
+                                                            paint.strokeWidth = 6f // ~2dp
+
+                                                            // Padding fixo em vez de recursos de dimensão
+                                                            val padding = 48 // ~16dp
+                                                            val lineLeft = left + padding
+                                                            val lineRight = right - padding
+                                                            val lineY = (top + bottom) / 2f
+
+                                                            canvas.drawLine(
+                                                                lineLeft.toFloat(),
+                                                                lineY,
+                                                                lineRight.toFloat(),
+                                                                lineY,
+                                                                paint
+                                                            )
+
+                                                            paint.color = originalColor
+                                                            paint.strokeWidth = originalWidth
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    // Configurar Markwon para renderizar Markdown com nosso plugin personalizado
+                                    val markwon = Markwon.builder(context)
+                                        .usePlugin(HtmlPlugin.create())
+                                        .usePlugin(LinkifyPlugin.create())
+                                        .usePlugin(customHrPlugin) // Adicionar nosso plugin personalizado
+                                        .build()
+
+                                    // Renderizar o Markdown
+                                    markwon.setMarkdown(this, message.text)
+                                }
+                            },
+                            update = { textView ->
+                                // Atualizar quando a mensagem mudar
+                                val context = textView.context
+
+                                // Plugin personalizado para lidar com regras horizontais (durante atualizações)
                                 val customHrPlugin = object : AbstractMarkwonPlugin() {
                                     override fun configureSpansFactory(builder: MarkwonSpansFactory.Builder) {
                                         builder.setFactory(ThematicBreak::class.java) { _, _ ->
                                             arrayOf(
-                                                // Criar um span personalizado em vez do HR padrão
-                                                object : LeadingMarginSpan.Standard(0), LineBackgroundSpan {
+                                                object : LeadingMarginSpan.Standard(0),
+                                                    LineBackgroundSpan {
                                                     override fun drawBackground(
                                                         canvas: Canvas, paint: Paint,
                                                         left: Int, right: Int,
@@ -244,17 +451,21 @@ fun MessageBubble(
                                                         val originalColor = paint.color
                                                         val originalWidth = paint.strokeWidth
 
-                                                        // Usar valores diretos em vez de métodos do theme
                                                         paint.color = botTextColor.toArgb()
-                                                        paint.strokeWidth = 6f // ~2dp
+                                                        paint.strokeWidth = 6f
 
-                                                        // Padding fixo em vez de recursos de dimensão
-                                                        val padding = 48 // ~16dp
+                                                        val padding = 48
                                                         val lineLeft = left + padding
                                                         val lineRight = right - padding
                                                         val lineY = (top + bottom) / 2f
 
-                                                        canvas.drawLine(lineLeft.toFloat(), lineY, lineRight.toFloat(), lineY, paint)
+                                                        canvas.drawLine(
+                                                            lineLeft.toFloat(),
+                                                            lineY,
+                                                            lineRight.toFloat(),
+                                                            lineY,
+                                                            paint
+                                                        )
 
                                                         paint.color = originalColor
                                                         paint.strokeWidth = originalWidth
@@ -265,81 +476,33 @@ fun MessageBubble(
                                     }
                                 }
 
-                                // Configurar Markwon para renderizar Markdown com nosso plugin personalizado
+                                // Criar instância do Markwon com nosso plugin personalizado
                                 val markwon = Markwon.builder(context)
                                     .usePlugin(HtmlPlugin.create())
                                     .usePlugin(LinkifyPlugin.create())
-                                    .usePlugin(customHrPlugin) // Adicionar nosso plugin personalizado
+                                    .usePlugin(customHrPlugin)
                                     .build()
 
-                                // Renderizar o Markdown
-                                markwon.setMarkdown(this, message.text)
-                            }
-                        },
-                        update = { textView ->
-                            // Atualizar quando a mensagem mudar
-                            val context = textView.context
+                                // Resetar o estado de seleção para corrigir o bug
+                                textView.setTextIsSelectable(false)
 
-                            // Plugin personalizado para lidar com regras horizontais (durante atualizações)
-                            val customHrPlugin = object : AbstractMarkwonPlugin() {
-                                override fun configureSpansFactory(builder: MarkwonSpansFactory.Builder) {
-                                    builder.setFactory(ThematicBreak::class.java) { _, _ ->
-                                        arrayOf(
-                                            object : LeadingMarginSpan.Standard(0), LineBackgroundSpan {
-                                                override fun drawBackground(
-                                                    canvas: Canvas, paint: Paint,
-                                                    left: Int, right: Int,
-                                                    top: Int, baseline: Int, bottom: Int,
-                                                    text: CharSequence, start: Int, end: Int,
-                                                    lineNumber: Int
-                                                ) {
-                                                    val originalColor = paint.color
-                                                    val originalWidth = paint.strokeWidth
+                                // Sempre atualizar a cor do texto quando isDarkTheme muda
+                                textView.setTextColor(botTextColor.toArgb())
 
-                                                    paint.color = botTextColor.toArgb()
-                                                    paint.strokeWidth = 6f
-
-                                                    val padding = 48
-                                                    val lineLeft = left + padding
-                                                    val lineRight = right - padding
-                                                    val lineY = (top + bottom) / 2f
-
-                                                    canvas.drawLine(lineLeft.toFloat(), lineY, lineRight.toFloat(), lineY, paint)
-
-                                                    paint.color = originalColor
-                                                    paint.strokeWidth = originalWidth
-                                                }
-                                            }
-                                        )
-                                    }
+                                // Renderizar Markdown e reativar seleção
+                                markwon.setMarkdown(textView, message.text)
+                                textView.post {
+                                    textView.setTextIsSelectable(true)
                                 }
                             }
-
-                            // Criar instância do Markwon com nosso plugin personalizado
-                            val markwon = Markwon.builder(context)
-                                .usePlugin(HtmlPlugin.create())
-                                .usePlugin(LinkifyPlugin.create())
-                                .usePlugin(customHrPlugin)
-                                .build()
-
-                            // Resetar o estado de seleção para corrigir o bug
-                            textView.setTextIsSelectable(false)
-
-                            // FIXED: Sempre atualizar a cor do texto quando isDarkTheme muda
-                            textView.setTextColor(botTextColor.toArgb())
-
-                            // Renderizar Markdown e reativar seleção
-                            markwon.setMarkdown(textView, message.text)
-                            textView.post {
-                                textView.setTextIsSelectable(true)
-                            }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
     }
 }
+
 
 /**
  * A SelectionContainer that tries to maintain selection when tapping outside
@@ -372,7 +535,7 @@ fun PersistentSelectionContainer(
 fun ChatScreen(
     onLogin: () -> Unit = {},
     onLogout: () -> Unit = {},
-    onNavigateToProfile: () -> Unit = {}, // Adicione este parâmetro
+    onNavigateToProfile: () -> Unit = {},  // Adicione este parâmetro
     chatViewModel: ChatViewModel,  // Non-nullable parameter
     authViewModel: AuthViewModel = viewModel(),
     exportViewModel: ExportViewModel,  // Non-nullable parameter
@@ -380,7 +543,8 @@ fun ChatScreen(
     onThemeChanged: (Boolean) -> Unit = {}  // Add this parameter with default value
 ) {
     // Definir cores do tema dentro do Composable
-    val backgroundColor = if (isDarkTheme) Color(0xFF121212) else BackgroundColor // Usando #121212 como cor de fundo principal
+    val backgroundColor =
+        if (isDarkTheme) Color(0xFF121212) else BackgroundColor // Usando #121212 como cor de fundo principal
     val textColor = if (isDarkTheme) TextColorLight else TextColorDark
 
     // Definir a cor amarela para o ícone de raio
@@ -397,6 +561,10 @@ fun ChatScreen(
 
     // Estado de exportação
     val exportState by exportViewModel.exportState.collectAsState()
+
+    // Estado de geração de imagem
+    val isImageGenerating by chatViewModel.isImageGenerating.collectAsState()
+    val currentImagePrompt by chatViewModel.currentImagePrompt.collectAsState()
 
     var userMessage by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -416,6 +584,85 @@ fun ChatScreen(
     var exportDialogTitle by remember { mutableStateOf("") } // Novo estado
     val isPremiumUser by chatViewModel.isPremiumUser.collectAsState()
 
+    var showImageGenerationDialog by remember { mutableStateOf(false) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+
+    // Variável para armazenar o caminho da imagem a ser salva após permissão
+    var imagePathToSaveAfterPermission by remember { mutableStateOf<String?>(null) }
+
+    // Definir a permissão a ser solicitada com base na versão Android
+    val permissionToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        // Para Android Q (API 29) e superior
+        Manifest.permission.WRITE_EXTERNAL_STORAGE
+    } else {
+        Manifest.permission.WRITE_EXTERNAL_STORAGE
+    }
+
+    // Variável para controlar a exibição do diálogo de explicação da permissão
+    var showPermissionRationaleDialog by remember { mutableStateOf(false) }
+
+    // Launcher para solicitar permissão
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            imagePathToSaveAfterPermission?.let { path ->
+                chatViewModel.saveImageToGallery(path)
+                imagePathToSaveAfterPermission = null // Limpa após usar
+            }
+        } else {
+            // Permissão negada, mostrar snackbar
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = context.getString(R.string.image_save_permission_denied),
+                    duration = SnackbarDuration.Short
+                )
+            }
+            // Opcionalmente mostrar diálogo explicando a necessidade da permissão
+            // showPermissionRationaleDialog = true
+        }
+    }
+
+    // Função para verificar permissão e salvar imagem
+    fun checkAndSaveImage(imagePath: String) {
+        // Para Android Q (API 29) e superior, salvar em MediaStore na pasta Pictures/AppName
+        // geralmente não requer permissão explícita de WRITE_EXTERNAL_STORAGE.
+        // Para Android < Q, a permissão é necessária.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            when (PackageManager.PERMISSION_GRANTED) {
+                ContextCompat.checkSelfPermission(context, permissionToRequest) -> {
+                    chatViewModel.saveImageToGallery(imagePath)
+                }
+
+                else -> {
+                    imagePathToSaveAfterPermission = imagePath
+                    requestPermissionLauncher.launch(permissionToRequest)
+                }
+            }
+        } else {
+            // Em Android Q+ não precisamos de permissão para salvar na pasta específica do App no MediaStore.
+            chatViewModel.saveImageToGallery(imagePath)
+        }
+    }
+
+    // Diálogo de explicação de permissão (opcional)
+    if (showPermissionRationaleDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionRationaleDialog = false },
+            title = { Text(stringResource(R.string.permission_required)) },
+            text = { Text(stringResource(R.string.request_save_permission)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showPermissionRationaleDialog = false
+                }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
             chatViewModel.checkIfUserIsPremium()
@@ -434,6 +681,26 @@ fun ChatScreen(
             if (currentUser != null) {
                 chatViewModel.checkIfUserIsPremium()
             }
+        }
+    }
+
+    // Escutar eventos de mensagem adicionada
+    LaunchedEffect(Unit) {
+        chatViewModel.messageAddedEvent.collect {
+            // Rolar para a última mensagem quando uma nova for adicionada
+            if (messages.isNotEmpty()) {
+                listState.animateScrollToItem(messages.size - 1)
+            }
+        }
+    }
+
+    // Escutar eventos de imagem salva
+    LaunchedEffect(Unit) {
+        chatViewModel.imageSavedEvent.collect { message ->
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Long
+            )
         }
     }
 
@@ -473,7 +740,10 @@ fun ChatScreen(
             try {
                 exportDialogTitle = chatViewModel.getDisplayTitle(id)
                 exportViewModel.setupDriveService()
-                Log.d("ChatScreen", "Preparando para exportar conversa: $exportDialogTitle (ID: $id)")
+                Log.d(
+                    "ChatScreen",
+                    "Preparando para exportar conversa: $exportDialogTitle (ID: $id)"
+                )
             } catch (e: Exception) {
                 Log.e("ChatScreen", "Erro ao buscar título para exportação", e)
                 conversationIdToExport = null
@@ -550,20 +820,6 @@ fun ChatScreen(
                         .height(0.dp)
                         .background(PrimaryColor)
                 )
-
-                val snackbarHostState = remember { SnackbarHostState() }
-                val coroutineScope = rememberCoroutineScope()
-                var showPremiumMessage by remember { mutableStateOf(false) }
-
-// Quando clicar, vamos lançar o Snackbar
-                LaunchedEffect(showPremiumMessage) {
-                    if (showPremiumMessage) {
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar("Você é um usuário Premium!")
-                            showPremiumMessage = false
-                        }
-                    }
-                }
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
@@ -670,7 +926,9 @@ fun ChatScreen(
                                 ) {
                                     Icon(
                                         imageVector = if (currentUser != null) Icons.AutoMirrored.Filled.Logout else Icons.AutoMirrored.Filled.Login,
-                                        contentDescription = if (currentUser != null) stringResource(R.string.logout) else stringResource(R.string.login), // Substitui "Sair"/"Entrar"
+                                        contentDescription = if (currentUser != null) stringResource(
+                                            R.string.logout
+                                        ) else stringResource(R.string.login), // Substitui "Sair"/"Entrar"
                                         tint = Color.White
                                     )
                                 }
@@ -695,7 +953,8 @@ fun ChatScreen(
                             },
                             isSendEnabled = !isLoading,
                             isDarkTheme = isDarkTheme,
-                            viewModel = chatViewModel
+                            viewModel = chatViewModel,
+                            onImageGenerationClick = { showImageGenerationDialog = true }
                         )
                     },
                     containerColor = if (isDarkTheme) Color(0xFF121212) else backgroundColor,
@@ -712,8 +971,12 @@ fun ChatScreen(
                         if (currentUser != null) {
                             AnimatedVisibility(
                                 visible = modelSelectorVisible.value,
-                                enter = fadeIn(animationSpec = tween(300)) + expandVertically(animationSpec = tween(300)),
-                                exit = fadeOut(animationSpec = tween(300)) + shrinkVertically(animationSpec = tween(300))
+                                enter = fadeIn(animationSpec = tween(300)) + expandVertically(
+                                    animationSpec = tween(300)
+                                ),
+                                exit = fadeOut(animationSpec = tween(300)) + shrinkVertically(
+                                    animationSpec = tween(300)
+                                )
                             ) {
                                 key(isPremiumUser) {
                                     ModelSelectionDropdown(
@@ -732,6 +995,18 @@ fun ChatScreen(
                                 .weight(1f)
                                 .fillMaxWidth()
                         ) {
+                            ImageGenerationDialog(
+                                isVisible = showImageGenerationDialog,
+                                onDismiss = { showImageGenerationDialog = false },
+                                onGenerateImage = { prompt, quality, size, transparent ->
+                                    chatViewModel.generateImage(prompt, quality, size, transparent)
+                                    showImageGenerationDialog =
+                                        false  // Close dialog after generating
+                                },
+                                generationState = chatViewModel.imageGenerationState.collectAsState().value,
+                                isDarkTheme = isDarkTheme
+                            )
+
                             // Wrap the entire LazyColumn with a SelectionContainer
                             SelectionContainer {
                                 LazyColumn(
@@ -750,13 +1025,80 @@ fun ChatScreen(
                                     itemsIndexed(
                                         items = messages,
                                         key = { index, _ -> index }
-                                    ) { _, message->
+                                    ) { _, message ->
                                         MessageBubble(
                                             message = message,
-                                            isDarkTheme = isDarkTheme
+                                            isDarkTheme = isDarkTheme,
+                                            onSaveImageClicked = { imagePath ->
+                                                if (imagePath != null) {
+                                                    checkAndSaveImage(imagePath)
+                                                } else {
+                                                    Log.w(
+                                                        "ChatScreen",
+                                                        "Save image clicked, but path was null for message: ${message.text}"
+                                                    )
+                                                }
+                                            }
                                         )
                                     }
 
+                                    // Mostrar indicador de carregamento durante geração de imagem
+                                    if (isImageGenerating) {
+                                        item {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 2.dp),
+                                                contentAlignment = Alignment.CenterStart
+                                            ) {
+                                                Card(
+                                                    modifier = Modifier
+                                                        .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.88f),
+                                                    shape = RoundedCornerShape(
+                                                        20.dp,
+                                                        20.dp,
+                                                        6.dp,
+                                                        20.dp
+                                                    ),
+                                                    colors = CardDefaults.cardColors(
+                                                        containerColor = if (isDarkTheme) Color(
+                                                            0xFF292929
+                                                        ) else Color(0xFFE4E4E4)
+                                                    )
+                                                ) {
+                                                    Column(
+                                                        modifier = Modifier.padding(16.dp),
+                                                        horizontalAlignment = Alignment.CenterHorizontally
+                                                    ) {
+                                                        LightningLoadingAnimation(
+                                                            isDarkTheme = isDarkTheme
+                                                        )
+
+                                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                                        Text(
+                                                            text = "Gerando imagem...",
+                                                            style = MaterialTheme.typography.bodyMedium,
+                                                            fontWeight = FontWeight.Medium,
+                                                            color = if (isDarkTheme) TextColorLight else TextColorDark
+                                                        )
+
+                                                        if (!currentImagePrompt.isNullOrBlank()) {
+                                                            Spacer(modifier = Modifier.height(4.dp))
+                                                            Text(
+                                                                text = "\"${currentImagePrompt}\"",
+                                                                style = MaterialTheme.typography.bodyMedium,
+                                                                fontStyle = FontStyle.Italic,
+                                                                color = if (isDarkTheme) TextColorLight else TextColorDark
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Loading para resposta de texto do modelo
                                     if (isLoading) {
                                         item {
                                             LightningLoadingAnimation(
@@ -768,10 +1110,12 @@ fun ChatScreen(
                                 }
                             }
 
-
                             errorMessage?.let { errorMsg ->
                                 Text(
-                                    text = stringResource(R.string.error_prefix, errorMsg), // Substitui "Erro: $errorMsg"
+                                    text = stringResource(
+                                        R.string.error_prefix,
+                                        errorMsg
+                                    ), // Substitui "Erro: $errorMsg"
                                     color = Color.White,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
@@ -834,10 +1178,6 @@ fun ChatScreen(
                     }
                 }
             }
-        }
-
-        LaunchedEffect(listState.firstVisibleItemIndex) {
-            Log.d("ChatScreen", "Posição de rolagem: ${listState.firstVisibleItemIndex}, offset: ${listState.firstVisibleItemScrollOffset}")
         }
 
         // O restante do código permanece inalterado
@@ -945,7 +1285,8 @@ fun MessageInput(
     onSendClick: () -> Unit,
     isSendEnabled: Boolean,
     isDarkTheme: Boolean = true,
-    viewModel: ChatViewModel
+    viewModel: ChatViewModel,
+    onImageGenerationClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val isListening by viewModel.isListening.collectAsState()
@@ -967,12 +1308,16 @@ fun MessageInput(
     // Cores do tema
     val backgroundColor = if (isDarkTheme) Color(0xFF121212) else BackgroundColor
     val surfaceColor = if (isDarkTheme) Color(0xFF333333) else Color(0xFFC8C8C9)
-    val disabledContainerColor = if (isDarkTheme) Color(0xFF282828) else PrimaryColor.copy(alpha = 0.15f)
-    val disabledTextColor = if (isDarkTheme) Color.LightGray.copy(alpha = 0.5f) else Color.DarkGray.copy(alpha = 0.7f)
-    val disabledCursorColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.7f) else PrimaryColor.copy(alpha = 0.6f)
+    val disabledContainerColor =
+        if (isDarkTheme) Color(0xFF282828) else PrimaryColor.copy(alpha = 0.15f)
+    val disabledTextColor =
+        if (isDarkTheme) Color.LightGray.copy(alpha = 0.5f) else Color.DarkGray.copy(alpha = 0.7f)
+    val disabledCursorColor =
+        if (isDarkTheme) PrimaryColor.copy(alpha = 0.7f) else PrimaryColor.copy(alpha = 0.6f)
 
     // Cor da bolha do usuário (azul usado no botão de enviar)
-    val userBubbleColor = if (isDarkTheme) Color(0xFF0D47A1) else Color(0xFF1976D2) // Azul da bolha do usuário
+    val userBubbleColor =
+        if (isDarkTheme) Color(0xFF0D47A1) else Color(0xFF1976D2) // Azul da bolha do usuário
 
     // FIXED: Cor do botão de enviar quando tem texto (PrimaryColor em vez de branco no tema claro)
     val sendButtonColor = when {
@@ -1008,7 +1353,12 @@ fun MessageInput(
                     shape = RoundedCornerShape(28.dp)
                 )
                 .border(width = 2.dp, color = borderColor, shape = RoundedCornerShape(28.dp))
-                .padding(start = 8.dp, end = 4.dp, top = 2.dp, bottom = 6.dp), // Reduzido padding geral
+                .padding(
+                    start = 8.dp,
+                    end = 4.dp,
+                    top = 2.dp,
+                    bottom = 6.dp
+                ), // Reduzido padding geral
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextField(
@@ -1063,7 +1413,11 @@ fun MessageInput(
                 // Botão de microfone (visível apenas quando não está digitando)
                 if (!isTyping) {
                     SimpleVoiceInputButton(
-                        onTextResult = { text -> onMessageChange(text); viewModel.handleVoiceInput(text) },
+                        onTextResult = { text ->
+                            onMessageChange(text); viewModel.handleVoiceInput(
+                            text
+                        )
+                        },
                         isListening = isListening,
                         onStartListening = { viewModel.startListening() },
                         onStopListening = { viewModel.stopListening() },
@@ -1075,27 +1429,50 @@ fun MessageInput(
 
                     // Espaço mínimo entre microfone e botão de enviar
                     Spacer(modifier = Modifier.width(2.dp))
-                }
 
-                // Botão de enviar (maior que o microfone)
-                Box(
-                    modifier = Modifier
-                        .size(48.dp) // Tamanho aumentado
-                        .clip(CircleShape)
-                        .background(sendButtonColor) // FIXED: Usando a cor corrigida
-                        .clickable(enabled = message.isNotBlank() && isSendEnabled) { onSendClick() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    // FIXED: Cor do ícone de enviar ajustada para garantir contraste
-                    val iconColor = if (!isDarkTheme && message.isNotBlank()) Color.White else Color.White
-
-                    Icon(
-                        Icons.AutoMirrored.Filled.Send,
-                        contentDescription = stringResource(R.string.send_description), // Adiciona descrição para acessibilidade
-                        modifier = Modifier.size(26.dp), // Ícone aumentado
-                        tint = iconColor // Cor ajustada para garantir visibilidade
-                    )
+//                    if (viewModel.isPremiumUser.collectAsState().value) {
+//                        // Botão para geração de imagem
+//                        Box(
+//                            modifier = Modifier
+//                                .size(36.dp)
+//                                .clip(CircleShape)
+//                                .background(
+//                                    if (isDarkTheme) Color.Gray.copy(alpha = 0.3f) else PrimaryColor.copy(
+//                                        alpha = 0.25f
+//                                    )
+//                                )
+//                                .clickable(enabled = isSendEnabled) { onImageGenerationClick() },
+//                            contentAlignment = Alignment.Center
+//                        ) {
+//                            Icon(
+//                                imageVector = Icons.Default.Image,
+//                                contentDescription = stringResource(R.string.generate_image_description),
+//                                modifier = Modifier.size(18.dp),
+//                                tint = if (isDarkTheme) Color.White else Color.Black
+//                            )
+//                        }
                 }
+            }
+
+            // Botão de enviar (maior que o microfone)
+            Box(
+                modifier = Modifier
+                    .size(48.dp) // Tamanho aumentado
+                    .clip(CircleShape)
+                    .background(sendButtonColor) // FIXED: Usando a cor corrigida
+                    .clickable(enabled = message.isNotBlank() && isSendEnabled) { onSendClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                // FIXED: Cor do ícone de enviar ajustada para garantir contraste
+                val iconColor =
+                    if (!isDarkTheme && message.isNotBlank()) Color.White else Color.White
+
+                Icon(
+                    Icons.AutoMirrored.Filled.Send,
+                    contentDescription = stringResource(R.string.send_description), // Adiciona descrição para acessibilidade
+                    modifier = Modifier.size(26.dp), // Ícone aumentado
+                    tint = iconColor // Cor ajustada para garantir visibilidade
+                )
             }
         }
     }
@@ -1213,8 +1590,10 @@ fun LightningLoadingAnimation(
 ) {
     // FIXED: Enhanced colors for light theme
     // Cores para a animação do raio ajustadas para melhor contraste em tema claro
-    val baseColor = if (isDarkTheme) Color(0xFFFFD700) else Color(0xFFB8860B) // Amarelo dourado (escuro) para tema claro
-    val accentColor = if (isDarkTheme) Color(0xFFFF9500) else Color(0xFFFFA500) // Laranja mais intenso para tema claro
+    val baseColor =
+        if (isDarkTheme) Color(0xFFFFD700) else Color(0xFFB8860B) // Amarelo dourado (escuro) para tema claro
+    val accentColor =
+        if (isDarkTheme) Color(0xFFFF9500) else Color(0xFFFFA500) // Laranja mais intenso para tema claro
 
     // Animação de rotação
     val rotation = rememberInfiniteTransition(label = "rotationTransition")
@@ -1284,8 +1663,8 @@ fun LightningLoadingAnimation(
                 .background(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            currentColor.copy(alpha = if(isDarkTheme) 0.3f * glowIntensity else 0.5f * glowIntensity),
-                            currentColor.copy(alpha = if(isDarkTheme) 0.1f * glowIntensity else 0.25f * glowIntensity),
+                            currentColor.copy(alpha = if (isDarkTheme) 0.3f * glowIntensity else 0.5f * glowIntensity),
+                            currentColor.copy(alpha = if (isDarkTheme) 0.1f * glowIntensity else 0.25f * glowIntensity),
                             Color.Transparent
                         )
                     ),

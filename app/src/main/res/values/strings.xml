@@ -192,7 +192,6 @@
     <string name="export_dialog_error_prefix">Export error: %1$s</string>
     <string name="export_dialog_action_export">Export</string>
     <string name="export_dialog_action_ok">OK</string>
-    <string name="export_dialog_action_cancel">Cancel</string>
     <string name="export_header_date">Date:</string>
 
     <!-- 8. Error Messages -->
@@ -235,7 +234,6 @@
     <string name="menu_description">Menu</string>
     <string name="or">or</string>
     <string name="save">Save</string>
-    <string name="cancel">Cancel</string>
     <string name="delete">Delete</string>
     <string name="scroll_to_top">Back to top</string>
     <string name="loading">Loading...</string>
@@ -284,7 +282,6 @@
     <string name="back_to_login_button">Back to Login</string>
     <string name="rename_conversation_dialog_title_pt">Rename Conversation</string>
     <string name="save_button_pt">Save</string>
-    <string name="cancel_button_pt">Cancel</string>
     <string name="password_reset_success_en">Password reset email sent successfully!</string>
     <string name="loading_state">Loading...</string>
     <string name="new_name_label">New name</string>
@@ -308,5 +305,24 @@
     <string name="purchase_error">Error starting purchase. Please try again.</string>
     <string name="processing_payment">Processing payment...</string>
     <string name="select_plan">Select Plan</string>
+
+    <!-- 13. Image generation strings -->
+    <string name="generate_image">Generate Image</string>
+    <string name="image_prompt">Describe the image you want...</string>
+    <string name="quality">Quality</string>
+    <string name="transparent_background">Transparent background</string>
+    <string name="image_generated_successfully">Image generated successfully!</string>
+    <string name="cancel">Cancel</string>
+    <string name="generate">Generate</string>
+    <string name="generate_image_description">Generate image</string>
+    <string name="error_prompt_required_after_command">Please provide a description for the image after the %1$s command.</string>
+    <string name="generated_image_description">Image description</string>
+    <string name="error_file_not_found_for_saving">File not found for saving.</string>
+    <string name="error_saving_image_generic">Error saving image.</string>
+    <string name="image_saved_to_gallery">Image saved to %1$s</string>
+    <string name="save_image">Save Image</string>
+    <string name="image_save_permission_denied">Permission to save image denied.</string>
+    <string name="request_save_permission">To save images, the app needs permission to access your files. Please grant the permission in the app settings.</string>
+    <string name="permission_required">Permission required</string>
 
 </resources>

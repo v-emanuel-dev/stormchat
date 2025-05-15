@@ -309,4 +309,22 @@
     <string name="processing_payment">Elaborazione del pagamento...</string>
     <string name="select_plan">Seleziona Piano</string>
 
+    <!-- 13. Image generation strings -->
+    <string name="generate_image">Genera immagine</string>
+    <string name="image_prompt">Descrivi l\'immagine che desideri...</string>
+    <string name="quality">Qualità</string>
+    <string name="transparent_background">Sfondo trasparente</string>
+    <string name="image_generated_successfully">Immagine generata con successo!</string>
+    <string name="generate">Genera</string>
+    <string name="generate_image_description">Genera immagine</string>
+    <string name="error_prompt_required_after_command">Fornisci una descrizione per l\'immagine dopo il comando %1$s.</string>
+    <string name="generated_image_description">Descrizione dell\'immagine</string>
+    <string name="error_file_not_found_for_saving">File non trovato per il salvataggio.</string>
+    <string name="error_saving_image_generic">Errore durante il salvataggio dell\'immagine.</string>
+    <string name="image_saved_to_gallery">Immagine salvata in %1$s</string>
+    <string name="save_image">Salva immagine</string>
+    <string name="image_save_permission_denied">Permesso di salvare l\'immagine negato.</string>
+    <string name="request_save_permission">Per salvare le immagini, l\'app necessita del permesso di accedere ai tuoi file. Concedi il permesso nelle impostazioni dell\'app.</string>
+    <string name="permission_required">Permesso richiesto</string>
+
 </resources>

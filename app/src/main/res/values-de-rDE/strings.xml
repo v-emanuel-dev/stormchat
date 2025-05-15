@@ -309,4 +309,22 @@
     <string name="processing_payment">Zahlung wird verarbeitet...</string>
     <string name="select_plan">Plan auswählen</string>
 
+    <!-- 13. Image generation strings -->
+    <string name="generate_image">Bild generieren</string>
+    <string name="image_prompt">Beschreiben Sie das gewünschte Bild...</string>
+    <string name="quality">Qualität</string>
+    <string name="transparent_background">Transparenter Hintergrund</string>
+    <string name="image_generated_successfully">Bild erfolgreich generiert!</string>
+    <string name="generate">Generieren</string>
+    <string name="generate_image_description">Bild generieren</string>
+    <string name="error_prompt_required_after_command">Bitte geben Sie eine Beschreibung für das Bild nach dem Befehl %1$s ein.</string>
+    <string name="generated_image_description">Bildbeschreibung</string>
+    <string name="error_file_not_found_for_saving">Datei zum Speichern nicht gefunden.</string>
+    <string name="error_saving_image_generic">Fehler beim Speichern des Bildes.</string>
+    <string name="image_saved_to_gallery">Bild gespeichert unter %1$s</string>
+    <string name="save_image">Bild speichern</string>
+    <string name="image_save_permission_denied">Berechtigung zum Speichern des Bildes verweigert.</string>
+    <string name="request_save_permission">Um Bilder zu speichern, benötigt die App die Berechtigung, auf Ihre Dateien zuzugreifen. Bitte erteilen Sie die Berechtigung in den App-Einstellungen.</string>
+    <string name="permission_required">Berechtigung erforderlich</string>
+
 </resources>

@@ -29,6 +29,16 @@ import com.ivip.brainstormia.data.db.ModelPreferenceDao
 import com.ivip.brainstormia.data.db.ModelPreferenceEntity
 import com.ivip.brainstormia.data.models.AIProvider
 import kotlinx.coroutines.withTimeoutOrNull
+import android.net.Uri
+import java.io.File
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import android.content.ContentValues
+import android.os.Build
+import android.provider.MediaStore
+import java.io.IOException
+import java.io.OutputStream
 
 enum class LoadingState { IDLE, LOADING, ERROR }
 
@@ -38,10 +48,10 @@ private const val MAX_HISTORY_MESSAGES = 20
 @OptIn(ExperimentalCoroutinesApi::class)
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
-    // Cliente OpenAI
+    // API Clients
     private val openAIClient = OpenAIClient(BuildConfig.OPENAI_API_KEY)
-    private val googleAIClient = GoogleAIClient(BuildConfig.GOOGLE_API_KEY) // Adicionar esta linha
-    private val anthropicClient = AnthropicClient(BuildConfig.ANTHROPIC_API_KEY) // Adicionar esta linha
+    private val googleAIClient = GoogleAIClient(BuildConfig.GOOGLE_API_KEY)
+    private val anthropicClient = AnthropicClient(BuildConfig.ANTHROPIC_API_KEY)
 
     private val auth = FirebaseAuth.getInstance()
     private val appDb = AppDatabase.getDatabase(application)
@@ -50,8 +60,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val modelPreferenceDao: ModelPreferenceDao = appDb.modelPreferenceDao()
     private val context = application.applicationContext
 
-    // Lista de modelos disponíveis (OpenAI)
+    // Image generation manager
+    private val imageGenerationManager = ImageGenerationManager(application)
 
+    // Image generation state flows
+    private val _imageGenerationState = MutableStateFlow<ImageGenerationResult?>(null)
+    val imageGenerationState: StateFlow<ImageGenerationResult?> = _imageGenerationState.asStateFlow()
+
+    private val _generatedImageUri = MutableStateFlow<Uri?>(null)
+    val generatedImageUri: StateFlow<Uri?> = _generatedImageUri.asStateFlow()
+
+    private val _isGeneratingImage = MutableStateFlow(false)
+    val isGeneratingImage: StateFlow<Boolean> = _isGeneratingImage.asStateFlow()
+
+    private val _imageSavedEvent = MutableSharedFlow<String>() // Emitirá a mensagem de sucesso/erro
+    val imageSavedEvent: SharedFlow<String> = _imageSavedEvent.asSharedFlow()
+
+    // List of available models
     val availableModels = listOf(
         // Anthropic
         AIModel(
@@ -149,36 +174,43 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         displayName = "GPT-4o",
         apiEndpoint = "gpt-4o",
         provider = AIProvider.OPENAI,
-        isPremium = false // ou true se quiser forçar premium
+        isPremium = false
     )
 
     private val _selectedModel = MutableStateFlow(defaultModel)
     val selectedModel: StateFlow<AIModel> = _selectedModel
 
-    // Método para atualizar o modelo selecionado
+    // Adicione esta propriedade ao ChatViewModel
+    private val _isImageGenerating = MutableStateFlow(false)
+    val isImageGenerating: StateFlow<Boolean> = _isImageGenerating.asStateFlow()
+
+    // Adicione esta propriedade para armazenar o prompt durante a geração
+    private val _currentImagePrompt = MutableStateFlow<String?>(null)
+    val currentImagePrompt: StateFlow<String?> = _currentImagePrompt.asStateFlow()
+
     fun selectModel(model: AIModel) {
-        // Limpar qualquer mensagem de erro anterior
+        // Clear previous error messages
         _errorMessage.value = null
 
-        // Verificar se o usuário está logado
+        // Check if user is logged in
         val currentUserId = _userIdFlow.value
         if (currentUserId.isBlank() || currentUserId == "local_user") {
-            Log.w("ChatViewModel", "Tentativa de selecionar modelo sem usuário logado")
+            Log.w("ChatViewModel", "Attempted to select model without user login")
             _errorMessage.value = context.getString(R.string.error_login_required)
             return
         }
 
-        // Verificar se o usuário tem permissão para usar o modelo premium
+        // Check if user has permission to use premium model
         if (model.isPremium && !_isPremiumUser.value) {
             _errorMessage.value = context.getString(R.string.error_premium_required)
 
-            // Encontrar o modelo padrão não-premium (GPT-4o)
+            // Find default non-premium model (GPT-4o)
             val defaultModel = availableModels.find { it.id == "gpt-4o" } ?: defaultModel
 
-            // Forçar a atualização do modelo com uma abordagem mais agressiva
+            // Force model update with more aggressive approach
             viewModelScope.launch {
                 try {
-                    // 1. Primeiro, vamos resetar completamente o modelo para null (não existe)
+                    // 1. Reset model to null (non-existent)
                     withContext(Dispatchers.Main) {
                         (_selectedModel as MutableStateFlow).value = AIModel(
                             id = "resetting",
@@ -189,15 +221,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     }
 
-                    // 2. Pequeno delay para garantir que a UI seja atualizada
+                    // 2. Small delay to ensure UI updates
                     delay(100)
 
-                    // 3. Agora definir o modelo padrão
+                    // 3. Set default model
                     withContext(Dispatchers.Main) {
                         (_selectedModel as MutableStateFlow).value = defaultModel
                     }
 
-                    // 4. Salvar a preferência no banco de dados
+                    // 4. Save preference to database
                     modelPreferenceDao.insertOrUpdatePreference(
                         ModelPreferenceEntity(
                             userId = currentUserId,
@@ -205,21 +237,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     )
 
-                    Log.i("ChatViewModel", "Modelo revertido para padrão: ${defaultModel.displayName}")
+                    Log.i("ChatViewModel", "Model reverted to default: ${defaultModel.displayName}")
                 } catch (e: Exception) {
-                    Log.e("ChatViewModel", "Erro ao salvar preferência de modelo padrão", e)
+                    Log.e("ChatViewModel", "Error saving default model preference", e)
                 }
             }
             return
         }
 
-        // Caso de usuário premium ou modelo gratuito
+        // Case of premium user or free model
         if (model.id != _selectedModel.value.id) {
             viewModelScope.launch {
                 try {
-                    // Abordagem de reset e set para garantir que a UI atualize
+                    // Reset and set approach to ensure UI updates
                     withContext(Dispatchers.Main) {
-                        // 1. Resetar
+                        // 1. Reset
                         (_selectedModel as MutableStateFlow).value = AIModel(
                             id = "changing",
                             displayName = context.getString(R.string.changing_model),
@@ -228,14 +260,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             isPremium = false
                         )
 
-                        // 2. Pequeno delay
+                        // 2. Small delay
                         delay(100)
 
-                        // 3. Definir novo modelo
+                        // 3. Set new model
                         (_selectedModel as MutableStateFlow).value = model
                     }
 
-                    // 4. Salvar no banco de dados
+                    // 4. Save to database
                     modelPreferenceDao.insertOrUpdatePreference(
                         ModelPreferenceEntity(
                             userId = currentUserId,
@@ -243,16 +275,156 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     )
 
-                    Log.i("ChatViewModel", "Preferência de modelo salva: ${model.displayName}")
+                    Log.i("ChatViewModel", "Model preference saved: ${model.displayName}")
                 } catch (e: Exception) {
-                    Log.e("ChatViewModel", "Erro ao salvar preferência de modelo", e)
+                    Log.e("ChatViewModel", "Error saving model preference", e)
                     _errorMessage.value = context.getString(R.string.error_save_model, e.localizedMessage)
                 }
             }
         }
     }
 
-    // Função atualizada para verificar status premium via singleton BillingViewModel
+    fun generateImage(prompt: String, quality: String = "standard", size: String = "1024x1024", transparent: Boolean = false) {
+        // Check if user is authenticated
+        val currentUserId = _userIdFlow.value
+        if (currentUserId.isBlank() || currentUserId == "local_user") {
+            _errorMessage.value = context.getString(R.string.error_login_required)
+            return
+        }
+
+        // Get premium status
+        val isPremium = _isPremiumUser.value
+        Log.d("ChatViewModel", "Starting image generation, user premium status: $isPremium")
+
+        // Encontrar o modelo específico que queremos usar
+        val imageModel = availableModels.find { it.id == "dall-e-3" }
+            ?: AIModel(
+                id = "dall-e-3",
+                displayName = "DALL-E 3",
+                apiEndpoint = "dall-e-3",
+                provider = AIProvider.OPENAI,
+                isPremium = true
+            )
+
+        Log.d("ChatViewModel", "Using image model: ${imageModel.displayName} (${imageModel.apiEndpoint})")
+
+        // Atualizar estados para mostrar o carregamento na UI
+        _isImageGenerating.value = true
+        _currentImagePrompt.value = prompt
+        _isGeneratingImage.value = true
+        _imageGenerationState.value = ImageGenerationResult.Loading("Iniciando geração de imagem...")
+
+        viewModelScope.launch {
+            try {
+                // Collect result from image generation
+                // Passando o modelo específico para o imageGenerationManager
+                imageGenerationManager.generateAndSaveImage(
+                    openAIClient = openAIClient,
+                    prompt = prompt,
+                    quality = quality,
+                    size = size,
+                    transparent = transparent,
+                    isPremiumUser = isPremium,
+                    modelId = imageModel.apiEndpoint // Novo parâmetro especificando o modelo
+                ).collect { result ->
+                    Log.d("ChatViewModel", "Image generation update: $result")
+                    _imageGenerationState.value = result
+
+                    // Also display errors in the main error UI
+                    if (result is ImageGenerationResult.Error) {
+                        Log.e("ChatViewModel", "Image generation error: ${result.message}")
+                        _errorMessage.value = result.message
+                    }
+
+                    if (result is ImageGenerationResult.Success) {
+                        try {
+                            var effectiveConversationId = _currentConversationId.value
+                            val userId = _userIdFlow.value // Get current user ID
+
+                            if (effectiveConversationId == null || effectiveConversationId == NEW_CONVERSATION_ID) {
+                                val newConvTimestampId = System.currentTimeMillis()
+                                _currentConversationId.value = newConvTimestampId // Critical: Update the ViewModel's current conversation ID
+                                effectiveConversationId = newConvTimestampId
+
+                                // Save metadata for this new conversation
+                                // This ensures it's recognized as a proper conversation
+                                withContext(Dispatchers.IO) {
+                                    metadataDao.insertOrUpdateMetadata(
+                                        ConversationMetadataEntity(
+                                            conversationId = newConvTimestampId,
+                                            customTitle = null, // Title can be generated later based on prompt or first interaction
+                                            userId = userId
+                                        )
+                                    )
+                                }
+                                Log.d("ChatViewModel", "Image generation initiated a new conversation. ID: $newConvTimestampId")
+                            }
+
+                            // Save the generated image URI
+                            _generatedImageUri.value = result.imageUri
+                            Log.d("ChatViewModel", "Image generated successfully at: ${result.imagePath}")
+
+                            // Verify the file exists
+                            val file = File(result.imagePath)
+                            Log.d("ChatViewModel", "Image file exists: ${file.exists()}, size: ${file.length()}")
+
+                            // Send the image as a bot message
+                            val imageMessage = """
+                ![Imagem Gerada](${result.imagePath})
+                
+                *Imagem gerada com base no prompt:* 
+                "${prompt}"
+                """.trimIndent()
+
+                            Log.d("ChatViewModel", "Creating bot message with image path: ${result.imagePath}")
+
+                            val botMessageEntity = ChatMessageEntity(
+                                id = 0,
+                                conversationId = effectiveConversationId!!,
+                                text = imageMessage,
+                                sender = Sender.BOT.name,
+                                timestamp = System.currentTimeMillis(),
+                                userId = _userIdFlow.value
+                            )
+
+                            // Insert message and verify - usando withContext para garantir execução completa
+                            val messageId = withContext(Dispatchers.IO) {
+                                chatDao.insertMessage(botMessageEntity)
+                            }
+                            Log.d("ChatViewModel", "Bot message with image inserted with ID: $messageId")
+
+                            // Emitir evento de mensagem adicionada para atualizar a UI
+                            _messageAddedEvent.emit(Unit)
+
+                            // Atualizar explicitamente a UI
+                            withContext(Dispatchers.Main) {
+                                // Forçar atualização da UI
+                                val currentId = _currentConversationId.value
+                                if (currentId != null) {
+                                    // Apenas notificar que uma mensagem foi adicionada
+                                    // sem mudar o ID da conversa
+                                    _messageAddedEvent.emit(Unit)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("ChatViewModel", "Error processing successful image", e)
+                            _errorMessage.value = "Erro ao processar imagem: ${e.localizedMessage}"
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error in image generation", e)
+                _imageGenerationState.value = ImageGenerationResult.Error("Erro: ${e.localizedMessage ?: "Erro desconhecido"}")
+                _errorMessage.value = "Erro na geração de imagem: ${e.localizedMessage ?: "Erro desconhecido"}"
+            } finally {
+                // Limpar os estados de carregamento quando terminar
+                _isImageGenerating.value = false
+                _currentImagePrompt.value = null
+                _isGeneratingImage.value = false
+            }
+        }
+    }
+    // Function to check if user is premium via BillingViewModel singleton
     fun checkIfUserIsPremium() {
         val currentUser = FirebaseAuth.getInstance().currentUser
         val email = currentUser?.email
@@ -275,23 +447,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val app = getApplication<Application>() as BrainstormiaApplication
                 val billingViewModel = app.billingViewModel
 
-                // Observe the premium status changes from BillingViewModel
+                // Observe premium status changes from BillingViewModel
                 launch {
                     billingViewModel.isPremiumUser.collect { isPremiumFromBilling ->
-                        // Atualizar nosso estado baseado no resultado do BillingViewModel
-                        Log.d("ChatViewModel", "BillingViewModel reportou premium status: $isPremiumFromBilling")
+                        // Update our state based on BillingViewModel result
+                        Log.d("ChatViewModel", "BillingViewModel reported premium status: $isPremiumFromBilling")
                         _isPremiumUser.value = isPremiumFromBilling
                         validateCurrentModel(isPremiumFromBilling)
                     }
                 }
 
-                // Agora, forçar verificação no BillingViewModel
-                Log.d("ChatViewModel", "Forçando verificação com BillingViewModel")
+                // Force check in BillingViewModel
+                Log.d("ChatViewModel", "Forcing check with BillingViewModel")
                 billingViewModel.checkUserSubscription()
             } catch (e: Exception) {
                 Log.e("ChatViewModel", "Error checking premium with BillingViewModel", e)
 
-                // Em caso de falha, verificar via Firebase como backup
+                // In case of failure, check via Firebase as backup
                 val db = Firebase.firestore
                 db.collection("premium_users")
                     .document(email)
@@ -302,11 +474,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                         Log.d("ChatViewModel", "Fallback Firebase check: isPremium=$isPremium, productId=$productId")
 
-                        // Verificar se o ID do produto é o antigo "vitalicio"
+                        // Check if product ID is old "vitalicio"
                         val isOldVitalicioId = productId?.equals("vitalicio", ignoreCase = true) == true
 
                         if (isPremium && isOldVitalicioId) {
-                            // Se for um ID antigo, não confiamos nele
+                            // If it's an old ID, don't trust it
                             Log.w("ChatViewModel", "Firebase indicates Vitalício with old ID. NOT trusting it.")
                             _isPremiumUser.value = false
                         } else {
@@ -324,20 +496,88 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Novo método para validar o modelo atual com base no status premium
+    fun saveImageToGallery(imagePath: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val file = File(imagePath)
+                if (!file.exists()) {
+                    Log.e("ChatViewModel", "File to save does not exist: $imagePath")
+                    _imageSavedEvent.emit(context.getString(R.string.error_file_not_found_for_saving))
+                    return@launch
+                }
+
+                val resolver = context.contentResolver
+                val imageCollection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                } else {
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+                }
+
+                val imageName = file.name
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.Images.Media.DISPLAY_NAME, imageName)
+                    put(MediaStore.Images.Media.MIME_TYPE, "image/png") // Ou o tipo correto se souber
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/StormChat") // Salva na pasta Pictures/StormChat
+                        put(MediaStore.Images.Media.IS_PENDING, 1)
+                    }
+                }
+
+                val imageUri = resolver.insert(imageCollection, contentValues)
+
+                if (imageUri == null) {
+                    Log.e("ChatViewModel", "Failed to create new MediaStore record.")
+                    _imageSavedEvent.emit(context.getString(R.string.error_saving_image_generic))
+                    return@launch
+                }
+
+                var outputStream: OutputStream? = null
+                try {
+                    outputStream = resolver.openOutputStream(imageUri)
+                    if (outputStream == null) {
+                        throw IOException("Failed to get output stream.")
+                    }
+                    file.inputStream().use { inputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        contentValues.clear()
+                        contentValues.put(MediaStore.Images.Media.IS_PENDING, 0)
+                        resolver.update(imageUri, contentValues, null, null)
+                    }
+                    Log.d("ChatViewModel", "Image saved to gallery: $imageUri")
+                    _imageSavedEvent.emit(context.getString(R.string.image_saved_to_gallery, "Pictures/StormChat"))
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "Error copying file to MediaStore: ${e.message}", e)
+                    // Se falhar, tenta remover a entrada pendente
+                    resolver.delete(imageUri, null, null)
+                    _imageSavedEvent.emit(context.getString(R.string.error_saving_image_generic))
+                } finally {
+                    outputStream?.close()
+                }
+
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error saving image to gallery: ${e.message}", e)
+                _imageSavedEvent.emit(context.getString(R.string.error_saving_image_generic))
+            }
+        }
+    }
+
+    // New method to validate current model based on premium status
     private fun validateCurrentModel(isPremium: Boolean) {
         if (!isPremium && _selectedModel.value.isPremium) {
-            // Usuário não premium usando modelo premium
-            // Retorna ao modelo padrão
+            // Non-premium user using premium model
+            // Return to default model
             val defaultModel = availableModels.find { it.id == "gpt-4o" } ?: defaultModel
 
             viewModelScope.launch {
                 try {
-                    // Atualiza o modelo selecionado
+                    // Update selected model
                     _selectedModel.value = defaultModel
-                    Log.i("ChatViewModel", "Usuário não premium. Revertendo para o modelo padrão: ${defaultModel.displayName}")
+                    Log.i("ChatViewModel", "Non-premium user. Reverting to default model: ${defaultModel.displayName}")
 
-                    // Atualiza a preferência no banco de dados
+                    // Update preference in database
                     modelPreferenceDao.insertOrUpdatePreference(
                         ModelPreferenceEntity(
                             userId = _userIdFlow.value,
@@ -345,7 +585,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         )
                     )
                 } catch (e: Exception) {
-                    Log.e("ChatViewModel", "Erro ao salvar a preferência do modelo padrão", e)
+                    Log.e("ChatViewModel", "Error saving default model preference", e)
                 }
             }
         }
@@ -354,19 +594,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _isPremiumUser = MutableStateFlow(false)
     val isPremiumUser: StateFlow<Boolean> = _isPremiumUser
 
-    // Expor a lista de modelos
+    // Expose model list
     val modelOptions: List<AIModel> = availableModels
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    // Estados para gerenciar o reconhecimento de voz
+    // Voice recognition states
     private val _isListening = MutableStateFlow(false)
     val isListening: StateFlow<Boolean> = _isListening.asStateFlow()
 
     fun startListening() {
         _isListening.value = true
-        // Timeout para parar de ouvir após 30 segundos
+        // Timeout to stop listening after 30 seconds
         viewModelScope.launch {
             delay(30000)
             stopListening()
@@ -377,11 +617,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         _isListening.value = false
     }
 
-    // Método para lidar com o resultado do reconhecimento de voz
+    // Method to handle voice recognition result
     fun handleVoiceInput(text: String) {
         stopListening()
-        // O texto reconhecido será enviado como uma mensagem normal
-        // Você pode processá-lo aqui antes de enviá-lo para o serviço
+        // Recognized text will be sent as a regular message
+        // You can process it here before sending to the service
     }
 
     private val _currentConversationId = MutableStateFlow<Long?>(null)
@@ -403,19 +643,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _showConversations = MutableStateFlow(true)
     val showConversations: StateFlow<Boolean> = _showConversations.asStateFlow()
 
-    /* ─── Flag de prontidão ─────────────────────────────────────────────── */
+    /* ─── Readiness flag ─────────────────────────────────────────────── */
 
-    // 1) flag interna mutável
+    // 1) internal mutable flag
     private val _isReady = MutableStateFlow(false)
 
-    // 2) flag pública para quem observa do lado de fora
+    // 2) public flag for external observers
     val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
 
     init {
-        // Verificação inicial de premium status
+        // Initial premium status check
         checkIfUserIsPremium()
 
-        // Observe mudanças no status premium para validar o modelo selecionado
+        // Observe premium status changes to validate selected model
         viewModelScope.launch {
             _isPremiumUser.collect { isPremium ->
                 Log.d("ChatViewModel", "Premium status changed: $isPremium")
@@ -423,26 +663,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        // Verificação de status premium e validação do modelo selecionado
+        // Premium status check and selected model validation
         viewModelScope.launch {
-            // Primeiro, carrega a preferência do modelo do usuário
+            // First, load user's model preference
             modelPreferenceDao.getModelPreference(_userIdFlow.value)
                 .collect { preference ->
                     if (preference != null) {
                         val savedModel = availableModels.find { it.id == preference.selectedModelId }
                         if (savedModel != null) {
-                            // Verifica se o usuário é premium ou se o modelo não requer premium
+                            // Check if user is premium or if model doesn't require premium
                             if (!savedModel.isPremium || _isPremiumUser.value) {
                                 _selectedModel.value = savedModel
                                 Log.i("ChatViewModel", "Loaded user model preference: ${savedModel.displayName}")
                             } else {
-                                // Usuário não é premium, mas está tentando usar um modelo premium
-                                // Forçamos a reversão para o modelo padrão GPT-4o
+                                // User is not premium but trying to use a premium model
+                                // Force reverting to default GPT-4o model
                                 val defaultModel = availableModels.find { it.id == "gpt-4o" } ?: defaultModel
                                 _selectedModel.value = defaultModel
                                 Log.i("ChatViewModel", "User is not premium. Reverting to default model: ${defaultModel.displayName}")
 
-                                // Atualiza a preferência no banco para o modelo padrão
+                                // Update preference in database to default model
                                 modelPreferenceDao.insertOrUpdatePreference(
                                     ModelPreferenceEntity(
                                         userId = _userIdFlow.value,
@@ -455,9 +695,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
         }
 
-        // aguarda a criação da "nova conversa" ou qualquer tarefa
+        // wait for "new conversation" creation or any task
         loadInitialConversationOrStartNew()
-        _isReady.value = true          // <- PRONTO ✔
+        _isReady.value = true          // <- READY ✔
 
         auth.addAuthStateListener { firebaseAuth ->
             val newUser = firebaseAuth.currentUser
@@ -583,7 +823,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val welcomeMessageText = getApplication<Application>().getString(R.string.welcome_message)
 
-    //private val welcomeMessageText = "Hello! I'm StormChat ⚡. How can I help?"
+    // Evento disparado sempre que uma nova mensagem é salva no BD
+    private val _messageAddedEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val messageAddedEvent: SharedFlow<Unit> = _messageAddedEvent.asSharedFlow()
 
     private val brainstormiaSystemPrompt = """
     ############################################
@@ -867,7 +1109,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             delay(150)
             _currentConversationId.value = NEW_CONVERSATION_ID
-            Log.i("ChatViewModel", "[Init] App iniciado com nova conversa (sem restaurar estado anterior).")
+            Log.i("ChatViewModel", "[Init] App started with new conversation (without restoring previous state).")
         }
     }
 
@@ -895,13 +1137,60 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // Dentro da sua classe ChatViewModel
+
+    // Dentro da sua classe ChatViewModel
+
     fun sendMessage(userMessageText: String) {
         if (userMessageText.isBlank()) {
             Log.w("ChatViewModel", "sendMessage cancelled: Empty message.")
             return
         }
+
+        // --- LÓGICA DE COMANDO DE IMAGEM ---
+        val imageCommandPrefix = "/imagine " // Defina seu prefixo. O espaço no final é útil.
+
+        if (userMessageText.startsWith(imageCommandPrefix, ignoreCase = true)) {
+            val imagePrompt = userMessageText.substring(imageCommandPrefix.length).trim()
+
+            if (imagePrompt.isNotBlank()) {
+                Log.d("ChatViewModel", "Image generation command detected. Prompt: '$imagePrompt'")
+
+                // Chama a função de gerar imagem.
+                // A função generateImage já lida com a criação de nova conversa se necessário.
+                generateImage(prompt = imagePrompt)
+
+                // Salva a mensagem de comando do usuário no banco de dados.
+                viewModelScope.launch {
+                    // Um pequeno delay para dar tempo a generateImage de potencialmente atualizar
+                    // _currentConversationId.value se uma nova conversa foi criada.
+                    delay(300)
+                    val conversationIdForUserCommand = _currentConversationId.value
+                    val userIdForUserCommand = _userIdFlow.value
+
+                    if (conversationIdForUserCommand != null && conversationIdForUserCommand != NEW_CONVERSATION_ID) {
+                        saveMessageToDb( // ESTA É A SUA ÚNICA FUNÇÃO saveMessageToDb
+                            uiMessage = com.ivip.brainstormia.ChatMessage(userMessageText, Sender.USER),
+                            conversationId = conversationIdForUserCommand,
+                            timestamp = System.currentTimeMillis() - 500 // Um pouco antes da imagem do bot
+                        )
+                        Log.d("ChatViewModel", "User's image command '$userMessageText' saved to conversation $conversationIdForUserCommand")
+                    } else {
+                        Log.w("ChatViewModel", "Could not save user's image command: Invalid conversationId ($conversationIdForUserCommand) after image generation call.")
+                    }
+                }
+                // A UI (ChatScreen) é responsável por limpar o userMessage após o envio.
+            } else {
+                // USA A STRING RESOURCE CORRIGIDA
+                _errorMessage.value = context.getString(R.string.error_prompt_required_after_command, imageCommandPrefix.trim())
+            }
+            return // Importante: Não processar como mensagem de texto normal
+        }
+        // --- FIM DA LÓGICA DE COMANDO DE IMAGEM ---
+
+        // Lógica original de envio de mensagem de texto (se não for comando de imagem)
         if (_loadingState.value == LoadingState.LOADING) {
-            Log.w("ChatViewModel", "sendMessage cancelled: Already loading.")
+            Log.w("ChatViewModel", "sendMessage cancelled: Already loading (text message).")
             _errorMessage.value = context.getString(R.string.error_wait_previous)
             return
         }
@@ -910,21 +1199,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
         val timestamp = System.currentTimeMillis()
         var targetConversationId = _currentConversationId.value
+        val userId = _userIdFlow.value
         val isStartingNewConversation = (targetConversationId == null || targetConversationId == NEW_CONVERSATION_ID)
 
         if (isStartingNewConversation) {
             targetConversationId = timestamp
-            Log.i("ChatViewModel", "Action: Creating new conversation with potential ID: $targetConversationId")
+            Log.i("ChatViewModel", "Action: Creating new conversation for text message with ID: $targetConversationId for user $userId")
             _currentConversationId.value = targetConversationId
             viewModelScope.launch(Dispatchers.IO) {
                 try {
                     metadataDao.insertOrUpdateMetadata(
                         ConversationMetadataEntity(
-                            conversationId = targetConversationId,
+                            conversationId = targetConversationId!!,
                             customTitle = null,
-                            userId = _userIdFlow.value
+                            userId = userId
                         )
                     )
+                    Log.d("ChatViewModel", "Initial metadata saved for new conversation $targetConversationId")
                 } catch (e: Exception) {
                     Log.e("ChatViewModel", "Error saving initial metadata for new conv $targetConversationId", e)
                 }
@@ -932,29 +1223,46 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         if (targetConversationId == null || targetConversationId == NEW_CONVERSATION_ID) {
-            Log.e("ChatViewModel", "sendMessage Error: Invalid targetConversationId ($targetConversationId) after checking for new conversation.")
+            Log.e("ChatViewModel", "sendMessage Error: Invalid targetConversationId ($targetConversationId) after new conversation logic for text message.")
             _errorMessage.value = context.getString(R.string.error_internal_conversation)
             _loadingState.value = LoadingState.IDLE
             return
         }
 
         val userUiMessage = com.ivip.brainstormia.ChatMessage(userMessageText, Sender.USER)
-        saveMessageToDb(userUiMessage, targetConversationId, timestamp)
+        saveMessageToDb(userUiMessage, targetConversationId!!, timestamp) // ESTA É A SUA ÚNICA FUNÇÃO saveMessageToDb
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val currentMessagesFromDb = chatDao.getMessagesForConversation(targetConversationId, _userIdFlow.value).first()
+                val currentMessagesFromDb = chatDao.getMessagesForConversation(targetConversationId!!, userId).first()
                 val historyMessages = mapEntitiesToUiMessages(currentMessagesFromDb)
+                    .takeLast(MAX_HISTORY_MESSAGES)
 
-                Log.d("ChatViewModel", "API Call: Enviando ${historyMessages.size} mensagens para a API para conv $targetConversationId")
-
-                callOpenAIApi(userMessageText, historyMessages, targetConversationId)
+                Log.d("ChatViewModel", "API Call (Text): Sending ${historyMessages.size} messages to API for conv $targetConversationId using model ${_selectedModel.value.displayName}")
+                callOpenAIApi(userMessageText, historyMessages, targetConversationId!!)
             } catch (e: Exception) {
-                Log.e("ChatViewModel", "Error preparing history or calling API for conv $targetConversationId", e)
+                Log.e("ChatViewModel", "Error preparing history or calling text API for conv $targetConversationId", e)
                 withContext(Dispatchers.Main) {
                     _errorMessage.value = context.getString(R.string.error_process_history, e.message)
                     _loadingState.value = LoadingState.ERROR
                 }
+            }
+        }
+    }
+
+    // ... (suas outras funções: deleteConversation, renameConversation, callOpenAIApi, mappers, etc.)
+    // A função saveMessageToDb que você já tem:
+    private fun saveMessageToDb(uiMessage: com.ivip.brainstormia.ChatMessage, conversationId: Long, timestamp: Long) {
+        val entity = mapUiMessageToEntity(uiMessage, conversationId, timestamp)
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                chatDao.insertMessage(entity)
+                // Emitir evento aqui se a lista de mensagens na UI não estiver sendo atualizada automaticamente
+                // ao salvar a mensagem do usuário ANTES da resposta do bot.
+                // No entanto, o _messageAddedEvent é geralmente para após a resposta do BOT.
+                // A reatividade do Flow do Room deve cuidar da mensagem do usuário.
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error saving message to DB", e)
             }
         }
     }
@@ -1032,7 +1340,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             val currentModel = _selectedModel.value
             Log.d(
                 "ChatViewModel",
-                "Iniciando chamada de API com modelo ${currentModel.displayName} (${currentModel.provider}) para conv $conversationId"
+                "Starting API call with model ${currentModel.displayName} (${currentModel.provider}) for conv $conversationId"
             )
 
             var responseText = StringBuilder()
@@ -1040,10 +1348,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
             withContext(Dispatchers.IO) {
                 try {
-                    // Escolher o cliente com base no provedor
+                    // Choose client based on provider
                     val result = when (currentModel.provider) {
                         AIProvider.OPENAI -> {
-                            Log.d("ChatViewModel", "Usando cliente OpenAI")
+                            Log.d("ChatViewModel", "Using OpenAI client")
                             withTimeoutOrNull(200000) {
                                 openAIClient.generateChatCompletion(
                                     modelId = currentModel.apiEndpoint,
@@ -1057,7 +1365,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                         AIProvider.GOOGLE -> {
-                            Log.d("ChatViewModel", "Usando cliente Google")
+                            Log.d("ChatViewModel", "Using Google client")
                             withTimeoutOrNull(200000) {
                                 googleAIClient.generateChatCompletion(
                                     modelId = currentModel.apiEndpoint,
@@ -1071,8 +1379,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                         AIProvider.ANTHROPIC -> {
-                            Log.d("ChatViewModel", "Usando cliente Anthropic")
-                            withTimeoutOrNull(300000) { // Damos mais tempo ao Claude
+                            Log.d("ChatViewModel", "Using Anthropic client")
+                            withTimeoutOrNull(300000) { // Give Claude more time
                                 anthropicClient.generateChatCompletion(
                                     modelId = currentModel.apiEndpoint,
                                     systemPrompt = brainstormiaSystemPrompt,
@@ -1086,14 +1394,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
 
-                    // Verificar se houve timeout
+                    // Check for timeout
                     if (result == null) {
-                        Log.w("ChatViewModel", "Timeout com modelo ${currentModel.id}")
+                        Log.w("ChatViewModel", "Timeout with model ${currentModel.id}")
 
-                        // Tenta usar o modelo de backup (GPT-4o) apenas para modelos OpenAI
+                        // Try to use backup model (GPT-4o) only for OpenAI models
                         if (currentModel.provider == AIProvider.OPENAI && currentModel.id != "gpt-4o") {
                             responseText.clear()
-                            Log.w("ChatViewModel", "Usando modelo de backup (GPT-4o)")
+                            Log.w("ChatViewModel", "Using backup model (GPT-4o)")
 
                             val backupModel = availableModels.first { it.id == "gpt-4o" }
                             modelUsed = backupModel
@@ -1111,22 +1419,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             }
 
                             if (backupResult == null) {
-                                throw Exception("Timeout na chamada da API (segunda tentativa)")
+                                throw Exception("Timeout in API call (second attempt)")
                             }
                         } else {
-                            throw Exception("Timeout na chamada da API")
+                            throw Exception("Timeout in API call")
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e("ChatViewModel", "Erro na chamada à API: ${e.message}")
+                    Log.e("ChatViewModel", "Error in API call: ${e.message}")
                     throw e
                 }
             }
 
-            // Processamento da resposta
+            // Response processing
             val finalResponse = responseText.toString()
             if (finalResponse.isNotBlank()) {
-                Log.d("ChatViewModel", "Resposta da API recebida para conv $conversationId (${finalResponse.length} caracteres)")
+                Log.d("ChatViewModel", "API response received for conv $conversationId (${finalResponse.length} characters)")
 
                 val botMessageEntity = ChatMessageEntity(
                     id = 0,
@@ -1140,24 +1448,24 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 viewModelScope.launch(Dispatchers.IO) {
                     try {
                         chatDao.insertMessage(botMessageEntity)
-                        Log.d("ChatViewModel", "Mensagem do bot salva no banco de dados")
+                        Log.d("ChatViewModel", "Bot message saved to database")
                         if (historyMessages.size <= 1 ||
                             (conversationId != NEW_CONVERSATION_ID && historyMessages.count { it.sender == Sender.USER } == 0)) {
-                            // É a primeira interação, gerar título automático
+                            // It's the first interaction, generate automatic title
                             autoGenerateConversationTitle(conversationId, userMessageText, finalResponse)
                         }
                     } catch (e: Exception) {
-                        Log.e("ChatViewModel", "Erro ao salvar mensagem do bot no banco de dados", e)
+                        Log.e("ChatViewModel", "Error saving bot message to database", e)
                     }
                 }
             } else {
-                Log.w("ChatViewModel", "Resposta vazia da API para conv $conversationId")
+                Log.w("ChatViewModel", "Empty response from API for conv $conversationId")
                 withContext(Dispatchers.Main) {
                     _errorMessage.value = context.getString(R.string.error_empty_response)
                 }
             }
         } catch (e: Exception) {
-            Log.e("ChatViewModel", "Erro na chamada à API para conv $conversationId", e)
+            Log.e("ChatViewModel", "Error in API call for conv $conversationId", e)
             withContext(Dispatchers.Main) {
                 if (e.message?.contains("Timeout") == true) {
                     _errorMessage.value = context.getString(R.string.error_timeout)
@@ -1251,16 +1559,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun saveMessageToDb(uiMessage: com.ivip.brainstormia.ChatMessage, conversationId: Long, timestamp: Long) {
-        val entity = mapUiMessageToEntity(uiMessage, conversationId, timestamp)
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                chatDao.insertMessage(entity)
-            } catch (e: Exception) {
-                Log.e("ChatViewModel", "Error saving message to DB", e)
-            }
-        }
-    }
+
 
     companion object {
         private val titleDateFormatter = SimpleDateFormat("dd/MM HH:mm", Locale.getDefault())

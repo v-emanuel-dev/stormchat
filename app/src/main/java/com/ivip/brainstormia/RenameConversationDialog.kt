@@ -110,7 +110,7 @@ fun RenameConversationDialog(
                 )
             ) {
                 Text(
-                    stringResource(id = R.string.cancel_button_pt),
+                    stringResource(id = R.string.cancel), // Changed from cancel_button_pt to cancel
                     color = buttonTextColor, // Usar sempre branco em vez de secondaryTextColor
                     fontWeight = FontWeight.Medium
                 )

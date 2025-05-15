@@ -309,4 +309,22 @@
     <string name="processing_payment">Traitement du paiement...</string>
     <string name="select_plan">Sélectionner le forfait</string>
 
+    <!-- 13. Image generation strings -->
+    <string name="generate_image">Générer une image</string>
+    <string name="image_prompt">Décrivez l\'image que vous voulez...</string>
+    <string name="quality">Qualité</string>
+    <string name="transparent_background">Arrière-plan transparent</string>
+    <string name="image_generated_successfully">Image générée avec succès !</string>
+    <string name="generate">Générer</string>
+    <string name="generate_image_description">Générer une image</string>
+    <string name="error_prompt_required_after_command">Veuillez fournir une description de l\'image après la commande %1$s.</string>
+    <string name="generated_image_description">Description de l\'image</string>
+    <string name="error_file_not_found_for_saving">Fichier introuvable pour l\'enregistrement.</string>
+    <string name="error_saving_image_generic">Erreur lors de l\'enregistrement de l\'image.</string>
+    <string name="image_saved_to_gallery">Image enregistrée dans %1$s</string>
+    <string name="save_image">Enregistrer l\'image</string>
+    <string name="image_save_permission_denied">Permission d\'enregistrer l\'image refusée.</string>
+    <string name="request_save_permission">Pour enregistrer des images, l\'application a besoin d\'une autorisation d\'accès à vos fichiers. Veuillez accorder cette autorisation dans les paramètres de l\'application.</string>
+    <string name="permission_required">Autorisation requise</string>
+
 </resources>

@@ -309,4 +309,22 @@
     <string name="processing_payment">भुगतान प्रक्रिया जारी...</string>
     <string name="select_plan">योजना चुनें</string>
 
+    <!-- 13. Image generation strings -->
+    <string name="generate_image">छवि बनाएं</string>
+    <string name="image_prompt">आप जो छवि चाहते हैं उसका वर्णन करें...</string>
+    <string name="quality">गुणवत्ता</string>
+    <string name="transparent_background">पारदर्शी पृष्ठभूमि</string>
+    <string name="image_generated_successfully">छवि सफलतापूर्वक बनाई गई!</string>
+    <string name="generate">बनाएं</string>
+    <string name="generate_image_description">छवि बनाएं</string>
+    <string name="error_prompt_required_after_command">कृपया %1$s कमांड के बाद छवि का विवरण प्रदान करें।</string>
+    <string name="generated_image_description">छवि विवरण</string>
+    <string name="error_file_not_found_for_saving">सहेजने के लिए फ़ाइल नहीं मिली।</string>
+    <string name="error_saving_image_generic">छवि सहेजने में त्रुटि।</string>
+    <string name="image_saved_to_gallery">छवि %1$s में सहेजी गई</string>
+    <string name="save_image">छवि सहेजें</string>
+    <string name="image_save_permission_denied">छवि सहेजने की अनुमति अस्वीकृत।</string>
+    <string name="request_save_permission">छवियों को सहेजने के लिए, ऐप को आपकी फ़ाइलों तक पहुंचने की अनुमति की आवश्यकता है। कृपया ऐप सेटिंग्स में अनुमति प्रदान करें।</string>
+    <string name="permission_required">अनुमति आवश्यक है</string>
+
 </resources>

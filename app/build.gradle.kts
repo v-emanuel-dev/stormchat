@@ -38,8 +38,8 @@ android {
         applicationId = "com.ivip.brainstormia"
         minSdk = 24
         targetSdk = 34
-        versionCode = 76
-        versionName = "7.6"
+        versionCode = 80
+        versionName = "8.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiKeyOpenaiFromProperties = localProperties.getProperty("apiKeyOpenai") ?: ""
@@ -169,6 +169,12 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.2.2")
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation ("io.noties.markwon:image:4.6.2")
+    implementation ("io.coil-kt:coil-compose:2.4.0")
+    implementation("com.aallam.openai:openai-client:3.6.2")
+    implementation("io.ktor:ktor-client-android:2.3.7")
+    implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
 
     /* ---------- Generative AI (Google) ---------- */
     implementation(libs.generativeai)

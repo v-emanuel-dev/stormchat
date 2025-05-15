@@ -211,7 +211,7 @@ fun ExportDialog(
             if (exportState is ExportState.Initial) {
                 TextButton(onClick = onDismiss) {
                     Text(
-                        text = stringResource(id = R.string.export_dialog_action_cancel),
+                        text = stringResource(id = R.string.cancel),
                         fontWeight = FontWeight.Medium,
                         color = if (isDarkTheme) TextColorLight.copy(alpha = 0.8f) else Color.DarkGray
                     )

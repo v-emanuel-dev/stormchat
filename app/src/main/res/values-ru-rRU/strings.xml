@@ -309,4 +309,22 @@
     <string name="processing_payment">Обработка платежа...</string>
     <string name="select_plan">Выбрать тариф</string>
 
+    <!-- 13. Image generation strings -->
+    <string name="generate_image">Создать изображение</string>
+    <string name="image_prompt">Опишите желаемое изображение...</string>
+    <string name="quality">Качество</string>
+    <string name="transparent_background">Прозрачный фон</string>
+    <string name="image_generated_successfully">Изображение успешно создано!</string>
+    <string name="generate">Создать</string>
+    <string name="generate_image_description">Создать изображение</string>
+    <string name="error_prompt_required_after_command">Пожалуйста, предоставьте описание изображения после команды %1$s.</string>
+    <string name="generated_image_description">Описание изображения</string>
+    <string name="error_file_not_found_for_saving">Файл для сохранения не найден.</string>
+    <string name="error_saving_image_generic">Ошибка при сохранении изображения.</string>
+    <string name="image_saved_to_gallery">Изображение сохранено в %1$s</string>
+    <string name="save_image">Сохранить изображение</string>
+    <string name="image_save_permission_denied">Отказано в разрешении на сохранение изображения.</string>
+    <string name="request_save_permission">Для сохранения изображений приложению требуется разрешение на доступ к вашим файлам. Пожалуйста, предоставьте разрешение в настройках приложения.</string>
+    <string name="permission_required">Требуется разрешение</string>
+
 </resources>
