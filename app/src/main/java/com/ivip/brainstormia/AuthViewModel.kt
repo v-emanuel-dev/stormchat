@@ -1,7 +1,6 @@
 package com.ivip.brainstormia
 
 import android.app.Application
-import android.content.ContentValues.TAG
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel

@@ -325,4 +325,16 @@
     <string name="request_save_permission">To save images, the app needs permission to access your files. Please grant the permission in the app settings.</string>
     <string name="permission_required">Permission required</string>
 
+    <!-- 14. File uploads -->
+    <string name="attach_file">Attach File</string>
+    <string name="remove_attachment">Remove Attachment</string>
+    <string name="send_with_attachment">Send with Attachment</string>
+    <string name="file_uploaded">File uploaded successfully</string>
+    <string name="file_not_found">File not found</string>
+    <string name="no_app_to_open_file">No application found to open this file type</string>
+    <string name="error_opening_file">Error opening file</string>
+    <string name="message_with_attachment_hint">Add a context to your attachment... (optional)</string>
+    <string name="attachment_title">Attachment to send</string>
+
+
 </resources>

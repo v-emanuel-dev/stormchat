@@ -1,6 +1,8 @@
 package com.ivip.brainstormia.services
 
 // Imports corretos para BackupWorker
+// Remova qualquer declaração de 'class DriveService' que possa estar aqui por engano.
+// O DriveService é importado e usado, não redeclarado.
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -15,14 +17,12 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.google.firebase.auth.FirebaseAuth
 import com.ivip.brainstormia.BrainstormiaApplication
+import com.ivip.brainstormia.ChatMessage
 import com.ivip.brainstormia.MainActivity
 import com.ivip.brainstormia.R
+import com.ivip.brainstormia.Sender
 import com.ivip.brainstormia.data.db.AppDatabase
 import com.ivip.brainstormia.data.db.ChatMessageEntity
-import com.ivip.brainstormia.ChatMessage
-import com.ivip.brainstormia.Sender
-// Remova qualquer declaração de 'class DriveService' que possa estar aqui por engano.
-// O DriveService é importado e usado, não redeclarado.
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext

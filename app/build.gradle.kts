@@ -1,6 +1,5 @@
-import com.android.build.api.dsl.Packaging
-import java.util.Properties
 import java.io.FileInputStream
+import java.util.Properties
 
 val localProperties = Properties()
 val localPropertiesFile = rootProject.file("local.properties")
@@ -38,8 +37,8 @@ android {
         applicationId = "com.ivip.brainstormia"
         minSdk = 24
         targetSdk = 34
-        versionCode = 80
-        versionName = "8.0"
+        versionCode = 81
+        versionName = "8.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val apiKeyOpenaiFromProperties = localProperties.getProperty("apiKeyOpenai") ?: ""
@@ -175,6 +174,7 @@ dependencies {
     implementation("io.ktor:ktor-client-android:2.3.7")
     implementation("io.ktor:ktor-client-content-negotiation:2.3.7")
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.7")
+    implementation ("org.apache.pdfbox:pdfbox:2.0.27")
 
     /* ---------- Generative AI (Google) ---------- */
     implementation(libs.generativeai)

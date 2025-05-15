@@ -62,7 +62,6 @@ class ImageGenerationManager(private val context: Context) {
                 val modelIdsToTry = listOf(
                     "dall-e-3",      // Try DALL-E 3 if available (premium)
                     "dall-e-2",      // Fallback to DALL-E 2
-                    "gpt-image-1"    // Adicionado como último fallback
                 )
                 // Escolher o primeiro modelo da lista como padrão
                 modelIdsToTry.first()

@@ -1,44 +1,66 @@
 package com.ivip.brainstormia
 
-import com.ivip.brainstormia.data.models.AIModel
 import android.app.Application
+import android.content.ContentValues
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.util.Log
+import android.webkit.MimeTypeMap
+import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.brainstormia.ConversationType
 import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.firestore
 import com.ivip.brainstormia.data.db.AppDatabase
 import com.ivip.brainstormia.data.db.ChatDao
 import com.ivip.brainstormia.data.db.ChatMessageEntity
 import com.ivip.brainstormia.data.db.ConversationInfo
 import com.ivip.brainstormia.data.db.ConversationMetadataDao
 import com.ivip.brainstormia.data.db.ConversationMetadataEntity
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.firestore
+import com.ivip.brainstormia.data.db.ModelPreferenceDao
+import com.ivip.brainstormia.data.db.ModelPreferenceEntity
+import com.ivip.brainstormia.data.models.AIModel
+import com.ivip.brainstormia.data.models.AIProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEmpty
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.io.OutputStream
+import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import com.ivip.brainstormia.data.db.ModelPreferenceDao
-import com.ivip.brainstormia.data.db.ModelPreferenceEntity
-import com.ivip.brainstormia.data.models.AIProvider
-import kotlinx.coroutines.withTimeoutOrNull
-import android.net.Uri
-import java.io.File
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import android.content.ContentValues
-import android.os.Build
-import android.provider.MediaStore
-import java.io.IOException
-import java.io.OutputStream
+import java.util.UUID
 
 enum class LoadingState { IDLE, LOADING, ERROR }
 
@@ -76,6 +98,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _imageSavedEvent = MutableSharedFlow<String>() // Emitirá a mensagem de sucesso/erro
     val imageSavedEvent: SharedFlow<String> = _imageSavedEvent.asSharedFlow()
 
+    data class FileAttachment(
+        val id: String = UUID.randomUUID().toString(),
+        val name: String,
+        val type: String,
+        val size: Long,
+        val localUri: Uri,
+        val filePath: String? = null
+    )
+
+    // Estado para mostrar na UI
+    private val _currentAttachment = MutableStateFlow<FileAttachment?>(null)
+    val currentAttachment: StateFlow<FileAttachment?> = _currentAttachment.asStateFlow()
+
+    // Evento para notificar quando o arquivo foi processado
+    private val _fileUploadEvent = MutableSharedFlow<FileAttachment>()
+    val fileUploadEvent: SharedFlow<FileAttachment> = _fileUploadEvent.asSharedFlow()
+
     // List of available models
     val availableModels = listOf(
         // Anthropic
@@ -91,7 +130,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             displayName = "Claude 3.5 Sonnet",
             apiEndpoint = "claude-3-5-sonnet-20241022",
             provider = AIProvider.ANTHROPIC,
-            isPremium = true
+            isPremium = false
         ),
 
         // Google Gemini
@@ -107,7 +146,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             displayName = "Gemini 2.5 Flash",
             apiEndpoint = "gemini-2.5-flash-preview-04-17",
             provider = AIProvider.GOOGLE,
-            isPremium = true
+            isPremium = false
         ),
         AIModel(
             id = "gemini-2.0-flash",
@@ -129,6 +168,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             id = "gpt-4o",
             displayName = "GPT-4o",
             apiEndpoint = "gpt-4o",
+            provider = AIProvider.OPENAI,
+            isPremium = true
+        ),
+        AIModel(
+            id = "gpt-4o-mini",
+            displayName = "GPT-4o Mini",
+            apiEndpoint = "gpt-4o-mini",
             provider = AIProvider.OPENAI,
             isPremium = false
         ),
@@ -158,21 +204,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             displayName = "GPT o3 Mini",
             apiEndpoint = "o3-mini",
             provider = AIProvider.OPENAI,
-            isPremium = true
+            isPremium = false
         ),
         AIModel(
             id = "o4-mini",
             displayName = "GPT o4 Mini",
             apiEndpoint = "o4-mini",
             provider = AIProvider.OPENAI,
-            isPremium = true
+            isPremium = false
         )
     )
 
     private val defaultModel = AIModel(
-        id = "gpt-4o",
-        displayName = "GPT-4o",
-        apiEndpoint = "gpt-4o",
+        id = "gpt-4o-mini",
+        displayName = "GPT-4o Mini",
+        apiEndpoint = "gpt-4o-mini",
         provider = AIProvider.OPENAI,
         isPremium = false
     )
@@ -187,6 +233,267 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // Adicione esta propriedade para armazenar o prompt durante a geração
     private val _currentImagePrompt = MutableStateFlow<String?>(null)
     val currentImagePrompt: StateFlow<String?> = _currentImagePrompt.asStateFlow()
+
+    /**
+     * Processa o upload de um arquivo
+     */
+    fun handleFileUpload(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                _loadingState.value = LoadingState.LOADING
+
+                // Obter informações do arquivo
+                val context = getApplication<Application>().applicationContext
+                val contentResolver = context.contentResolver
+
+                // Obter nome e tipo do arquivo
+                var fileName = ""
+                var fileType = ""
+                var fileSize = 0L
+
+                contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+
+                    if (cursor.moveToFirst()) {
+                        fileName = cursor.getString(nameIndex)
+                        fileSize = cursor.getLong(sizeIndex)
+
+                        // Obter o tipo MIME do arquivo
+                        fileType = contentResolver.getType(uri) ?: ""
+                        if (fileType.isEmpty()) {
+                            // Tentar obter o tipo a partir da extensão
+                            val extension = MimeTypeMap.getFileExtensionFromUrl(uri.toString())
+                            if (extension != null) {
+                                fileType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: ""
+                            }
+                        }
+                    }
+                }
+
+                // Salvar o arquivo em armazenamento interno para acesso posterior
+                val filesDir = File(context.filesDir, "uploads").apply {
+                    if (!exists()) mkdir()
+                }
+
+                val destinationFile = File(filesDir, fileName)
+                val filePath = destinationFile.absolutePath
+
+                contentResolver.openInputStream(uri)?.use { inputStream ->
+                    FileOutputStream(destinationFile).use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+
+                // Criar e armazenar o objeto de arquivo
+                val fileAttachment = FileAttachment(
+                    name = fileName,
+                    type = fileType,
+                    size = fileSize,
+                    localUri = uri,
+                    filePath = filePath
+                )
+
+                // Atualizar estado e notificar
+                _currentAttachment.value = fileAttachment
+                _fileUploadEvent.emit(fileAttachment)
+
+                // Mensagem de confirmação para o usuário
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Arquivo \"$fileName\" carregado com sucesso!"
+
+                    // Depois de um tempo, limpar a mensagem
+                    delay(3000)
+                    _errorMessage.value = null
+                }
+
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error handling file upload", e)
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Erro ao processar arquivo: ${e.localizedMessage}"
+                }
+            } finally {
+                _loadingState.value = LoadingState.IDLE
+            }
+        }
+    }
+
+    /**
+     * Envia uma mensagem com arquivo anexado
+     */
+    fun sendMessageWithAttachment(userMessageText: String, attachment: FileAttachment) {
+        if (_loadingState.value == LoadingState.LOADING) {
+            Log.w("ChatViewModel", "sendMessageWithAttachment cancelled: Already loading.")
+            _errorMessage.value = context.getString(R.string.error_wait_previous)
+            return
+        }
+
+        _loadingState.value = LoadingState.LOADING
+        _errorMessage.value = null
+
+        val timestamp = System.currentTimeMillis()
+        var targetConversationId = _currentConversationId.value
+        val userId = _userIdFlow.value
+        val isStartingNewConversation = (targetConversationId == null || targetConversationId == NEW_CONVERSATION_ID)
+
+        if (isStartingNewConversation) {
+            targetConversationId = timestamp
+            Log.i("ChatViewModel", "Action: Creating new conversation for message with attachment, ID: $targetConversationId")
+            _currentConversationId.value = targetConversationId
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    metadataDao.insertOrUpdateMetadata(
+                        ConversationMetadataEntity(
+                            conversationId = targetConversationId!!,
+                            customTitle = null,
+                            userId = userId
+                        )
+                    )
+                    Log.d("ChatViewModel", "Initial metadata saved for new conversation $targetConversationId")
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "Error saving initial metadata for new conv $targetConversationId", e)
+                }
+            }
+        }
+
+        if (targetConversationId == null || targetConversationId == NEW_CONVERSATION_ID) {
+            Log.e("ChatViewModel", "sendMessageWithAttachment Error: Invalid targetConversationId")
+            _errorMessage.value = context.getString(R.string.error_internal_conversation)
+            _loadingState.value = LoadingState.IDLE
+            return
+        }
+
+        // Preparar a mensagem de texto do usuário com informações sobre o anexo
+        val attachmentInfo = "📎 Arquivo: ${attachment.name} (${formatFileSize(attachment.size)})"
+        val finalUserMessage = if (userMessageText.isBlank()) {
+            attachmentInfo
+        } else {
+            "$userMessageText\n\n$attachmentInfo"
+        }
+
+        val userUiMessage = com.ivip.brainstormia.ChatMessage(finalUserMessage, Sender.USER)
+        saveMessageToDb(userUiMessage, targetConversationId!!, timestamp)
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val currentMessagesFromDb = chatDao.getMessagesForConversation(targetConversationId!!, userId).first()
+                val historyMessages = mapEntitiesToUiMessages(currentMessagesFromDb)
+                    .takeLast(MAX_HISTORY_MESSAGES)
+
+                // Preparar a mensagem para o modelo de IA incluindo informações sobre o arquivo
+                val fileInfo = """
+            Foi enviado um arquivo com as seguintes informações:
+            Nome: ${attachment.name}
+            Tipo: ${attachment.type}
+            Tamanho: ${formatFileSize(attachment.size)}
+            
+            Por favor, forneça insights ou orientações sobre como posso ajudar com este arquivo.
+            """.trimIndent()
+
+                // Mensagem do usuário + informações do arquivo
+                val augmentedUserMessage = if (userMessageText.isBlank()) {
+                    fileInfo
+                } else {
+                    "$userMessageText\n\n$fileInfo"
+                }
+
+                Log.d("ChatViewModel", "API Call (with attachment): Sending message to API for conv $targetConversationId")
+                callOpenAIApi(augmentedUserMessage, historyMessages, targetConversationId!!)
+
+                // Limpar o anexo atual após o envio
+                _currentAttachment.value = null
+
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error preparing history or calling API with attachment", e)
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Erro ao processar mensagem com anexo: ${e.message}"
+                    _loadingState.value = LoadingState.ERROR
+                }
+            }
+        }
+    }
+
+    /**
+     * Formata o tamanho do arquivo para exibição
+     */
+    private fun formatFileSize(size: Long): String {
+        if (size <= 0) return "0 B"
+        val units = arrayOf("B", "KB", "MB", "GB", "TB")
+        val digitGroups = (Math.log10(size.toDouble()) / Math.log10(1024.0)).toInt()
+        return DecimalFormat("#,##0.#").format(size / Math.pow(1024.0, digitGroups.toDouble())) + " " + units[digitGroups]
+    }
+
+    /**
+     * Limpa o anexo atual
+     */
+    fun clearCurrentAttachment() {
+        _currentAttachment.value = null
+    }
+
+    /**
+     * Abre um arquivo com base no nome do arquivo
+     */
+    fun openFile(fileName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val context = getApplication<Application>().applicationContext
+                val filesDir = File(context.filesDir, "uploads")
+                val file = File(filesDir, fileName)
+
+                if (!file.exists()) {
+                    withContext(Dispatchers.Main) {
+                        _errorMessage.value = "Arquivo não encontrado: $fileName"
+                    }
+                    return@launch
+                }
+
+                // Criar um URI para o arquivo usando FileProvider
+                val fileUri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file
+                )
+
+                // Determinar o tipo MIME do arquivo
+                val mimeType = getMimeType(file.name) ?: "*/*"
+
+                // Criar intent para abrir o arquivo
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(fileUri, mimeType)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+
+                // Verificar se há aplicativos para abrir este tipo de arquivo
+                val packageManager = context.packageManager
+                val activities = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+
+                if (activities.size > 0) {
+                    // Há aplicativos que podem abrir este arquivo
+                    context.startActivity(intent)
+                } else {
+                    // Nenhum aplicativo encontrado
+                    withContext(Dispatchers.Main) {
+                        _errorMessage.value = "Nenhum aplicativo encontrado para abrir este tipo de arquivo."
+                    }
+                }
+
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error opening file: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = "Erro ao abrir arquivo: ${e.localizedMessage}"
+                }
+            }
+        }
+    }
+
+    /**
+     * Obtém o tipo MIME de um arquivo com base em sua extensão
+     */
+    private fun getMimeType(fileName: String): String? {
+        val extension = fileName.substringAfterLast('.', "")
+        return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)
+    }
 
     fun selectModel(model: AIModel) {
         // Clear previous error messages
@@ -204,8 +511,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (model.isPremium && !_isPremiumUser.value) {
             _errorMessage.value = context.getString(R.string.error_premium_required)
 
-            // Find default non-premium model (GPT-4o)
-            val defaultModel = availableModels.find { it.id == "gpt-4o" } ?: defaultModel
+            val defaultModel = availableModels.find { it.id == "gpt-4o-mini" } ?: defaultModel
 
             // Force model update with more aggressive approach
             viewModelScope.launch {
@@ -569,7 +875,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (!isPremium && _selectedModel.value.isPremium) {
             // Non-premium user using premium model
             // Return to default model
-            val defaultModel = availableModels.find { it.id == "gpt-4o" } ?: defaultModel
+            val defaultModel = availableModels.find { it.id == "gpt-4o-mini" } ?: defaultModel
 
             viewModelScope.launch {
                 try {
@@ -677,8 +983,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 Log.i("ChatViewModel", "Loaded user model preference: ${savedModel.displayName}")
                             } else {
                                 // User is not premium but trying to use a premium model
-                                // Force reverting to default GPT-4o model
-                                val defaultModel = availableModels.find { it.id == "gpt-4o" } ?: defaultModel
+                                val defaultModel = availableModels.find { it.id == "gpt-4o-mini" } ?: defaultModel
                                 _selectedModel.value = defaultModel
                                 Log.i("ChatViewModel", "User is not premium. Reverting to default model: ${defaultModel.displayName}")
 
@@ -1398,12 +1703,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     if (result == null) {
                         Log.w("ChatViewModel", "Timeout with model ${currentModel.id}")
 
-                        // Try to use backup model (GPT-4o) only for OpenAI models
-                        if (currentModel.provider == AIProvider.OPENAI && currentModel.id != "gpt-4o") {
+                        if (currentModel.provider == AIProvider.OPENAI && currentModel.id != "gpt-4o-mini") {
                             responseText.clear()
-                            Log.w("ChatViewModel", "Using backup model (GPT-4o)")
+                            Log.w("ChatViewModel", "Using backup model (GPT-4o Mini)")
 
-                            val backupModel = availableModels.first { it.id == "gpt-4o" }
+                            val backupModel = availableModels.first { it.id == "gpt-4o-mini" }
                             modelUsed = backupModel
 
                             val backupResult = withTimeoutOrNull(60000) {

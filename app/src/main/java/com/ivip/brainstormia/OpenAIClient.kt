@@ -11,7 +11,6 @@ import com.aallam.openai.client.OpenAIConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import com.aallam.openai.api.chat.ChatMessage as OpenAIChatMessage
-import java.lang.reflect.Field
 
 /**
  * Client for communicating with the OpenAI API
@@ -117,7 +116,6 @@ class OpenAIClient(apiKey: String) {
                 val modelIdsToTry = listOf(
                     "dall-e-3",      // Try DALL-E 3 if available (premium)
                     "dall-e-2",      // Fallback to DALL-E 2
-                    "gpt-image-1"    // Adicionado como último fallback
                 )
                 // Escolher o primeiro modelo da lista como padrão
                 modelIdsToTry.first()

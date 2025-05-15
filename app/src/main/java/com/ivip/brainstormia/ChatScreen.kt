@@ -1,12 +1,18 @@
 package com.ivip.brainstormia
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.net.Uri
+import android.os.Build
 import android.text.style.LeadingMarginSpan
 import android.text.style.LineBackgroundSpan
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -24,6 +30,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,6 +47,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -54,12 +63,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.AudioFile
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardVoice
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.TextSnippet
+import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -73,6 +90,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -110,11 +128,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
@@ -136,34 +156,39 @@ import io.noties.markwon.linkify.LinkifyPlugin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.commonmark.node.ThematicBreak
-import androidx.compose.material.icons.filled.SaveAlt // Novo ícone
-import androidx.compose.material3.Button // Se não estiver lá
-import androidx.compose.material3.SnackbarDuration
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.imePadding
-import androidx.core.content.ContextCompat
+import java.text.DecimalFormat
 
 @Composable
 fun MessageBubble(
     message: ChatMessage,
     isDarkTheme: Boolean = true,
-    onSaveImageClicked: (String?) -> Unit = {} // Callback para salvar a imagem
+    onSaveImageClicked: (String?) -> Unit = {},
+    onFileClicked: (String?) -> Unit = {}
 ) {
     val isUserMessage = message.sender == Sender.USER
 
     // Verificar se a mensagem contém uma imagem
     val containsImage = message.text.contains("![Imagem Gerada]")
 
+    // Verificar se a mensagem contém um anexo de arquivo
+    val containsFileAttachment = message.text.contains("📎 Arquivo:")
+
     // Se for uma mensagem com imagem, extrair o caminho
     val imagePath = if (containsImage) {
         val regex = "!\\[Imagem Gerada\\]\\((.+?)\\)".toRegex()
         val matchResult = regex.find(message.text)
         matchResult?.groupValues?.get(1)
+    } else null
+
+    // Se for uma mensagem com anexo, extrair informações do arquivo
+    val fileInfo = if (containsFileAttachment && !containsImage) {
+        val regex = "📎 Arquivo: (.+?) \\((.+?)\\)".toRegex()
+        val matchResult = regex.find(message.text)
+        if (matchResult != null) {
+            val fileName = matchResult.groupValues[1]
+            val fileSize = matchResult.groupValues[2]
+            Pair(fileName, fileSize)
+        } else null
     } else null
 
     val userShape = RoundedCornerShape(
@@ -199,7 +224,7 @@ fun MessageBubble(
         contentAlignment = if (isUserMessage) Alignment.CenterEnd else Alignment.CenterStart
     ) {
         if (isUserMessage) {
-            // User bubble (unchanged)
+            // User bubble
             Card(
                 modifier = Modifier
                     .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.88f),
@@ -214,14 +239,44 @@ fun MessageBubble(
                         .background(userBubbleColor)
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
-                    SelectionContainer {
-                        Text(
-                            text = message.text,
-                            color = userTextColor,
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontWeight = FontWeight.Medium
+                    if (fileInfo != null) {
+                        // Mostrar visualização de arquivo na mensagem do usuário
+                        Column {
+                            // Exibir mensagem do usuário (se houver) sem as informações do anexo
+                            val messageText = message.text.replace("\\n\\n📎 Arquivo: .+".toRegex(), "")
+                            if (messageText.isNotBlank()) {
+                                SelectionContainer {
+                                    Text(
+                                        text = messageText,
+                                        color = userTextColor,
+                                        style = MaterialTheme.typography.bodyLarge.copy(
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+
+                            // Exibir anexo
+                            FileAttachmentCard(
+                                fileName = fileInfo.first,
+                                fileSize = fileInfo.second,
+                                isDarkTheme = isDarkTheme,
+                                isUserMessage = true,
+                                onFileClick = { onFileClicked(fileInfo.first) }
                             )
-                        )
+                        }
+                    } else {
+                        // Mensagem normal sem anexo
+                        SelectionContainer {
+                            Text(
+                                text = message.text,
+                                color = userTextColor,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        }
                     }
                 }
             }
@@ -505,6 +560,193 @@ fun MessageBubble(
     }
 }
 
+/**
+ * Componente para exibir anexo de arquivo em mensagens
+ */
+@Composable
+fun FileAttachmentCard(
+    fileName: String,
+    fileSize: String,
+    isDarkTheme: Boolean,
+    isUserMessage: Boolean,
+    onFileClick: () -> Unit
+) {
+    val backgroundColor = if (isUserMessage) {
+        if (isDarkTheme) Color(0xFF0D47A1).copy(alpha = 0.7f) else Color(0xFF1976D2).copy(alpha = 0.7f)
+    } else {
+        if (isDarkTheme) Color(0xFF333333) else Color(0xFFF5F5F5)
+    }
+
+    val textColor = if (isUserMessage) {
+        Color.White
+    } else {
+        if (isDarkTheme) Color.White else Color.Black
+    }
+
+    val secondaryTextColor = if (isUserMessage) {
+        Color.White.copy(alpha = 0.7f)
+    } else {
+        if (isDarkTheme) Color.LightGray else Color.DarkGray
+    }
+
+    // Determinar o ícone baseado na extensão do arquivo
+    val fileIcon = when {
+        fileName.endsWith(".pdf", ignoreCase = true) -> Icons.Default.PictureAsPdf
+        fileName.endsWith(".jpg", ignoreCase = true) || fileName.endsWith(".jpeg", ignoreCase = true) ||
+                fileName.endsWith(".png", ignoreCase = true) || fileName.endsWith(".gif", ignoreCase = true) -> Icons.Default.Image
+        fileName.endsWith(".mp4", ignoreCase = true) || fileName.endsWith(".avi", ignoreCase = true) ||
+                fileName.endsWith(".mov", ignoreCase = true) -> Icons.Default.VideoFile
+        fileName.endsWith(".mp3", ignoreCase = true) || fileName.endsWith(".wav", ignoreCase = true) ||
+                fileName.endsWith(".ogg", ignoreCase = true) -> Icons.Default.AudioFile
+        fileName.endsWith(".txt", ignoreCase = true) || fileName.endsWith(".doc", ignoreCase = true) ||
+                fileName.endsWith(".docx", ignoreCase = true) -> Icons.Default.TextSnippet
+        else -> Icons.Default.InsertDriveFile
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(backgroundColor)
+            .clickable { onFileClick() }
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Ícone do arquivo
+        Icon(
+            imageVector = fileIcon,
+            contentDescription = null,
+            tint = textColor,
+            modifier = Modifier.size(24.dp)
+        )
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        // Informações do arquivo
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = fileName,
+                color = textColor,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Text(
+                text = fileSize,
+                color = secondaryTextColor,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+    }
+}
+
+@Composable
+fun FileAttachmentPreview(
+    attachment: ChatViewModel.FileAttachment,
+    onRemoveClick: () -> Unit,
+    isDarkTheme: Boolean = true
+) {
+    val backgroundColor = if (isDarkTheme) Color(0xFF292929) else Color(0xFFE8E8E8)
+    val textColor = if (isDarkTheme) Color.White else Color.Black
+    val secondaryTextColor = if (isDarkTheme) Color.LightGray else Color.DarkGray
+    val accentColor = if (isDarkTheme) PrimaryColor.copy(alpha = 0.7f) else PrimaryColor.copy(alpha = 0.6f)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, accentColor),  // Adiciona borda para destacar
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isDarkTheme) 2.dp else 1.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            // Título "Anexo" para tornar claro que esse arquivo será enviado
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.attachment_title),
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = accentColor
+                )
+
+                // Botão para remover o anexo
+                IconButton(
+                    onClick = onRemoveClick,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.remove_attachment),
+                        tint = secondaryTextColor
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Informações do arquivo
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Ícone baseado no tipo de arquivo
+                val fileIcon = when {
+                    attachment.type.startsWith("image/") -> Icons.Default.Image
+                    attachment.type.startsWith("video/") -> Icons.Default.VideoFile
+                    attachment.type.startsWith("audio/") -> Icons.Default.AudioFile
+                    attachment.type.startsWith("application/pdf") -> Icons.Default.PictureAsPdf
+                    attachment.type.startsWith("text/") -> Icons.Default.TextSnippet
+                    else -> Icons.Default.InsertDriveFile
+                }
+
+                Icon(
+                    imageVector = fileIcon,
+                    contentDescription = "Tipo de arquivo",
+                    modifier = Modifier
+                        .size(40.dp)
+                        .padding(end = 12.dp),
+                    tint = textColor
+                )
+
+                // Informações do arquivo
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = attachment.name,
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                        color = textColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Text(
+                        text = formatFileSize(attachment.size),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = secondaryTextColor
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Formata o tamanho do arquivo para exibição em unidades legíveis
+ */
+private fun formatFileSize(size: Long): String {
+    if (size <= 0) return "0 B"
+    val units = arrayOf("B", "KB", "MB", "GB", "TB")
+    val digitGroups = (Math.log10(size.toDouble()) / Math.log10(1024.0)).toInt()
+    return DecimalFormat("#,##0.#").format(size / Math.pow(1024.0, digitGroups.toDouble())) + " " + units[digitGroups]
+}
 
 /**
  * A SelectionContainer that tries to maintain selection when tapping outside
@@ -537,12 +779,12 @@ fun PersistentSelectionContainer(
 fun ChatScreen(
     onLogin: () -> Unit = {},
     onLogout: () -> Unit = {},
-    onNavigateToProfile: () -> Unit = {},  // Adicione este parâmetro
-    chatViewModel: ChatViewModel,  // Non-nullable parameter
+    onNavigateToProfile: () -> Unit = {},
+    chatViewModel: ChatViewModel,
     authViewModel: AuthViewModel = viewModel(),
-    exportViewModel: ExportViewModel,  // Non-nullable parameter
+    exportViewModel: ExportViewModel,
     isDarkTheme: Boolean = true,
-    onThemeChanged: (Boolean) -> Unit = {}  // Add this parameter with default value
+    onThemeChanged: (Boolean) -> Unit = {}
 ) {
     // Definir cores do tema dentro do Composable
     val backgroundColor =
@@ -568,6 +810,9 @@ fun ChatScreen(
     val isImageGenerating by chatViewModel.isImageGenerating.collectAsState()
     val currentImagePrompt by chatViewModel.currentImagePrompt.collectAsState()
 
+    // Estado para arquivos anexados
+    val currentAttachment by chatViewModel.currentAttachment.collectAsState()
+
     var userMessage by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
     val modelSelectorVisible = remember {
@@ -582,8 +827,8 @@ fun ChatScreen(
     var conversationIdToRename by remember { mutableStateOf<Long?>(null) }
     var currentTitleForDialog by remember { mutableStateOf<String?>(null) }
     var showDeleteConfirmationDialog by remember { mutableStateOf<Long?>(null) }
-    var conversationIdToExport by remember { mutableStateOf<Long?>(null) } // Novo estado
-    var exportDialogTitle by remember { mutableStateOf("") } // Novo estado
+    var conversationIdToExport by remember { mutableStateOf<Long?>(null) }
+    var exportDialogTitle by remember { mutableStateOf("") }
     val isPremiumUser by chatViewModel.isPremiumUser.collectAsState()
 
     var showImageGenerationDialog by remember { mutableStateOf(false) }
@@ -593,6 +838,17 @@ fun ChatScreen(
 
     // Variável para armazenar o caminho da imagem a ser salva após permissão
     var imagePathToSaveAfterPermission by remember { mutableStateOf<String?>(null) }
+
+    // Launcher para seleção de arquivos
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            coroutineScope.launch {
+                chatViewModel.handleFileUpload(uri)
+            }
+        }
+    }
 
     // Definir a permissão a ser solicitada com base na versão Android
     val permissionToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -702,6 +958,16 @@ fun ChatScreen(
             snackbarHostState.showSnackbar(
                 message = message,
                 duration = SnackbarDuration.Long
+            )
+        }
+    }
+
+    // Escutar eventos de arquivo carregado
+    LaunchedEffect(Unit) {
+        chatViewModel.fileUploadEvent.collect { attachment ->
+            snackbarHostState.showSnackbar(
+                message = "Arquivo \"${attachment.name}\" carregado com sucesso",
+                duration = SnackbarDuration.Short
             )
         }
     }
@@ -834,7 +1100,7 @@ fun ChatScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         painter = painterResource(id = R.drawable.ic_bolt_foreground),
-                                        contentDescription = stringResource(R.string.app_icon_description), // Substitui "Ícone StormChat"
+                                        contentDescription = stringResource(R.string.app_icon_description),
                                         tint = Color(0xFFFFD700),
                                         modifier = Modifier.size(32.dp)
                                     )
@@ -853,7 +1119,7 @@ fun ChatScreen(
                                     }) {
                                         Icon(
                                             imageVector = Icons.Default.Menu,
-                                            contentDescription = stringResource(R.string.menu_description), // Substitui "Menu"
+                                            contentDescription = stringResource(R.string.menu_description),
                                             tint = Color.White
                                         )
                                     }
@@ -869,13 +1135,11 @@ fun ChatScreen(
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Default.CloudUpload,
-                                                contentDescription = stringResource(R.string.export_conversation_description), // Substitui "Exportar conversa"
+                                                contentDescription = stringResource(R.string.export_conversation_description),
                                                 tint = Color.White
                                             )
                                         }
                                     }
-
-
                                 }
                             },
                             actions = {
@@ -898,7 +1162,7 @@ fun ChatScreen(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Star,
-                                            contentDescription = stringResource(R.string.premium_user_description), // Substitui "Usuário Premium"
+                                            contentDescription = stringResource(R.string.premium_user_description),
                                             tint = Color(0xFFFFD700) // Usar cor dourada consistente
                                         )
                                     }
@@ -930,7 +1194,7 @@ fun ChatScreen(
                                         imageVector = if (currentUser != null) Icons.AutoMirrored.Filled.Logout else Icons.AutoMirrored.Filled.Login,
                                         contentDescription = if (currentUser != null) stringResource(
                                             R.string.logout
-                                        ) else stringResource(R.string.login), // Substitui "Sair"/"Entrar"
+                                        ) else stringResource(R.string.login),
                                         tint = Color.White
                                     )
                                 }
@@ -944,20 +1208,45 @@ fun ChatScreen(
                         )
                     },
                     bottomBar = {
-                        MessageInput(
-                            message = userMessage,
-                            onMessageChange = { newText -> userMessage = newText },
-                            onSendClick = {
-                                if (userMessage.isNotBlank()) {
-                                    chatViewModel.sendMessage(userMessage)
-                                    userMessage = ""
+                        Column {
+                            // Exibir preview do arquivo se houver um anexo
+                            AnimatedVisibility(
+                                visible = currentAttachment != null,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut()
+                            ) {
+                                currentAttachment?.let { attachment ->
+                                    FileAttachmentPreview(
+                                        attachment = attachment,
+                                        onRemoveClick = { chatViewModel.clearCurrentAttachment() },
+                                        isDarkTheme = isDarkTheme
+                                    )
                                 }
-                            },
-                            isSendEnabled = !isLoading,
-                            isDarkTheme = isDarkTheme,
-                            viewModel = chatViewModel,
-                            onImageGenerationClick = { showImageGenerationDialog = true }
-                        )
+                            }
+
+                            MessageInput(
+                                message = userMessage,
+                                onMessageChange = { newText -> userMessage = newText },
+                                onSendClick = {
+                                    if (userMessage.isNotBlank() || currentAttachment != null) {
+                                        if (currentAttachment != null) {
+                                            // Se há anexo, usar sendMessageWithAttachment (com ou sem texto)
+                                            chatViewModel.sendMessageWithAttachment(userMessage, currentAttachment!!)
+                                        } else {
+                                            // Se não há anexo, usar o sendMessage normal
+                                            chatViewModel.sendMessage(userMessage)
+                                        }
+                                        userMessage = ""
+                                    }
+                                },
+                                onFileUploadClick = { filePickerLauncher.launch("*/*") },
+                                isSendEnabled = !isLoading,
+                                isDarkTheme = isDarkTheme,
+                                viewModel = chatViewModel,
+                                onImageGenerationClick = { showImageGenerationDialog = true },
+                                hasAttachment = currentAttachment != null
+                            )
+                        }
                     },
                     containerColor = if (isDarkTheme) Color(0xFF121212) else backgroundColor,
                     contentColor = textColor
@@ -1040,6 +1329,11 @@ fun ChatScreen(
                                                         "Save image clicked, but path was null for message: ${message.text}"
                                                     )
                                                 }
+                                            },
+                                            onFileClicked = { fileName ->
+                                                if (fileName != null) {
+                                                    chatViewModel.openFile(fileName)
+                                                }
                                             }
                                         )
                                     }
@@ -1117,7 +1411,7 @@ fun ChatScreen(
                                     text = stringResource(
                                         R.string.error_prefix,
                                         errorMsg
-                                    ), // Substitui "Erro: $errorMsg"
+                                    ),
                                     color = Color.White,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
@@ -1182,21 +1476,20 @@ fun ChatScreen(
             }
         }
 
-        // O restante do código permanece inalterado
         // Diálogos de exclusão, renomear e exportação
         showDeleteConfirmationDialog?.let { conversationIdToDelete ->
             AlertDialog(
                 onDismissRequest = { showDeleteConfirmationDialog = null },
                 title = {
                     Text(
-                        text = stringResource(R.string.delete_confirmation_title), // Substitui "Excluir conversa"
+                        text = stringResource(R.string.delete_confirmation_title),
                         fontWeight = FontWeight.Bold,
                         color = if (isDarkTheme) TextColorLight else TextColorDark
                     )
                 },
                 text = {
                     Text(
-                        text = stringResource(R.string.delete_confirmation_message), // Substitui "Tem certeza que deseja excluir esta conversa? Esta ação não pode ser desfeita."
+                        text = stringResource(R.string.delete_confirmation_message),
                         fontWeight = FontWeight.Medium,
                         color = if (isDarkTheme) TextColorLight else TextColorDark
                     )
@@ -1209,7 +1502,7 @@ fun ChatScreen(
                         }
                     ) {
                         Text(
-                            text = stringResource(R.string.delete), // Substitui "Excluir"
+                            text = stringResource(R.string.delete),
                             color = MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -1218,7 +1511,7 @@ fun ChatScreen(
                 dismissButton = {
                     TextButton(onClick = { showDeleteConfirmationDialog = null }) {
                         Text(
-                            text = stringResource(R.string.cancel), // Substitui "Cancelar"
+                            text = stringResource(R.string.cancel),
                             fontWeight = FontWeight.Medium,
                             color = if (isDarkTheme) TextColorLight.copy(alpha = 0.8f) else Color.DarkGray
                         )
@@ -1230,7 +1523,7 @@ fun ChatScreen(
             )
         }
 
-        // Diálogo de renomear conversa (existente)
+        // Diálogo de renomear conversa
         conversationIdToRename?.let { id ->
             if (currentTitleForDialog != null) {
                 RenameConversationDialog(
@@ -1248,7 +1541,7 @@ fun ChatScreen(
             }
         }
 
-        // Diálogo de exportação (novo)
+        // Diálogo de exportação
         conversationIdToExport?.let { convId ->
             ExportDialog(
                 conversationTitle = exportDialogTitle,
@@ -1285,16 +1578,29 @@ fun MessageInput(
     message: String,
     onMessageChange: (String) -> Unit,
     onSendClick: () -> Unit,
+    onFileUploadClick: () -> Unit,
     isSendEnabled: Boolean,
     isDarkTheme: Boolean = true,
     viewModel: ChatViewModel,
-    onImageGenerationClick: () -> Unit
+    onImageGenerationClick: () -> Unit,
+    hasAttachment: Boolean = false // Novo parâmetro para indicar se há um anexo
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val isListening by viewModel.isListening.collectAsState()
 
     // Estado para verificar se tem texto sendo digitado
     val isTyping = message.isNotBlank()
+
+    // Adicionar indicador visual de anexo ao campo de texto
+    val hintText = if (hasAttachment) {
+        stringResource(R.string.message_with_attachment_hint)
+    } else {
+        stringResource(R.string.message_hint)
+    }
+
+    // Modificar a condição para habilitar o botão de enviar
+    // Agora, deve ser habilitado se há um anexo (mesmo sem texto) ou se há texto
+    val isSendButtonEnabled = isSendEnabled && (message.isNotBlank() || hasAttachment)
 
     // Animação de piscar para a borda
     val infiniteTransition = rememberInfiniteTransition()
@@ -1321,10 +1627,10 @@ fun MessageInput(
     val userBubbleColor =
         if (isDarkTheme) Color(0xFF0D47A1) else Color(0xFF1976D2) // Azul da bolha do usuário
 
-    // FIXED: Cor do botão de enviar quando tem texto (PrimaryColor em vez de branco no tema claro)
+    // FIXED: Cor do botão de enviar quando tem texto ou anexo
     val sendButtonColor = when {
         !isSendEnabled -> if (isDarkTheme) Color(0xFF333333) else PrimaryColor.copy(alpha = 0.4f)
-        message.isNotBlank() -> if (isDarkTheme) Color(0xFF333333) else PrimaryColor // AQUI: Mudado para PrimaryColor
+        message.isNotBlank() || hasAttachment -> if (isDarkTheme) Color(0xFF333333) else PrimaryColor
         else -> if (isDarkTheme) Color(0xFF333333).copy(alpha = 0.6f) else PrimaryColor.copy(alpha = 0.5f)
     }
 
@@ -1369,7 +1675,7 @@ fun MessageInput(
                 onValueChange = onMessageChange,
                 placeholder = {
                     Text(
-                        text = stringResource(R.string.message_hint), // Substitui "Mensagem..."
+                        text = hintText,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontWeight = FontWeight.Medium,
                             fontSize = 16.sp,
@@ -1413,8 +1719,31 @@ fun MessageInput(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(end = 1.dp)
             ) {
-                // Botão de microfone (visível apenas quando não está digitando)
+                // Botões para quando não está digitando
                 if (!isTyping) {
+                    // Botão de upload de arquivo (novo)
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isDarkTheme) Color.Gray.copy(alpha = 0.3f) else PrimaryColor.copy(alpha = 0.25f)
+                            )
+                            .clickable(enabled = isSendEnabled) { onFileUploadClick() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AttachFile,
+                            contentDescription = stringResource(R.string.attach_file),
+                            modifier = Modifier.size(18.dp),
+                            tint = if (isDarkTheme) Color.White else Color.Black
+                        )
+                    }
+
+                    // Espaço mínimo entre botões
+                    Spacer(modifier = Modifier.width(2.dp))
+
+                    // Botão de microfone
                     SimpleVoiceInputButton(
                         onTextResult = { text ->
                             onMessageChange(text); viewModel.handleVoiceInput(
@@ -1432,49 +1761,25 @@ fun MessageInput(
 
                     // Espaço mínimo entre microfone e botão de enviar
                     Spacer(modifier = Modifier.width(2.dp))
-
-//                    if (viewModel.isPremiumUser.collectAsState().value) {
-//                        // Botão para geração de imagem
-//                        Box(
-//                            modifier = Modifier
-//                                .size(36.dp)
-//                                .clip(CircleShape)
-//                                .background(
-//                                    if (isDarkTheme) Color.Gray.copy(alpha = 0.3f) else PrimaryColor.copy(
-//                                        alpha = 0.25f
-//                                    )
-//                                )
-//                                .clickable(enabled = isSendEnabled) { onImageGenerationClick() },
-//                            contentAlignment = Alignment.Center
-//                        ) {
-//                            Icon(
-//                                imageVector = Icons.Default.Image,
-//                                contentDescription = stringResource(R.string.generate_image_description),
-//                                modifier = Modifier.size(18.dp),
-//                                tint = if (isDarkTheme) Color.White else Color.Black
-//                            )
-//                        }
                 }
             }
 
-            // Botão de enviar (maior que o microfone)
+            // Botão de enviar (agora funciona tanto para mensagens normais quanto para anexos)
             Box(
                 modifier = Modifier
-                    .size(48.dp) // Tamanho aumentado
+                    .size(48.dp)
                     .clip(CircleShape)
-                    .background(sendButtonColor) // FIXED: Usando a cor corrigida
-                    .clickable(enabled = message.isNotBlank() && isSendEnabled) { onSendClick() },
+                    .background(sendButtonColor)
+                    .clickable(enabled = isSendButtonEnabled) { onSendClick() },
                 contentAlignment = Alignment.Center
             ) {
-                // FIXED: Cor do ícone de enviar ajustada para garantir contraste
-                val iconColor =
-                    if (!isDarkTheme && message.isNotBlank()) Color.White else Color.White
+                val iconColor = if (!isDarkTheme && (message.isNotBlank() || hasAttachment)) Color.White else Color.White
 
                 Icon(
                     Icons.AutoMirrored.Filled.Send,
-                    contentDescription = stringResource(R.string.send_description), // Adiciona descrição para acessibilidade
-                    modifier = Modifier.size(26.dp), // Ícone aumentado
-                    tint = iconColor // Cor ajustada para garantir visibilidade
+                    contentDescription = stringResource(R.string.send_description),
+                    modifier = Modifier.size(26.dp),
+                    tint = iconColor
                 )
             }
         }
@@ -1561,8 +1866,6 @@ fun TypingIndicatorAnimation(
         }
     }
 
-    // Removendo o Card
-    // Removendo o Card
     Row(
         modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
