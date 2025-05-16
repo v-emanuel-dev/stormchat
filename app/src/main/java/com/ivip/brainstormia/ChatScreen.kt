@@ -921,6 +921,7 @@ fun ChatScreen(
         )
     }
 
+    // Efeitos para verificação de usuário premium e outros eventos
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
             chatViewModel.checkIfUserIsPremium()
@@ -1019,20 +1020,9 @@ fun ChatScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        // Verificar imediatamente ao iniciar
-        if (currentUser != null) {
-            chatViewModel.checkIfUserIsPremium()
-        }
-
-        // Depois verificar a cada minuto
-        while (true) {
-            delay(60000) // 1 minuto
-            if (currentUser != null) {
-                chatViewModel.checkIfUserIsPremium()
-            }
-        }
-    }
+    // Altura desejada para o input e padding
+    val inputHeight = 90.dp
+    val bottomPadding = 36.dp
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -1052,7 +1042,6 @@ fun ChatScreen(
                 },
                 onNewChatClick = {
                     coroutineScope.launch {
-                        // mesma lógica para nova conversa
                         drawerState.close()
                         if (currentConversationId != null && currentConversationId != NEW_CONVERSATION_ID) {
                             chatViewModel.startNewConversation()
@@ -1077,414 +1066,395 @@ fun ChatScreen(
             )
         }
     ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = backgroundColor
+        // IMPORTANTE: Usamos Box como container principal
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(backgroundColor)
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.dp)
-                        .background(PrimaryColor)
-                )
-
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    snackbarHost = { SnackbarHost(snackbarHostState) },
-                    contentWindowInsets = WindowInsets.ime,
-                    topBar = {
-                        CenterAlignedTopAppBar(
-                            windowInsets = WindowInsets(0),
-                            title = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_bolt_foreground),
-                                        contentDescription = stringResource(R.string.app_icon_description),
-                                        tint = Color(0xFFFFD700),
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = stringResource(R.string.app_name),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = Color.White
-                                    )
-                                }
-                            },
-                            navigationIcon = {
-                                Row {
-                                    IconButton(onClick = {
-                                        coroutineScope.launch { drawerState.open() }
-                                    }) {
-                                        Icon(
-                                            imageVector = Icons.Default.Menu,
-                                            contentDescription = stringResource(R.string.menu_description),
-                                            tint = Color.White
-                                        )
-                                    }
-
-                                    val isPremiumUser by chatViewModel.isPremiumUser.collectAsState()
-
-                                    if (isPremiumUser == true && currentConversationId != null && currentConversationId != NEW_CONVERSATION_ID) {
-                                        IconButton(
-                                            onClick = {
-                                                exportViewModel.resetExportState()
-                                                conversationIdToExport = currentConversationId
-                                            }
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.CloudUpload,
-                                                contentDescription = stringResource(R.string.export_conversation_description),
-                                                tint = Color.White
-                                            )
-                                        }
-                                    }
-                                }
-                            },
-                            actions = {
-                                val rotation = rememberInfiniteTransition()
-                                val angle by rotation.animateFloat(
-                                    initialValue = 0f,
-                                    targetValue = 360f,
-                                    animationSpec = infiniteRepeatable(
-                                        animation = tween(durationMillis = 6000),
-                                        repeatMode = RepeatMode.Restart
-                                    )
-                                )
-                                // Para usuários premium, mostrar a estrela dourada animada
-                                if (isPremiumUser) {
-                                    IconButton(
-                                        onClick = { onNavigateToProfile() },
-                                        modifier = Modifier
-                                            .padding(end = 8.dp)
-                                            .graphicsLayer { rotationZ = angle }
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Star,
-                                            contentDescription = stringResource(R.string.premium_user_description),
-                                            tint = Color(0xFFFFD700) // Usar cor dourada consistente
-                                        )
-                                    }
-                                } else {
-                                    // Para usuários normais, mostrar a estrela branca
-                                    IconButton(
-                                        onClick = { onNavigateToProfile() },
-                                        modifier = Modifier.padding(end = 8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Star,
-                                            contentDescription = "Perfil",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(28.dp)
-                                        )
-                                    }
-                                }
-                                IconButton(
-                                    onClick = {
-                                        if (currentUser != null) {
-                                            onLogout()
-                                        } else {
-                                            onLogin()
-                                        }
-                                    },
-                                    modifier = Modifier.padding(end = 8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (currentUser != null) Icons.AutoMirrored.Filled.Logout else Icons.AutoMirrored.Filled.Login,
-                                        contentDescription = if (currentUser != null) stringResource(
-                                            R.string.logout
-                                        ) else stringResource(R.string.login),
-                                        tint = Color.White
-                                    )
-                                }
-                            },
-                            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                                containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else PrimaryColor,
-                                titleContentColor = Color.White,
-                                navigationIconContentColor = Color.White,
-                                actionIconContentColor = Color.White
-                            )
+            // TopAppBar
+            CenterAlignedTopAppBar(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth(),
+                windowInsets = WindowInsets(0),
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_bolt_foreground),
+                            contentDescription = stringResource(R.string.app_icon_description),
+                            tint = Color(0xFFFFD700),
+                            modifier = Modifier.size(32.dp)
                         )
-                    },
-                    bottomBar = {
-                        Column {
-                            // Exibir preview do arquivo se houver um anexo
-                            AnimatedVisibility(
-                                visible = currentAttachment != null,
-                                enter = expandVertically() + fadeIn(),
-                                exit = shrinkVertically() + fadeOut()
-                            ) {
-                                currentAttachment?.let { attachment ->
-                                    FileAttachmentPreview(
-                                        attachment = attachment,
-                                        onRemoveClick = { chatViewModel.clearCurrentAttachment() },
-                                        isDarkTheme = isDarkTheme
-                                    )
-                                }
-                            }
-
-                            MessageInput(
-                                message = userMessage,
-                                onMessageChange = { newText -> userMessage = newText },
-                                onSendClick = {
-                                    if (userMessage.isNotBlank() || currentAttachment != null) {
-                                        if (currentAttachment != null) {
-                                            // Se há anexo, usar sendMessageWithAttachment (com ou sem texto)
-                                            chatViewModel.sendMessageWithAttachment(userMessage, currentAttachment!!)
-                                        } else {
-                                            // Se não há anexo, usar o sendMessage normal
-                                            chatViewModel.sendMessage(userMessage)
-                                        }
-                                        userMessage = ""
-                                    }
-                                },
-                                onFileUploadClick = { filePickerLauncher.launch("*/*") },
-                                isSendEnabled = !isLoading,
-                                isDarkTheme = isDarkTheme,
-                                viewModel = chatViewModel,
-                                onImageGenerationClick = { showImageGenerationDialog = true },
-                                hasAttachment = currentAttachment != null
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.app_name),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White
+                        )
+                    }
+                },
+                navigationIcon = {
+                    Row {
+                        IconButton(onClick = {
+                            coroutineScope.launch { drawerState.open() }
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = stringResource(R.string.menu_description),
+                                tint = Color.White
                             )
                         }
-                    },
-                    containerColor = if (isDarkTheme) Color(0xFF121212) else backgroundColor,
-                    contentColor = textColor
-                ) { paddingValues ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues)
-                            .background(backgroundColor)
-                    ) {
 
-                        // Add AI model selector only if user is logged in
-                        if (currentUser != null) {
-                            AnimatedVisibility(
-                                visible = modelSelectorVisible.value,
-                                enter = fadeIn(animationSpec = tween(300)) + expandVertically(
-                                    animationSpec = tween(300)
-                                ),
-                                exit = fadeOut(animationSpec = tween(300)) + shrinkVertically(
-                                    animationSpec = tween(300)
-                                )
+                        val isPremiumUser by chatViewModel.isPremiumUser.collectAsState()
+
+                        if (isPremiumUser == true && currentConversationId != null && currentConversationId != NEW_CONVERSATION_ID) {
+                            IconButton(
+                                onClick = {
+                                    exportViewModel.resetExportState()
+                                    conversationIdToExport = currentConversationId
+                                }
                             ) {
-                                key(isPremiumUser) {
-                                    ModelSelectionDropdown(
-                                        models = chatViewModel.modelOptions,
-                                        selectedModel = selectedModel,
-                                        onModelSelected = { chatViewModel.selectModel(it) },
-                                        isPremiumUser = isPremiumUser,
-                                        isDarkTheme = isDarkTheme
-                                    )
-                                }
-                            }
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                        ) {
-                            ImageGenerationDialog(
-                                isVisible = showImageGenerationDialog,
-                                onDismiss = { showImageGenerationDialog = false },
-                                onGenerateImage = { prompt, quality, size, transparent ->
-                                    chatViewModel.generateImage(prompt, quality, size, transparent)
-                                    showImageGenerationDialog =
-                                        false  // Close dialog after generating
-                                },
-                                generationState = chatViewModel.imageGenerationState.collectAsState().value,
-                                isDarkTheme = isDarkTheme
-                            )
-
-                            // Wrap the entire LazyColumn with a SelectionContainer
-                            SelectionContainer {
-                                LazyColumn(
-                                    state = listState,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(horizontal = 16.dp)
-                                        // Important: prevent click events from bubbling up
-                                        .clickable(
-                                            enabled = false,
-                                            onClick = {}
-                                        ),
-                                    contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    itemsIndexed(
-                                        items = messages,
-                                        key = { index, _ -> index }
-                                    ) { _, message ->
-                                        MessageBubble(
-                                            message = message,
-                                            isDarkTheme = isDarkTheme,
-                                            onSaveImageClicked = { imagePath ->
-                                                if (imagePath != null) {
-                                                    checkAndSaveImage(imagePath)
-                                                } else {
-                                                    Log.w(
-                                                        "ChatScreen",
-                                                        "Save image clicked, but path was null for message: ${message.text}"
-                                                    )
-                                                }
-                                            },
-                                            onFileClicked = { fileName ->
-                                                if (fileName != null) {
-                                                    chatViewModel.openFile(fileName)
-                                                }
-                                            }
-                                        )
-                                    }
-
-                                    // Mostrar indicador de carregamento durante geração de imagem
-                                    if (isImageGenerating) {
-                                        item {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(vertical = 2.dp),
-                                                contentAlignment = Alignment.CenterStart
-                                            ) {
-                                                Card(
-                                                    modifier = Modifier
-                                                        .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.88f),
-                                                    shape = RoundedCornerShape(
-                                                        20.dp,
-                                                        20.dp,
-                                                        6.dp,
-                                                        20.dp
-                                                    ),
-                                                    colors = CardDefaults.cardColors(
-                                                        containerColor = if (isDarkTheme) Color(
-                                                            0xFF292929
-                                                        ) else Color(0xFFE4E4E4)
-                                                    )
-                                                ) {
-                                                    Column(
-                                                        modifier = Modifier.padding(16.dp),
-                                                        horizontalAlignment = Alignment.CenterHorizontally
-                                                    ) {
-                                                        LightningLoadingAnimation(
-                                                            isDarkTheme = isDarkTheme
-                                                        )
-
-                                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                                        Text(
-                                                            text = "Gerando imagem...",
-                                                            style = MaterialTheme.typography.bodyMedium,
-                                                            fontWeight = FontWeight.Medium,
-                                                            color = if (isDarkTheme) TextColorLight else TextColorDark
-                                                        )
-
-                                                        if (!currentImagePrompt.isNullOrBlank()) {
-                                                            Spacer(modifier = Modifier.height(4.dp))
-                                                            Text(
-                                                                text = "\"${currentImagePrompt}\"",
-                                                                style = MaterialTheme.typography.bodyMedium,
-                                                                fontStyle = FontStyle.Italic,
-                                                                color = if (isDarkTheme) TextColorLight else TextColorDark
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    // Loading para resposta de texto do modelo
-                                    if (isLoading) {
-                                        item {
-                                            LightningLoadingAnimation(
-                                                modifier = Modifier.padding(vertical = 4.dp),
-                                                isDarkTheme = isDarkTheme
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            // MODIFICAÇÃO: Mudança na exibição de mensagens de erro/sucesso
-                            errorMessage?.let { errorMsg ->
-                                // Determinar se é uma mensagem de sucesso ou erro
-                                val isSuccess = errorMsg.contains("sucesso", ignoreCase = true) ||
-                                        errorMsg.contains("carregado com sucesso", ignoreCase = true)
-
-                                val backgroundColor = if (isSuccess) {
-                                    Color(0xFF388E3C) // Verde para mensagens de sucesso
-                                } else {
-                                    Color(0xFFE53935) // Vermelho para mensagens de erro
-                                }
-
-                                Text(
-                                    text = if (isSuccess) errorMsg else stringResource(R.string.error_prefix, errorMsg),
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .fillMaxWidth()
-                                        .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
-                                        .background(
-                                            color = backgroundColor,
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
-                                        .padding(vertical = 8.dp, horizontal = 12.dp)
+                                Icon(
+                                    imageVector = Icons.Default.CloudUpload,
+                                    contentDescription = stringResource(R.string.export_conversation_description),
+                                    tint = Color.White
                                 )
                             }
                         }
                     }
-                }
-            }
-        }
-
-        val showScrollToTopButton = remember {
-            derivedStateOf {
-                listState.firstVisibleItemIndex > 2 ||
-                        (listState.firstVisibleItemIndex > 0 && listState.firstVisibleItemScrollOffset > 100)
-            }
-        }
-
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.BottomEnd
-        ) {
-            AnimatedVisibility(
-                visible = showScrollToTopButton.value && messages.size > 3,
-                enter = fadeIn(animationSpec = tween(300)),
-                exit = fadeOut(animationSpec = tween(300))
-            ) {
-                Box(
-                    modifier = Modifier
-                        .padding(end = 16.dp, bottom = 96.dp)
-                        .zIndex(8f)
-                ) {
-                    FloatingActionButton(
+                },
+                actions = {
+                    val rotation = rememberInfiniteTransition()
+                    val angle by rotation.animateFloat(
+                        initialValue = 0f,
+                        targetValue = 360f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 6000),
+                            repeatMode = RepeatMode.Restart
+                        )
+                    )
+                    // Para usuários premium, mostrar a estrela dourada animada
+                    if (isPremiumUser) {
+                        IconButton(
+                            onClick = { onNavigateToProfile() },
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .graphicsLayer { rotationZ = angle }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = stringResource(R.string.premium_user_description),
+                                tint = Color(0xFFFFD700) // Usar cor dourada consistente
+                            )
+                        }
+                    } else {
+                        // Para usuários normais, mostrar a estrela branca
+                        IconButton(
+                            onClick = { onNavigateToProfile() },
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = "Perfil",
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+                    IconButton(
                         onClick = {
-                            coroutineScope.launch {
-                                // Versão simplificada sem animationSpec
-                                listState.animateScrollToItem(index = 0)
+                            if (currentUser != null) {
+                                onLogout()
+                            } else {
+                                onLogin()
                             }
                         },
-                        modifier = Modifier.size(46.dp),
-                        containerColor = if (isDarkTheme)
-                            Color(0xFF3D3D3D) else
-                            PrimaryColor,
-                        contentColor = Color.White
+                        modifier = Modifier.padding(end = 8.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.KeyboardArrowUp,
-                            contentDescription = stringResource(R.string.scroll_to_top),
-                            modifier = Modifier.size(22.dp)
+                            imageVector = if (currentUser != null) Icons.AutoMirrored.Filled.Logout else Icons.AutoMirrored.Filled.Login,
+                            contentDescription = if (currentUser != null) stringResource(
+                                R.string.logout
+                            ) else stringResource(R.string.login),
+                            tint = Color.White
                         )
                     }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = if (isDarkTheme) Color(0xFF1E1E1E) else PrimaryColor,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
+                )
+            )
+
+            // Container para a lista de mensagens, posicionado debaixo da AppBar e acima do input
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 64.dp) // Altura aproximada da TopAppBar
+                    .padding(bottom = inputHeight + bottomPadding) // Espaço para o input
+            ) {
+                // Seletor de modelos (aparece no topo da coluna)
+                if (currentUser != null) {
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = modelSelectorVisible.value,
+                        enter = fadeIn(animationSpec = tween(300)) +
+                                expandVertically(animationSpec = tween(300)),
+                        exit = fadeOut(animationSpec = tween(300)) +
+                                shrinkVertically(animationSpec = tween(300))
+                    ) {
+                        key(isPremiumUser) {
+                            ModelSelectionDropdown(
+                                models = chatViewModel.modelOptions,
+                                selectedModel = selectedModel,
+                                onModelSelected = { chatViewModel.selectModel(it) },
+                                isPremiumUser = isPremiumUser,
+                                isDarkTheme = isDarkTheme
+                            )
+                        }
+                    }
+                }
+
+                // Lista de mensagens - agora em uma Column para garantir ordem vertical correta
+                Box(modifier = Modifier.weight(1f)) {
+                    SelectionContainer {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 16.dp)
+                                .clickable(
+                                    enabled = false,
+                                    onClick = {}
+                                ),
+                            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            itemsIndexed(
+                                items = messages,
+                                key = { index, _ -> index }
+                            ) { _, message ->
+                                MessageBubble(
+                                    message = message,
+                                    isDarkTheme = isDarkTheme,
+                                    onSaveImageClicked = { imagePath ->
+                                        if (imagePath != null) {
+                                            checkAndSaveImage(imagePath)
+                                        } else {
+                                            Log.w(
+                                                "ChatScreen",
+                                                "Save image clicked, but path was null for message: ${message.text}"
+                                            )
+                                        }
+                                    },
+                                    onFileClicked = { fileName ->
+                                        if (fileName != null) {
+                                            chatViewModel.openFile(fileName)
+                                        }
+                                    }
+                                )
+                            }
+
+                            // Mostrar indicador de carregamento durante geração de imagem
+                            if (isImageGenerating) {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 2.dp),
+                                        contentAlignment = Alignment.CenterStart
+                                    ) {
+                                        Card(
+                                            modifier = Modifier
+                                                .widthIn(max = LocalConfiguration.current.screenWidthDp.dp * 0.88f),
+                                            shape = RoundedCornerShape(20.dp, 20.dp, 6.dp, 20.dp),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = if (isDarkTheme) Color(0xFF292929) else Color(0xFFE4E4E4)
+                                            )
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.padding(16.dp),
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                LightningLoadingAnimation(
+                                                    isDarkTheme = isDarkTheme
+                                                )
+
+                                                Spacer(modifier = Modifier.height(8.dp))
+
+                                                Text(
+                                                    text = "Gerando imagem...",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = if (isDarkTheme) TextColorLight else TextColorDark
+                                                )
+
+                                                if (!currentImagePrompt.isNullOrBlank()) {
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    Text(
+                                                        text = "\"${currentImagePrompt}\"",
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontStyle = FontStyle.Italic,
+                                                        color = if (isDarkTheme) TextColorLight else TextColorDark
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Loading para resposta de texto do modelo
+                            if (isLoading) {
+                                item {
+                                    LightningLoadingAnimation(
+                                        modifier = Modifier.padding(vertical = 4.dp),
+                                        isDarkTheme = isDarkTheme
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Mensagens de erro/sucesso
+                    errorMessage?.let { errorMsg ->
+                        // Determinar se é uma mensagem de sucesso ou erro
+                        val isSuccess = errorMsg.contains("sucesso", ignoreCase = true) ||
+                                errorMsg.contains("carregado com sucesso", ignoreCase = true)
+
+                        val backgroundColor = if (isSuccess) {
+                            Color(0xFF388E3C) // Verde para mensagens de sucesso
+                        } else {
+                            Color(0xFFE53935) // Vermelho para mensagens de erro
+                        }
+
+                        Text(
+                            text = if (isSuccess) errorMsg else stringResource(R.string.error_prefix, errorMsg),
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                                .background(
+                                    color = backgroundColor,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .padding(vertical = 8.dp, horizontal = 12.dp)
+                        )
+                    }
+
+                    // Botão de rolagem para o topo
+                    val showScrollToTopButton = remember {
+                        derivedStateOf {
+                            listState.firstVisibleItemIndex > 2 ||
+                                    (listState.firstVisibleItemIndex > 0 && listState.firstVisibleItemScrollOffset > 100)
+                        }
+                    }
+
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = showScrollToTopButton.value && messages.size > 3,
+                        enter = fadeIn(animationSpec = tween(300)),
+                        exit = fadeOut(animationSpec = tween(300)),
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 16.dp, bottom = 16.dp)
+                    ) {
+                        FloatingActionButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem(index = 0)
+                                }
+                            },
+                            modifier = Modifier.size(46.dp),
+                            containerColor = if (isDarkTheme)
+                                Color(0xFF3D3D3D) else
+                                PrimaryColor,
+                            contentColor = Color.White
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowUp,
+                                contentDescription = stringResource(R.string.scroll_to_top),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Image generation dialog - movido para fora da Column
+                ImageGenerationDialog(
+                    isVisible = showImageGenerationDialog,
+                    onDismiss = { showImageGenerationDialog = false },
+                    onGenerateImage = { prompt, quality, size, transparent ->
+                        chatViewModel.generateImage(prompt, quality, size, transparent)
+                        showImageGenerationDialog = false
+                    },
+                    generationState = chatViewModel.imageGenerationState.collectAsState().value,
+                    isDarkTheme = isDarkTheme
+                )
+            }
+
+            // Input fixo na parte inferior com Surface para sombra
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter),
+                tonalElevation = 8.dp,
+                color = backgroundColor
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = bottomPadding)
+                ) {
+                    // Exibir preview do arquivo se houver um anexo
+                    if (currentAttachment != null) {
+                        FileAttachmentPreview(
+                            attachment = currentAttachment!!,
+                            onRemoveClick = { chatViewModel.clearCurrentAttachment() },
+                            isDarkTheme = isDarkTheme
+                        )
+                    }
+
+                    // Input de mensagens
+                    MessageInput(
+                        message = userMessage,
+                        onMessageChange = { newText -> userMessage = newText },
+                        onSendClick = {
+                            if (userMessage.isNotBlank() || currentAttachment != null) {
+                                if (currentAttachment != null) {
+                                    // Se há anexo, usar sendMessageWithAttachment (com ou sem texto)
+                                    chatViewModel.sendMessageWithAttachment(userMessage, currentAttachment!!)
+                                } else {
+                                    // Se não há anexo, usar o sendMessage normal
+                                    chatViewModel.sendMessage(userMessage)
+                                }
+                                userMessage = ""
+                            }
+                        },
+                        onFileUploadClick = { filePickerLauncher.launch("*/*") },
+                        isSendEnabled = !isLoading,
+                        isDarkTheme = isDarkTheme,
+                        viewModel = chatViewModel,
+                        onImageGenerationClick = { showImageGenerationDialog = true },
+                        hasAttachment = currentAttachment != null
+                    )
                 }
             }
+
+            // Snackbar host
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = inputHeight + bottomPadding)
+            )
         }
 
-        // Diálogos de exclusão, renomear e exportação
+        // Diálogos
         showDeleteConfirmationDialog?.let { conversationIdToDelete ->
             AlertDialog(
                 onDismissRequest = { showDeleteConfirmationDialog = null },
@@ -1574,6 +1544,7 @@ fun ChatScreen(
         }
     }
 
+    // Efeito para rolar para a última mensagem
     LaunchedEffect(messages.size, isLoading) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
