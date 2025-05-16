@@ -327,4 +327,14 @@
     <string name="request_save_permission">Para salvar imagens, o aplicativo precisa de permissão para acessar seus arquivos. Por favor, conceda a permissão nas configurações do aplicativo.</string>
     <string name="permission_required">Permissão necessária</string>
 
+    <!-- 14. File uploads -->
+    <string name="attach_file">Anexar arquivo</string>
+    <string name="remove_attachment">Remover anexo</string>
+    <string name="send_with_attachment">Enviar com anexo</string>
+    <string name="file_uploaded">Arquivo enviado com sucesso</string>
+    <string name="file_not_found">Arquivo não encontrado</string>
+    <string name="no_app_to_open_file">Nenhum aplicativo encontrado para abrir este tipo de arquivo</string>
+    <string name="error_opening_file">Erro ao abrir arquivo</string>
+    <string name="message_with_attachment_hint">Adicionar um contexto</string>
+
 </resources>

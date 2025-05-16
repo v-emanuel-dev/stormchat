@@ -327,4 +327,14 @@
     <string name="request_save_permission">要保存图像，应用需要访问您文件的权限。请在应用设置中授予权限。</string>
     <string name="permission_required">需要权限</string>
 
+    <!-- 14. File uploads -->
+    <string name="attach_file">附加文件</string>
+    <string name="remove_attachment">删除附件</string>
+    <string name="send_with_attachment">发送带附件的消息</string>
+    <string name="file_uploaded">文件上传成功</string>
+    <string name="file_not_found">找不到文件</string>
+    <string name="no_app_to_open_file">未找到可以打开此类型文件的应用程序</string>
+    <string name="error_opening_file">打开文件时出错</string>
+    <string name="message_with_attachment_hint">添加上下文</string>
+
 </resources>

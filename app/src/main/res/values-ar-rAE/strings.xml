@@ -327,4 +327,14 @@
     <string name="request_save_permission">لحفظ الصور، يحتاج التطبيق إلى إذن للوصول إلى ملفاتك. يرجى منح الإذن في إعدادات التطبيق.</string>
     <string name="permission_required">الإذن مطلوب</string>
 
+    <!-- 14. File uploads -->
+    <string name="attach_file">إرفاق ملف</string>
+    <string name="remove_attachment">إزالة المرفق</string>
+    <string name="send_with_attachment">إرسال مع المرفق</string>
+    <string name="file_uploaded">تم رفع الملف بنجاح</string>
+    <string name="file_not_found">الملف غير موجود</string>
+    <string name="no_app_to_open_file">لم يتم العثور على تطبيق لفتح هذا النوع من الملفات</string>
+    <string name="error_opening_file">خطأ في فتح الملف</string>
+    <string name="message_with_attachment_hint">إضافة سياق</string>
+
 </resources>

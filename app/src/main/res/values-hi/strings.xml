@@ -327,4 +327,14 @@
     <string name="request_save_permission">छवियों को सहेजने के लिए, ऐप को आपकी फ़ाइलों तक पहुंचने की अनुमति की आवश्यकता है। कृपया ऐप सेटिंग्स में अनुमति प्रदान करें।</string>
     <string name="permission_required">अनुमति आवश्यक है</string>
 
+    <!-- 14. File uploads -->
+    <string name="attach_file">फ़ाइल संलग्न करें</string>
+    <string name="remove_attachment">अटैचमेंट हटाएं</string>
+    <string name="send_with_attachment">अटैचमेंट के साथ भेजें</string>
+    <string name="file_uploaded">फ़ाइल सफलतापूर्वक अपलोड की गई</string>
+    <string name="file_not_found">फ़ाइल नहीं मिली</string>
+    <string name="no_app_to_open_file">इस फ़ाइल प्रकार को खोलने के लिए कोई एप्लिकेशन नहीं मिला</string>
+    <string name="error_opening_file">फ़ाइल खोलने में त्रुटि</string>
+    <string name="message_with_attachment_hint">संदर्भ जोड़ें</string>
+
 </resources>

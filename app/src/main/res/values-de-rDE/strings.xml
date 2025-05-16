@@ -327,4 +327,13 @@
     <string name="request_save_permission">Um Bilder zu speichern, benötigt die App die Berechtigung, auf Ihre Dateien zuzugreifen. Bitte erteilen Sie die Berechtigung in den App-Einstellungen.</string>
     <string name="permission_required">Berechtigung erforderlich</string>
 
+    <!-- 14. File uploads -->
+    <string name="attach_file">Datei anhängen</string>
+    <string name="remove_attachment">Anhang entfernen</string>
+    <string name="send_with_attachment">Mit Anhang senden</string>
+    <string name="file_uploaded">Datei erfolgreich hochgeladen</string>
+    <string name="file_not_found">Datei nicht gefunden</string>
+    <string name="no_app_to_open_file">Keine Anwendung gefunden, um diesen Dateityp zu öffnen</string>
+    <string name="error_opening_file">Fehler beim Öffnen der Datei</string>
+    <string name="message_with_attachment_hint">Kontext hinzufügen</string>
 </resources>

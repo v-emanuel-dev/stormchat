@@ -327,4 +327,14 @@
     <string name="request_save_permission">이미지를 저장하려면 앱이 파일에 접근할 수 있는 권한이 필요합니다. 앱 설정에서 권한을 부여해 주세요.</string>
     <string name="permission_required">권한 필요</string>
 
+    <!-- 14. File uploads -->
+    <string name="attach_file">파일 첨부</string>
+    <string name="remove_attachment">첨부 파일 제거</string>
+    <string name="send_with_attachment">첨부 파일과 함께 보내기</string>
+    <string name="file_uploaded">파일 업로드 성공</string>
+    <string name="file_not_found">파일을 찾을 수 없음</string>
+    <string name="no_app_to_open_file">이 파일 유형을 열 애플리케이션을 찾을 수 없음</string>
+    <string name="error_opening_file">파일 열기 오류</string>
+    <string name="message_with_attachment_hint">컨텍스트 추가</string>
+
 </resources>

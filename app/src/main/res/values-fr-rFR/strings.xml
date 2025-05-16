@@ -327,4 +327,14 @@
     <string name="request_save_permission">Pour enregistrer des images, l\'application a besoin d\'une autorisation d\'accès à vos fichiers. Veuillez accorder cette autorisation dans les paramètres de l\'application.</string>
     <string name="permission_required">Autorisation requise</string>
 
+    <!-- 14. File uploads -->
+    <string name="attach_file">Joindre un fichier</string>
+    <string name="remove_attachment">Supprimer la pièce jointe</string>
+    <string name="send_with_attachment">Envoyer avec pièce jointe</string>
+    <string name="file_uploaded">Fichier téléchargé avec succès</string>
+    <string name="file_not_found">Fichier non trouvé</string>
+    <string name="no_app_to_open_file">Aucune application trouvée pour ouvrir ce type de fichier</string>
+    <string name="error_opening_file">Erreur lors de l\'ouverture du fichier</string>
+    <string name="message_with_attachment_hint">Ajouter un contexte</string>
+
 </resources>
